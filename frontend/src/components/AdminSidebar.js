@@ -33,7 +33,7 @@ const menuItems = [
   { text: 'Forms', icon: <FormsIcon />, path: '/admin/forms' },
   { text: 'Students', icon: <PeopleIcon />, path: '/admin/students' },
   { text: 'Buildings', icon: <BuildingIcon />, path: '/admin/buildings' },
-  { text: 'Staff', icon: <SchoolIcon />, path: '/admin/staff' },
+  { text: 'Staff', icon: <StaffIcon />, path: '/admin/staff' },
   { text: 'Messages', icon: <MessageIcon />, path: '/admin/messages' },
   { text: 'Reports', icon: <AssignmentIcon />, path: '/reports' },
   { text: 'Schedule', icon: <EventIcon />, path: '/schedule' },

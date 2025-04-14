@@ -18,6 +18,6 @@ const connectDB = async () => {
 module.exports = {
     connectDB,
     port: process.env.PORT || 5000,
-    clientUrl: process.env.CLIENT_URL || 'http://localhost:3000',
+    clientUrl: process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000',
     jwtSecret: process.env.JWT_SECRET || 'your_jwt_secret_key_here',
 };

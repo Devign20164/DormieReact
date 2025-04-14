@@ -11,6 +11,7 @@ const Building = require('../models/buildingModel');
 const Room = require('../models/roomModel');
 const Offense = require('../models/offenseModel');
 const JobRequestForm = require('../models/requestFormModel');
+const Staff = require('../models/staffModel');
 
 // @desc    Auth admin & get token
 // @route   POST /api/admin/login
@@ -924,7 +925,10 @@ const updateFormStatus = asyncHandler(async (req, res) => {
           type: 'FORM_APPROVED',
           title: 'Form Approved',
           content: `Your ${form.requestType} request has been approved.`,
-          relatedForm: form._id
+          relatedTo: {
+            model: 'JobRequestForm',
+            id: form._id
+          }
         });
       }
 
@@ -938,18 +942,42 @@ const updateFormStatus = asyncHandler(async (req, res) => {
           type: 'FORM_DECLINED',
           title: 'Form Declined',
           content: `Your ${form.requestType} request has been declined.`,
-          relatedForm: form._id
+          relatedTo: {
+            model: 'JobRequestForm',
+            id: form._id
+          }
         });
       }
 
-      // Emit socket event for form update
+      // Emit socket events
       if (req.app.get('io')) {
-        req.app.get('io').emit('formStatusUpdated', {
+        const io = req.app.get('io');
+        console.log('Emitting socket events...');
+        
+        // Emit formAssigned event to all clients
+        io.emit('formAssigned', {
           formId: form._id,
-          status: status,
-          updatedForm: updatedForm,
-          type: form.requestType
+          staffId: form.staff,
+          status: 'Assigned',
+          updatedForm: updatedForm
         });
+        
+        // Emit a direct formStatusUpdate event to the student who created the form
+        if (form.user) {
+          io.to(form.user.toString()).emit('formStatusUpdate', {
+            formId: form._id,
+            status: 'Assigned',
+            type: form.requestType,
+            staffName: staff.name
+          });
+        }
+        
+        // Emit notification events
+        if (form.user) {
+          io.to(form.user.toString()).emit('newNotification', studentNotification);
+        }
+        io.to(form.staff.toString()).emit('newNotification', staffNotification);
+        console.log('Socket events emitted');
       }
     } catch (notificationError) {
       console.error('Error creating notification:', notificationError);
@@ -1021,6 +1049,348 @@ const deleteForm = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get all staff members
+// @route   GET /api/admin/staff
+// @access  Private/Admin
+const getAllStaff = asyncHandler(async (req, res) => {
+  try {
+    const staff = await Staff.find({}).select('-password').sort({ createdAt: -1 });
+    res.json(staff);
+  } catch (error) {
+    console.error('Error fetching staff:', error);
+    res.status(500).json({ message: 'Error fetching staff members' });
+  }
+});
+
+// @desc    Create a new staff member
+// @route   POST /api/admin/staff
+// @access  Private/Admin
+const createStaff = asyncHandler(async (req, res) => {
+  try {
+    const { name, typeOfStaff } = req.body;
+
+    // Check if staff with the same name already exists
+    const staffExists = await Staff.findOne({ name });
+    if (staffExists) {
+      return res.status(400).json({ message: 'Staff member with this name already exists' });
+    }
+
+    const newStaff = await Staff.create({
+      name,
+      typeOfStaff,
+      password: 'staffPassword', // Explicitly set password to trigger the pre-save middleware
+      status: 'Available'
+    });
+
+    // Return created staff without password
+    const staffResponse = {
+      _id: newStaff._id,
+      name: newStaff.name,
+      typeOfStaff: newStaff.typeOfStaff,
+      status: newStaff.status,
+      createdAt: newStaff.createdAt,
+      assignedForms: []
+    };
+
+    res.status(201).json(staffResponse);
+  } catch (error) {
+    console.error('Error creating staff:', error);
+    res.status(500).json({ message: 'Error creating staff member' });
+  }
+});
+
+// @desc    Get staff by ID
+// @route   GET /api/admin/staff/:id
+// @access  Private/Admin
+const getStaffById = asyncHandler(async (req, res) => {
+  try {
+    const staff = await Staff.findById(req.params.id).select('-password');
+    
+    if (!staff) {
+      return res.status(404).json({ message: 'Staff member not found' });
+    }
+    
+    res.json(staff);
+  } catch (error) {
+    console.error('Error fetching staff member:', error);
+    res.status(500).json({ message: 'Error fetching staff member details' });
+  }
+});
+
+// @desc    Update staff member
+// @route   PUT /api/admin/staff/:id
+// @access  Private/Admin
+const updateStaff = asyncHandler(async (req, res) => {
+  try {
+    const { name, typeOfStaff } = req.body;
+    
+    const staff = await Staff.findById(req.params.id);
+    
+    if (!staff) {
+      return res.status(404).json({ message: 'Staff member not found' });
+    }
+    
+    // Check if updating to a name that already exists (except this staff member)
+    if (name !== staff.name) {
+      const nameExists = await Staff.findOne({ name, _id: { $ne: req.params.id } });
+      if (nameExists) {
+        return res.status(400).json({ message: 'Staff member with this name already exists' });
+      }
+    }
+    
+    staff.name = name || staff.name;
+    staff.typeOfStaff = typeOfStaff || staff.typeOfStaff;
+    
+    const updatedStaff = await staff.save();
+    
+    res.json({
+      _id: updatedStaff._id,
+      name: updatedStaff.name,
+      typeOfStaff: updatedStaff.typeOfStaff,
+      status: updatedStaff.status,
+      createdAt: updatedStaff.createdAt,
+      assignedForms: updatedStaff.assignedForms || []
+    });
+  } catch (error) {
+    console.error('Error updating staff member:', error);
+    res.status(500).json({ message: 'Error updating staff member' });
+  }
+});
+
+// @desc    Delete staff member
+// @route   DELETE /api/admin/staff/:id
+// @access  Private/Admin
+const deleteStaff = asyncHandler(async (req, res) => {
+  try {
+    const staff = await Staff.findById(req.params.id);
+    
+    if (!staff) {
+      return res.status(404).json({ message: 'Staff member not found' });
+    }
+    
+    // Check if staff has assigned forms
+    if (staff.assignedForms && staff.assignedForms.length > 0) {
+      return res.status(400).json({ 
+        message: 'Cannot delete staff member with assigned forms. Please reassign forms first.' 
+      });
+    }
+    
+    await Staff.deleteOne({ _id: req.params.id });
+    
+    res.json({ message: 'Staff member removed successfully' });
+  } catch (error) {
+    console.error('Error deleting staff member:', error);
+    res.status(500).json({ message: 'Error deleting staff member' });
+  }
+});
+
+// @desc    Assign staff to a form
+// @route   POST /api/admin/forms/:formId/assign
+// @access  Private/Admin
+const assignStaffToForm = asyncHandler(async (req, res) => {
+  try {
+    console.log('Starting assignStaffToForm function');
+    console.log('Request params:', req.params);
+    console.log('Request body:', req.body);
+    
+    // Verify that models are available
+    console.log('JobRequestForm model available:', !!JobRequestForm);
+    console.log('Staff model available:', !!Staff);
+    console.log('Notification model available:', !!Notification);
+    
+    const { formId } = req.params;
+    const { staffId } = req.body;
+
+    console.log('Form ID:', formId);
+    console.log('Staff ID:', staffId);
+
+    // Validate inputs
+    if (!formId || !staffId) {
+      return res.status(400).json({ message: 'Form ID and Staff ID are required' });
+    }
+
+    try {
+      // Find the form - use a direct approach
+      const form = await JobRequestForm.findById(formId);
+      console.log('Form found:', !!form);
+      
+      if (!form) {
+        return res.status(404).json({ message: 'Form not found' });
+      }
+
+      // Find the staff member
+      const staff = await Staff.findById(staffId);
+      console.log('Staff found:', !!staff);
+      
+      if (!staff) {
+        return res.status(404).json({ message: 'Staff member not found' });
+      }
+
+      // Improved mapping of staff types to request types (more comprehensive)
+      const staffTypeToRequestType = {
+        'Cleaner': ['cleaning', 'clean'],
+        'Maintenance': ['maintenance', 'repair', 'fix', 'installation'], 
+        'Security': ['security', 'safety', 'guard']
+      };
+
+      console.log('Staff type:', staff.typeOfStaff);
+      console.log('Request type:', form.requestType);
+      
+      // Convert to lowercase for case-insensitive comparison
+      const staffTypeLower = staff.typeOfStaff ? staff.typeOfStaff.trim() : '';
+      const requestTypeLower = form.requestType ? form.requestType.toLowerCase().trim() : '';
+      
+      console.log('Normalized staff type:', staffTypeLower);
+      console.log('Normalized request type:', requestTypeLower);
+      
+      // Get valid request types for this staff type
+      const validRequestTypes = staffTypeToRequestType[staffTypeLower] || [];
+      console.log('Valid request types for this staff:', validRequestTypes);
+      
+      // Check if this staff can handle this request
+      let canHandleRequest = false;
+      
+      // Check exact match first
+      if (validRequestTypes.includes(requestTypeLower)) {
+        canHandleRequest = true;
+      } else {
+        // If no exact match, check if any valid request type is a substring of the request type
+        // or if the request type is a substring of any valid request type
+        canHandleRequest = validRequestTypes.some(validType => 
+          requestTypeLower.includes(validType) || validType.includes(requestTypeLower)
+        );
+      }
+      
+      console.log('Can handle request:', canHandleRequest);
+
+      if (!canHandleRequest) {
+        return res.status(400).json({ 
+          message: `This staff member (${staff.typeOfStaff}) cannot handle ${form.requestType} requests` 
+        });
+      }
+
+      // Update form with staff assignment directly using findByIdAndUpdate
+      console.log('Updating form...');
+      const updatedFormData = await JobRequestForm.findByIdAndUpdate(
+        formId,
+        { 
+          staff: staffId,
+          status: 'Assigned'
+        },
+        { new: true }
+      );
+      console.log('Form updated successfully:', !!updatedFormData);
+
+      // Add the form to staff's assigned forms
+      console.log('Updating staff...');
+      if (!staff.assignedForms.includes(formId)) {
+        staff.assignedForms.push(formId);
+        
+        // Update staff status to 'Occupied' if needed
+        if (staff.status === 'Available') {
+          staff.status = 'Occupied';
+        }
+        await staff.save();
+        console.log('Staff updated successfully');
+      }
+
+      // Create notifications and populate the response
+      console.log('Creating notifications...');
+      
+      // Create notification for the student manually
+      const studentNotification = await Notification.create({
+        recipient: {
+          id: form.user,
+          model: 'User'
+        },
+        type: 'FORM_ASSIGNED',
+        title: 'Request Assigned',
+        content: `Your ${form.requestType} request has been assigned to ${staff.name}.`,
+        relatedTo: {
+          model: 'JobRequestForm',
+          id: form._id
+        }
+      });
+      console.log('Student notification created:', !!studentNotification);
+
+      // Create notification for the staff member
+      const staffNotification = await Notification.create({
+        recipient: {
+          id: staff._id,
+          model: 'Staff'
+        },
+        type: 'NEW_ASSIGNMENT',
+        title: 'New Assignment',
+        content: `You've been assigned to a ${form.requestType} request in room ${form.roomNumber}.`,
+        relatedTo: {
+          model: 'JobRequestForm',
+          id: form._id
+        }
+      });
+      console.log('Staff notification created:', !!staffNotification);
+
+      // Populate the updated form for response
+      console.log('Populating updated form...');
+      const updatedForm = await JobRequestForm.findById(formId)
+        .populate('user', 'name studentDormNumber')
+        .populate('room', 'roomNumber')
+        .populate('building', 'name')
+        .populate('staff', 'name typeOfStaff')
+        .select('requestType description status submissionDate scheduledDate actualStartTime actualEndTime filePath userName studentDormNumber roomNumber buildingName staff');
+      console.log('Updated form populated:', !!updatedForm);
+
+      // Emit socket events
+      if (req.app.get('io')) {
+        const io = req.app.get('io');
+        console.log('Emitting socket events...');
+        
+        // Emit formAssigned event to all clients
+        io.emit('formAssigned', {
+          formId: form._id,
+          staffId: staff._id,
+          status: 'Assigned',
+          updatedForm: updatedForm
+        });
+        
+        // Emit a direct formStatusUpdate event to the student who created the form
+        if (form.user) {
+          io.to(form.user.toString()).emit('formStatusUpdate', {
+            formId: form._id,
+            status: 'Assigned',
+            type: form.requestType,
+            staffName: staff.name
+          });
+        }
+        
+        // Emit notification events
+        if (form.user) {
+          io.to(form.user.toString()).emit('newNotification', studentNotification);
+        }
+        io.to(staff._id.toString()).emit('newNotification', staffNotification);
+        console.log('Socket events emitted');
+      }
+
+      console.log('Sending success response...');
+      res.json({
+        message: 'Staff assigned to form successfully',
+        form: updatedForm
+      });
+      console.log('Response sent successfully');
+    } catch (innerError) {
+      console.error('Inner error details:', innerError);
+      console.error('Inner error stack:', innerError.stack);
+      throw new Error(`Failed to update form or staff: ${innerError.message}`);
+    }
+  } catch (error) {
+    console.error('Error assigning staff to form:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      message: 'Error assigning staff to form',
+      error: error.message 
+    });
+  }
+});
+
 module.exports = {
   loginAdmin,
   logoutAdmin,
@@ -1051,5 +1421,11 @@ module.exports = {
   getAllForms,
   updateFormStatus,
   getFormDetails,
-  deleteForm
+  deleteForm,
+  getAllStaff,
+  createStaff,
+  getStaffById,
+  updateStaff,
+  deleteStaff,
+  assignStaffToForm
 }; 

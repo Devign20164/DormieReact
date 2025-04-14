@@ -8,7 +8,7 @@ const staffSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        default: 'Staff',
+        default: 'staff',
         immutable: true // This field cannot be modified after creation
     },
     typeOfStaff: {
@@ -25,7 +25,11 @@ const staffSchema = new mongoose.Schema({
         type: String,
         enum: ['Available', 'Occupied'],
         default: 'Available'
-    }
+    },
+    assignedForms: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'JobRequestForm'
+    }]
 }, {
     timestamps: true
 });
@@ -47,6 +51,24 @@ staffSchema.pre('save', async function(next) {
 // Method to compare password for login
 staffSchema.methods.matchPassword = async function(enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// Method to add a form to assignedForms array
+staffSchema.methods.addAssignedForm = async function(formId) {
+    if (!this.assignedForms.includes(formId)) {
+        this.assignedForms.push(formId);
+        await this.save();
+    }
+    return this;
+};
+
+// Method to remove a form from assignedForms array
+staffSchema.methods.removeAssignedForm = async function(formId) {
+    this.assignedForms = this.assignedForms.filter(
+        form => form.toString() !== formId.toString()
+    );
+    await this.save();
+    return this;
 };
 
 const Staff = mongoose.model('Staff', staffSchema);

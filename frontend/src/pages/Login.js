@@ -82,6 +82,9 @@ const Login = () => {
         // Store user data in localStorage
         localStorage.setItem('userRole', role);
         localStorage.setItem('userData', JSON.stringify(data));
+        
+        // Set session flag to indicate successful login
+        sessionStorage.setItem('justLoggedIn', 'true');
 
         // Redirect based on role
         switch (role) {

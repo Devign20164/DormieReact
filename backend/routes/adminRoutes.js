@@ -30,8 +30,15 @@ const {
   getAllForms,
   getFormDetails,
   updateFormStatus,
-  deleteForm
+  deleteForm,
+  getAllStaff,
+  createStaff,
+  getStaffById,
+  updateStaff,
+  deleteStaff,
+  assignStaffToForm
 } = require('../controllers/adminController');
+
 const { protect } = require('../middleware/auth');
 
 // Auth routes
@@ -77,5 +84,13 @@ router.get('/forms', protect, getAllForms);
 router.get('/forms/:formId', protect, getFormDetails);
 router.put('/forms/:formId/status', protect, updateFormStatus);
 router.delete('/forms/:formId', protect, deleteForm);
+router.post('/forms/:formId/assign', protect, assignStaffToForm);
+
+// Staff Management Routes
+router.get('/staff', protect, getAllStaff);
+router.post('/staff', protect, createStaff);
+router.get('/staff/:id', protect, getStaffById);
+router.put('/staff/:id', protect, updateStaff);
+router.delete('/staff/:id', protect, deleteStaff);
 
 module.exports = router; 

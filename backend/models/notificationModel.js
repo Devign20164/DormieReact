@@ -9,7 +9,7 @@ const notificationSchema = new mongoose.Schema({
     model: {
       type: String,
       required: true,
-      enum: ['User', 'Admin']
+      enum: ['User', 'Admin', 'Staff']
     }
   },
   type: {
@@ -24,7 +24,9 @@ const notificationSchema = new mongoose.Schema({
       'FORM_DECLINED',
       'FORM_ASSIGNED',
       'FORM_COMPLETED',
-      'FORM_RESCHEDULED'
+      'FORM_RESCHEDULED',
+      'NEW_ASSIGNMENT',
+      'FORM_STARTED'
     ]
   },
   title: {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -23,7 +23,13 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  FormHelperText,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
@@ -42,13 +48,22 @@ import {
   Close as CloseIcon,
   AccessTime as AccessTimeIcon,
   CalendarToday as CalendarIcon,
-  Notifications as NotificationsIcon
+  Notifications as NotificationsIcon,
+  AssignmentInd,
+  Add as AddIcon,
+  Search as SearchIcon,
+  FilterList as FilterListIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  MoreVert as MoreVertIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
 import AdminSidebar from '../components/AdminSidebar';
 import axios from 'axios';
 import { useSocket } from '../context/SocketContext';
+import { alpha } from '@mui/material/styles';
 
 const AdminForms = () => {
   const [forms, setForms] = useState([]);
@@ -63,6 +78,31 @@ const AdminForms = () => {
   const { socket, isConnected } = useSocket();
   const userData = JSON.parse(localStorage.getItem('userData') || '{}');
   const [openFormDialog, setOpenFormDialog] = useState(false);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [availableStaff, setAvailableStaff] = useState([]);
+  const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [staffError, setStaffError] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [assignError, setAssignError] = useState('');
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
+
+  // Function to map request type to staff type
+  const staffTypeForRequestType = (requestType) => {
+    switch(requestType) {
+      case 'Cleaning':
+        return 'Cleaner';
+      case 'Maintenance':
+      case 'Repair':
+        return 'Maintenance';
+      default:
+        return 'Maintenance';
+    }
+  };
 
   // Fetch notifications
   const fetchNotifications = async () => {
@@ -265,10 +305,26 @@ const AdminForms = () => {
       ));
     });
 
+    // Listen for form assignment updates
+    socket.on('formAssigned', ({ formId, staffId, updatedForm }) => {
+      console.log('Form assigned:', { formId, staffId, updatedForm });
+      setForms(prev => prev.map(form => 
+        form._id === formId ? { 
+          ...form,
+          ...updatedForm,
+          staff: updatedForm.staff,
+          status: 'Assigned'
+        } : form
+      ));
+      
+      toast.success(`Form successfully assigned to staff`);
+    });
+
     // Clean up socket listeners
     return () => {
       socket.off('newForm');
       socket.off('formUpdate');
+      socket.off('formAssigned');
     };
   }, [socket, isConnected, userData._id]);
 
@@ -293,6 +349,23 @@ const AdminForms = () => {
       setForms(forms.map(form => 
         form._id === formId ? data.form : form
       ));
+      
+      // Explicitly emit the socket event from the client as well for redundancy
+      if (socket && isConnected) {
+        console.log(`Emitting formStatusUpdated event for form ${formId} with status ${newStatus}`);
+        
+        // Find the updated form with complete data
+        const updatedForm = forms.find(form => form._id === formId);
+        
+        if (updatedForm) {
+          socket.emit('formStatusUpdated', {
+            formId,
+            status: newStatus,
+            updatedForm: data.form || updatedForm,
+            type: updatedForm.requestType
+          });
+        }
+      }
       
       toast.success('Form status updated successfully');
     } catch (error) {
@@ -510,6 +583,111 @@ const AdminForms = () => {
     { label: 'Approved', count: forms.filter(f => f.status === 'Approved').length, color: '#10B981', icon: <DoneIcon /> },
     { label: 'Declined', count: forms.filter(f => f.status === 'Declined').length, color: '#EF4444', icon: <CloseIcon /> }
   ];
+
+  // Fetch available staff based on form type
+  const fetchAvailableStaff = async (formType) => {
+    try {
+      setStaffLoading(true);
+      setStaffError('');
+      
+      console.log('Fetching staff for form type:', formType);
+      
+      // Get all staff members
+      const response = await axios.get('/api/admin/staff');
+      console.log('All available staff:', response.data);
+      
+      // Convert the formType to appropriate staffType
+      const requiredStaffType = staffTypeForRequestType(formType);
+      console.log('Required staff type:', requiredStaffType);
+      
+      // Filter staff based on type and status
+      const staff = response.data.filter(staff => {
+        const matches = staff.typeOfStaff === requiredStaffType && staff.status === 'Available';
+        console.log(`Staff ${staff.name} (${staff.typeOfStaff}) matches: ${matches}`);
+        return matches;
+      });
+      
+      console.log('Filtered available staff:', staff);
+      
+      setAvailableStaff(staff);
+      
+      if (staff.length === 0) {
+        setStaffError(`No available ${requiredStaffType} staff members found for ${formType} requests`);
+      }
+    } catch (error) {
+      console.error('Error fetching available staff:', error);
+      setStaffError('Failed to load available staff');
+    } finally {
+      setStaffLoading(false);
+    }
+  };
+
+  // Assign staff to form
+  const handleAssignStaff = async () => {
+    if (!selectedForm || !selectedStaffId) {
+      setAssignError('Please select a form and staff member');
+      return;
+    }
+    
+    setIsAssigning(true);
+    setAssignError('');
+    
+    try {
+      console.log(`Assigning staff ${selectedStaffId} to form ${selectedForm._id}`);
+      const response = await axios.post(`/api/admin/forms/${selectedForm._id}/assign`, {
+        staffId: selectedStaffId
+      });
+      
+      console.log('Assignment response:', response.data);
+      
+      // Update the form in the forms array
+      const updatedForms = forms.map(form => 
+        form._id === selectedForm._id ? 
+        { ...form, assignedTo: response.data.staff, status: 'Assigned' } : 
+        form
+      );
+      
+      setForms(updatedForms);
+      setAssignDialogOpen(false);
+      setSnackbar({ 
+        open: true, 
+        message: `Form successfully assigned to ${response.data.staff.name}`, 
+        severity: 'success' 
+      });
+      
+    } catch (error) {
+      console.error('Error assigning staff:', error);
+      let errorMessage = 'Failed to assign staff';
+      
+      if (error.response) {
+        errorMessage = error.response.data.message || 'Server error during assignment';
+        console.error('Response error:', error.response.data);
+      } else if (error.request) {
+        errorMessage = 'No response received from server';
+        console.error('Request error:', error.request);
+      }
+      
+      setAssignError(errorMessage);
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  // Open assign staff dialog
+  const handleOpenAssignDialog = () => {
+    if (selectedForm) {
+      console.log('Opening assign dialog for form type:', selectedForm.requestType);
+      fetchAvailableStaff(selectedForm.requestType);
+      setAssignDialogOpen(true);
+    }
+  };
+
+  // Close assign staff dialog
+  const handleCloseAssignDialog = () => {
+    setAssignDialogOpen(false);
+    setSelectedStaffId('');
+    setStaffError('');
+  };
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -912,6 +1090,48 @@ const AdminForms = () => {
                   </Box>
                 </Grid>
 
+                {/* Staff Information - Only show when assigned */}
+                {selectedForm.assignedTo && (
+                  <Grid item xs={12}>
+                    <Box sx={{ 
+                      p: 2.5,
+                      borderRadius: '12px',
+                      bgcolor: 'rgba(16,185,129,0.05)',
+                      border: '1px solid rgba(16,185,129,0.1)',
+                      mb: 2
+                    }}>
+                      <Typography variant="subtitle2" sx={{ 
+                        color: '#10B981',
+                        mb: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1
+                      }}>
+                        <AssignmentInd sx={{ fontSize: 20 }} />
+                        Assigned Staff
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', display: 'block', mb: 0.5 }}>
+                            Staff Name
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'white' }}>
+                            {selectedForm.assignedTo.name || 'Not available'}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', display: 'block', mb: 0.5 }}>
+                            Staff Type
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'white' }}>
+                            {selectedForm.assignedTo.typeOfStaff || 'Not available'}
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  </Grid>
+                )}
+
                 {/* Request Details */}
                 <Grid item xs={12}>
                   <Box sx={{ 
@@ -1021,6 +1241,22 @@ const AdminForms = () => {
                   </Button>
                 </>
               )}
+              {selectedForm.status === 'Approved' && !selectedForm.assignedTo && (
+                <Button
+                  variant="contained"
+                  onClick={handleOpenAssignDialog}
+                  startIcon={<AssignmentInd />}
+                  sx={{
+                    bgcolor: 'rgba(59,130,246,0.1)',
+                    color: '#3B82F6',
+                    '&:hover': {
+                      bgcolor: 'rgba(59,130,246,0.2)'
+                    }
+                  }}
+                >
+                  Assign Staff
+                </Button>
+              )}
               <Button
                 onClick={handleCloseFormDetails}
                 sx={{ color: 'rgba(255,255,255,0.7)' }}
@@ -1031,6 +1267,125 @@ const AdminForms = () => {
           </>
         )}
       </Dialog>
+
+      {/* Assign Staff Dialog */}
+      <Dialog
+        open={assignDialogOpen}
+        onClose={() => setAssignDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            bgcolor: 'background.paper',
+            borderRadius: 2,
+            boxShadow: 10,
+            width: '500px',
+            maxWidth: '95vw',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: 'primary.dark', 
+          color: 'white',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <AssignmentInd sx={{ mr: 1 }} />
+            Assign Staff
+          </Box>
+          <IconButton 
+            size="small" 
+            onClick={() => setAssignDialogOpen(false)}
+            sx={{ color: 'white' }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 3 }}>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              Assigning staff for request: {selectedForm?.requestType}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              {selectedForm?.description?.substring(0, 100)}
+              {selectedForm?.description?.length > 100 ? '...' : ''}
+            </Typography>
+          </Box>
+          
+          <FormControl fullWidth error={!!assignError || !!staffError} sx={{ mb: 2 }}>
+            <InputLabel id="staff-select-label">Select Staff</InputLabel>
+            <Select
+              labelId="staff-select-label"
+              value={selectedStaffId || ''}
+              onChange={(e) => setSelectedStaffId(e.target.value)}
+              label="Select Staff"
+              disabled={staffLoading}
+            >
+              {staffLoading ? (
+                <MenuItem disabled>Loading staff...</MenuItem>
+              ) : availableStaff.length === 0 ? (
+                <MenuItem disabled>No matching staff available</MenuItem>
+              ) : (
+                availableStaff.map(staff => (
+                  <MenuItem key={staff._id} value={staff._id}>
+                    {staff.name} - {staff.typeOfStaff}
+                  </MenuItem>
+                ))
+              )}
+            </Select>
+            {staffError && <FormHelperText error>{staffError}</FormHelperText>}
+            {assignError && <FormHelperText error>{assignError}</FormHelperText>}
+          </FormControl>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, justifyContent: 'flex-end' }}>
+          <Button 
+            onClick={() => setAssignDialogOpen(false)}
+            variant="outlined"
+            color="secondary"
+            sx={{ 
+              mr: 1,
+              '&:hover': {
+                backgroundColor: alpha('#f44336', 0.1),
+              }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleAssignStaff}
+            color="primary" 
+            variant="contained"
+            disabled={isAssigning || !selectedStaffId}
+            startIcon={isAssigning ? <CircularProgress size={20} color="inherit" /> : <AssignmentInd />}
+            sx={{ 
+              position: 'relative',
+              fontWeight: 'bold',
+              '&:hover': {
+                backgroundColor: 'primary.dark',
+              }
+            }}
+          >
+            {isAssigning ? 'Assigning...' : 'Assign Staff'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Snackbar for notifications */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

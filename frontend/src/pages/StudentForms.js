@@ -54,7 +54,8 @@ import {
   Handyman as RepairIconIcon,
   AttachFile as AttachFileIcon,
   Notifications as NotificationsIcon,
-  Sync as SyncIcon
+  Sync as SyncIcon,
+  Assignment as AssignmentIcon
 } from '@mui/icons-material';
 import StudentSidebar from '../components/StudentSidebar';
 import { toast } from 'react-toastify';
@@ -281,40 +282,67 @@ const StudentForms = () => {
 
   // Socket.IO event handlers
   useEffect(() => {
-    if (!socket || !isConnected) return;
-
-    // Make sure we have a valid user ID before proceeding
-    if (!userData || !userData._id) {
-      console.log('No user data available for socket connection');
+    if (!socket || !isConnected) {
+      console.log('[StudentForms] Socket not connected, skipping event setup');
       return;
     }
 
-    console.log('Setting up socket event listeners for student ID:', userData._id);
+    // Make sure we have a valid user ID before proceeding
+    if (!userData || !userData._id) {
+      console.log('[StudentForms] No user data available for socket connection');
+      return;
+    }
+
+    console.log('[StudentForms] Setting up socket event listeners for student ID:', userData._id);
     
     // Important: stringify the user ID to ensure it matches the socket room format
     const userId = userData._id.toString();
-    socket.emit('join', userId);
-    console.log('Emitted join event with ID:', userId);
+    
+    // Join room and handle connection issues
+    const joinRoom = () => {
+      console.log('[StudentForms] Emitting join event with ID:', userId);
+      socket.emit('join', userId);
+    };
+    
+    // Initial join
+    joinRoom();
+    
+    // Handle join acknowledgment
+    socket.on('joinAcknowledged', (data) => {
+      console.log('[StudentForms] Join acknowledged:', data);
+      // Refresh forms after successful connection
+      fetchForms();
+    });
 
-    // Debug connections
+    // Debug connections and handle reconnects
     socket.on('connect', () => {
-      console.log('Socket connected in StudentForms.js');
+      console.log('[StudentForms] Socket connected, joining room...');
+      joinRoom();
+    });
+
+    socket.on('reconnect', () => {
+      console.log('[StudentForms] Socket reconnected, rejoining room...');
+      joinRoom();
+      fetchForms();
     });
 
     socket.on('disconnect', () => {
-      console.log('Socket disconnected in StudentForms.js');
+      console.log('[StudentForms] Socket disconnected');
     });
 
-    // Listen for new notifications
+    // Rest of your event listeners...
     socket.on('newNotification', (notification) => {
-      console.log('New notification received in StudentForms:', notification);
+      console.log('[StudentForms] New notification received:', notification);
       
       // Always add this notification to our state
       setNotifications(prev => [notification, ...prev]);
       setUnreadCount(prev => prev + 1);
       
       // Show toast for form status notifications
-      if (notification.type === 'FORM_APPROVED' || notification.type === 'FORM_DECLINED') {
+      if (notification.type === 'FORM_APPROVED' || 
+          notification.type === 'FORM_DECLINED' || 
+          notification.type === 'FORM_ASSIGNED') {
+        
         toast.info(notification.content, {
           position: "top-right",
           autoClose: 5000,
@@ -329,199 +357,186 @@ const StudentForms = () => {
       }
     });
 
-    // DIRECT LISTENER FOR THE EXACT EVENT EMITTED FROM ADMIN CONTROLLER
-    socket.on('formStatusUpdated', (data) => {
-      console.log('★★★ DIRECT formStatusUpdated event received:', data);
+    // Listen for form status updates
+    socket.on('formStatusUpdate', (data) => {
+      console.log('[StudentForms] Form status update received:', data);
       
-      // This is the exact event emitted from adminController.js
-      if (data && data.formId && data.status) {
-        // Update our forms with this new status
-        setForms(prev => {
-          return prev.map(form => 
-            form._id === data.formId 
-              ? { 
-                  ...form, 
-                  status: data.status,
-                  lastModified: new Date().toISOString()
-                } 
-              : form
-          );
-        });
-        
-        // Show toast notification
-        const message = `Your form has been updated to: ${data.status}`;
-        toast.info(message, {
-          position: "top-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true
-        });
-        
-        // Refresh forms to get any other changes
-        setTimeout(() => fetchForms(), 1000);
-      }
-    });
-
-    // Listen for form updates (general)
-    socket.on('formUpdate', (data) => {
-      console.log('Form update received in StudentForms:', data);
-      
-      // Log the full data structure for debugging
-      console.log('formUpdate data structure:', JSON.stringify(data, null, 2));
-      
-      // Only update our forms if the form belongs to this user
-      const { formId, status, updatedForm } = data;
-      
+      // Update the form in the state
       setForms(prev => {
-        // Check if the form exists in our current state
-        const formExists = prev.some(form => form._id === formId);
-        
-        // If the form doesn't exist and we have updatedForm data, it might be a new form for this user
-        if (!formExists && updatedForm && updatedForm.user && 
-            (updatedForm.user === userData._id || 
-             (typeof updatedForm.user === 'object' && updatedForm.user._id === userData._id))) {
-          console.log('Adding new form to state:', updatedForm);
-          return [updatedForm, ...prev];
-        }
-        
-        // If the form doesn't exist in our state and doesn't belong to this user, ignore it
-        if (!formExists) {
-          console.log('Form not found in student forms, ignoring update');
-          return prev;
-        }
-        
-        console.log('Updating form with id:', formId);
-        const updated = prev.map(form => {
-          if (form._id === formId) {
-            // Create a complete updated form object by merging existing form with updates
-            const updatedFormObject = {
-              ...form,
-              // Apply status update if provided
-              ...(status && { status }),
-              // Merge all other properties from updatedForm if available
-              ...(updatedForm && {
-                requestType: updatedForm.requestType || form.requestType,
-                description: updatedForm.description || form.description,
-                scheduledDate: updatedForm.scheduledDate || form.scheduledDate,
-                actualStartTime: updatedForm.actualStartTime || form.actualStartTime,
-                actualEndTime: updatedForm.actualEndTime || form.actualEndTime,
-                userName: updatedForm.userName || form.userName,
-                studentDormNumber: updatedForm.studentDormNumber || form.studentDormNumber,
-                roomNumber: updatedForm.roomNumber || form.roomNumber,
-                buildingName: updatedForm.buildingName || form.buildingName,
-                // Add any other properties that might be updated
-                ...(updatedForm.staff && { staff: updatedForm.staff }),
-                ...(updatedForm.filePath && { filePath: updatedForm.filePath }),
-              }),
-              // Add last modified timestamp for UI updates
+        const updatedForms = prev.map(form => {
+          if (form._id === data.formId) {
+            console.log(`[StudentForms] Updating form ${form._id} status from ${form.status} to ${data.status}`);
+            
+            // Create the updated form object with all necessary properties
+            return { 
+              ...form, 
+              status: data.status,
               lastModified: new Date().toISOString()
             };
-            
-            console.log('Form after update:', updatedFormObject);
-            return updatedFormObject;
           }
           return form;
         });
         
-        return updated;
+        console.log('[StudentForms] Forms after update:', 
+          updatedForms.map(f => ({ id: f._id, status: f.status }))
+        );
+        
+        return updatedForms;
       });
       
-      // Show toast notification if status changed
-      if (status) {
-        const message = `Your form has been updated to ${status.toLowerCase()}.`;
-        toast.info(message, {
-          position: "top-right",
+      // Show toast notification
+      const statusMessage = `Your ${data.type || 'request'} form has been ${data.status.toLowerCase()}.`;
+      toast.info(statusMessage, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true
+      });
+    });
+
+    // Listen for general form updates
+    socket.on('formUpdate', (data) => {
+      console.log('[StudentForms] Form update received:', data);
+      
+      if (data.formId && data.status) {
+        // This is a status update
+        setForms(prev => 
+          prev.map(form => 
+            form._id === data.formId 
+              ? { ...form, status: data.status } 
+              : form
+          )
+        );
+      } else if (data.type === 'delete' && data.formId) {
+        // This is a form deletion
+        setForms(prev => prev.filter(form => form._id !== data.formId));
+      } else if (data.updatedForm) {
+        // This is a complete form update
+        setForms(prev => {
+          const exists = prev.some(form => form._id === data.updatedForm._id);
+          
+          if (exists) {
+            return prev.map(form => 
+              form._id === data.updatedForm._id ? data.updatedForm : form
+            );
+          } else {
+            return [...prev, data.updatedForm];
+          }
+        });
+      }
+    });
+
+    // Listen for the direct formStatusUpdated event from AdminForms
+    socket.on('formStatusUpdated', (data) => {
+      console.log('[StudentForms] Direct formStatusUpdated event received:', data);
+      
+      // This event comes directly from the admin when they update a form
+      if (data && data.formId && data.status) {
+        // Update our forms state with the new status
+        setForms(prev => 
+          prev.map(form => 
+            form._id === data.formId ? 
+            { 
+              ...form, 
+              status: data.status,
+              lastModified: new Date().toISOString(),
+              // If we have full form data, update other fields as well
+              ...(data.updatedForm && {
+                description: data.updatedForm.description || form.description,
+                scheduledDate: data.updatedForm.scheduledDate || form.scheduledDate,
+                // Add any other fields that might be updated
+              })
+            } : 
+            form
+          )
+        );
+        
+        // Show a prominent toast notification
+        const formType = data.type || data.updatedForm?.requestType || 'request';
+        const message = `Your ${formType} has been ${data.status.toLowerCase()}`;
+        
+        // Use different toast styles based on status
+        if (data.status === 'Approved') {
+          toast.success(message, {
+            position: "top-center",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true
+          });
+        } else if (data.status === 'Declined') {
+          toast.error(message, {
+            position: "top-center",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true
+          });
+        } else {
+          toast.info(message, {
+            position: "top-center",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true
+          });
+        }
+        
+        // After a status update, fetch the latest forms to ensure we have all data
+        setTimeout(() => fetchForms(), 1000);
+      }
+    });
+
+    // Listen for form assignment events
+    socket.on('formAssigned', (data) => {
+      console.log('[StudentForms] Form assigned event received:', data);
+      
+      if (data && data.formId && data.updatedForm) {
+        // Update the form in the state with assignment information
+        setForms(prev => 
+          prev.map(form => 
+            form._id === data.formId ? 
+            { 
+              ...form, 
+              status: 'Assigned',
+              staff: data.updatedForm.staff,
+              lastModified: new Date().toISOString()
+            } : 
+            form
+          )
+        );
+        
+        // Show a toast notification about the assignment
+        const staffName = data.updatedForm.staff?.name || 'a staff member';
+        const formType = data.updatedForm.requestType || 'request';
+        
+        toast.info(`Your ${formType} has been assigned to ${staffName}`, {
+          position: "top-center",
           autoClose: 5000,
           hideProgressBar: false,
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true
         });
+        
+        // Refresh forms to get the latest data
+        setTimeout(() => fetchForms(), 1000);
       }
-      
-      // Refresh forms after a short delay to ensure we have all updated data
-      setTimeout(() => fetchForms(), 1000);
-    });
-    
-    // Listen for formsRefreshed events from server
-    socket.on('formsRefreshed', (data) => {
-      console.log('Forms refresh notification received:', data);
-      // This event is sent by the server after forms are fetched
-      // We can use it to update UI elements if needed
     });
 
-    // Listen for form status updates
-    socket.on('formStatusUpdate', (data) => {
-      console.log('Form status update received in StudentForms:', data);
-      
-      // Deep log the structure of the data
-      console.log('formStatusUpdate data structure:', JSON.stringify(data, null, 2));
-      
-      if (!data || !data.formId) {
-        console.warn('Received invalid formStatusUpdate data:', data);
-        return;
-      }
-      
-      setForms(prev => {
-        console.log('Current forms before update:', prev.map(f => ({id: f._id, status: f.status})));
-        const updated = prev.map(form => 
-          form._id === data.formId 
-            ? { 
-                ...form, 
-                status: data.status,
-                // Update lastModified timestamp to help with UI updates
-                lastModified: new Date().toISOString()
-              } 
-            : form
-        );
-        console.log('Forms after update:', updated.map(f => ({id: f._id, status: f.status})));
-        return updated;
-      });
-      
-      // Show toast notification
-      const message = `Your ${data.type || 'form'} request has been ${data.status.toLowerCase()}.`;
-      toast.info(message, {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true
-      });
-      
-      // Refresh forms after a short delay to ensure we have all updated data
-      setTimeout(() => fetchForms(), 1000);
-    });
-
-    // Debug socket events
-    const originalOn = socket.on;
-    socket.on = function(event, callback) {
-      const wrappedCallback = function(...args) {
-        console.log(`Socket event '${event}' received with args:`, args);
-        return callback.apply(this, args);
-      };
-      return originalOn.call(this, event, wrappedCallback);
-    };
-
-    // Clean up socket listeners
+    // Clean up socket listeners when component unmounts
     return () => {
-      console.log('Cleaning up socket listeners in StudentForms.js');
-      
-      // Clean up all event listeners 
-      socket.off('connect');
-      socket.off('disconnect');
+      console.log('[StudentForms] Cleaning up socket event listeners');
       socket.off('newNotification');
       socket.off('formStatusUpdate');
-      socket.off('formStatusUpdated'); // The direct event from adminController
       socket.off('formUpdate');
-      socket.off('formsRefreshed');
-      
-      // Reset socket.on to original function
-      socket.on = originalOn;
-      
-      console.log('All socket listeners cleaned up');
+      socket.off('formStatusUpdated');
+      socket.off('formAssigned');
+      socket.off('joinAcknowledged');
+      socket.off('connect');
+      socket.off('reconnect');
+      socket.off('disconnect');
     };
   }, [socket, isConnected, userData, fetchForms]);
 
@@ -846,6 +861,34 @@ const StudentForms = () => {
               </Grid>
             </Grid>
           </Box>
+
+          {/* Staff Assignment Section - Only show when assigned */}
+          {form.status === 'Assigned' && form.staff && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" sx={{ 
+                color: '#3B82F6',
+                mb: 2,
+                borderBottom: '1px solid rgba(59,130,246,0.2)',
+                pb: 1
+              }}>
+                Assigned Staff
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={6}>
+                  <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)' }}>Staff Name</Typography>
+                  <Typography variant="body1" sx={{ color: 'white' }}>
+                    {form.staff.name || 'Not available'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)' }}>Staff Type</Typography>
+                  <Typography variant="body1" sx={{ color: 'white' }}>
+                    {form.staff.typeOfStaff || form.requestType || 'Not available'}
+                  </Typography>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
 
           {/* Attachment Section */}
           <Box>
@@ -2028,14 +2071,30 @@ const StudentForms = () => {
                       top: 0,
                       bottom: 0,
                       width: 3,
-                      bgcolor: '#10B981',
+                      bgcolor: notification.type === 'FORM_APPROVED' ? '#10B981' :
+                              notification.type === 'FORM_DECLINED' ? '#EF4444' :
+                              notification.type === 'FORM_ASSIGNED' ? '#3B82F6' :
+                              '#10B981',
                       borderRadius: '0 4px 4px 0',
                     }
                   })
                 }}
               >
                 <ListItemText
-                  primary={notification.title}
+                  primary={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {notification.type === 'FORM_APPROVED' && <CheckCircleIcon fontSize="small" sx={{ color: '#10B981' }} />}
+                      {notification.type === 'FORM_DECLINED' && <CancelIcon fontSize="small" sx={{ color: '#EF4444' }} />}
+                      {notification.type === 'FORM_ASSIGNED' && <AssignmentIcon fontSize="small" sx={{ color: '#3B82F6' }} />}
+                      {notification.type === 'NEW_FORM' && <ReceiptIcon fontSize="small" sx={{ color: '#F59E0B' }} />}
+                      <Typography variant="body1" sx={{ 
+                        color: '#fff',
+                        fontWeight: notification.isRead ? 400 : 600
+                      }}>
+                        {notification.title}
+                      </Typography>
+                    </Box>
+                  }
                   secondary={notification.content}
                   primaryTypographyProps={{
                     color: '#fff',

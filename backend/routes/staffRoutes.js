@@ -4,6 +4,9 @@ const {
   loginStaff,
   logoutStaff,
   getStaffProfile,
+  getStaffAssignments,
+  updateAssignmentStatus,
+  completeAssignment
 } = require('../controllers/staffController');
 const { protect } = require('../middleware/auth');
 
@@ -11,5 +14,10 @@ const { protect } = require('../middleware/auth');
 router.post('/login', loginStaff);
 router.post('/logout', protect, logoutStaff);
 router.get('/profile', protect, getStaffProfile);
+
+// Assignment routes
+router.get('/assignments', protect, getStaffAssignments);
+router.put('/assignments/:formId/status', protect, updateAssignmentStatus);
+router.put('/assignments/:formId/complete', protect, completeAssignment);
 
 module.exports = router; 

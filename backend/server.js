@@ -31,16 +31,22 @@ const server = http.createServer(app);
 // Initialize Socket.io
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    methods: ["GET", "POST"],
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"]
   },
+  transports: ['websocket', 'polling'],
+  pingTimeout: 60000,
+  pingInterval: 25000,
 });
 
 // Middleware
 app.use(cors({
-  origin: config.clientUrl,
-  credentials: true
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -104,17 +110,37 @@ const startServer = async () => {
     io.on('connection', (socket) => {
       console.log('A user connected', socket.id);
 
+      // Debug socket events
+      socket.onAny((eventName, ...args) => {
+        console.log(`[Socket ${socket.id}] Event: ${eventName}`, args);
+      });
+
       // Handle user joining with their ID
       socket.on('join', (userId) => {
-        console.log('User joined:', userId);
+        if (!userId) {
+          console.log('User attempted to join without ID');
+          return;
+        }
+        
+        console.log('User joined:', userId, 'Socket ID:', socket.id);
         socket.userId = userId;
-        connectedUsers.set(userId, socket.id);
-        userActiveStatus.set(userId, true);
+        connectedUsers.set(userId.toString(), socket.id);
+        userActiveStatus.set(userId.toString(), true);
+
+        // Join a room specific to this user
+        socket.join(`user_${userId}`);
 
         // Notify other users that this user is online
         socket.broadcast.emit('userStatus', {
           userId: userId,
           status: 'online'
+        });
+        
+        // Send acknowledgment back to client
+        socket.emit('joinAcknowledged', {
+          status: 'success',
+          userId: userId,
+          socketId: socket.id
         });
       });
 
@@ -284,19 +310,30 @@ const startServer = async () => {
         }
       });
 
-      // Handle form status update
-      socket.on('formStatusUpdated', async ({ formId, status, updatedForm, type }) => {
+      // Handle form status updates
+      socket.on('formStatusUpdated', async ({ formId, status, message }) => {
         try {
-          console.log('Form status update event received:', { formId, status, type });
-          console.log('User ID from updated form:', updatedForm.user);
+          console.log('Form status update received:', { formId, status });
           
-          // Find student's socket ID
-          let studentId;
-          if (typeof updatedForm.user === 'object' && updatedForm.user !== null) {
-            studentId = updatedForm.user._id;
-          } else {
-            studentId = updatedForm.user;
+          // Extract student ID from form
+          const Form = require('./models/formModel');
+          const updatedForm = await Form.findById(formId)
+            .populate('user', 'name studentDormNumber')
+            .populate({
+              path: 'room',
+              select: 'roomNumber building',
+              populate: {
+                path: 'building',
+                select: 'name'
+              }
+            });
+          
+          if (!updatedForm) {
+            console.error('Form not found:', formId);
+            return;
           }
+          
+          const studentId = updatedForm.user && updatedForm.user._id ? updatedForm.user._id : updatedForm.user;
           
           console.log('Student ID extracted:', studentId);
           
@@ -313,9 +350,23 @@ const startServer = async () => {
             updatedForm 
           });
           
-          // If student is connected, emit the status update to them directly
+          // User-specific approach for reliable delivery:
+          // 1. Emit to user's room (most reliable)
+          // 2. Emit directly to socket if connected
+          // 3. Save notification for when they reconnect
+          
+          // Emit to the specific user's room
+          console.log(`Emitting to user_${studentId} room`);
+          io.to(`user_${studentId}`).emit('formStatusUpdate', {
+            formId,
+            status,
+            type: updatedForm.requestType,
+            updatedAt: new Date()
+          });
+          
+          // If student is connected, also emit directly to their socket
           if (studentSocketId) {
-            console.log('Emitting formStatusUpdate to student:', studentId);
+            console.log('Emitting formStatusUpdate directly to student:', studentId);
             console.log('Using socket ID:', studentSocketId);
             
             // Also emit a notification directly to this student
@@ -331,21 +382,103 @@ const startServer = async () => {
               createdAt: new Date(),
               isRead: false
             });
-            
-            // Emit the form status update
-            io.to(studentSocketId).emit('formStatusUpdate', {
-              formId,
-              status,
-              type: updatedForm.requestType
-            });
-            console.log('Emit complete');
           } else {
-            console.log('Student not connected, no direct emit');
+            console.log('Student not connected, notification will be stored in database only');
           }
           
           console.log('Form status update processing complete');
         } catch (error) {
           console.error('Error handling form status update:', error);
+        }
+      });
+      
+      // Handle form assignment to staff
+      socket.on('formAssigned', async ({ formId, staffId, updatedForm }) => {
+        try {
+          console.log('Form assignment received:', { formId, staffId });
+          
+          if (!formId || !staffId || !updatedForm) {
+            console.error('Invalid form assignment data:', { formId, staffId });
+            return;
+          }
+
+          // Get student ID from the form
+          const studentId = updatedForm.user && updatedForm.user._id ? 
+            updatedForm.user._id.toString() : 
+            updatedForm.user ? updatedForm.user.toString() : null;
+          
+          if (!studentId) {
+            console.error('Student ID not found in form:', formId);
+            return;
+          }
+          
+          console.log('Student ID extracted:', studentId);
+          console.log('Staff ID:', staffId);
+          
+          // Emit to all connected clients for real-time updates
+          console.log('Emitting formAssigned to all clients');
+          io.emit('formAssigned', { 
+            formId, 
+            staffId, 
+            status: 'Assigned',
+            updatedForm 
+          });
+          
+          // Emit to the specific student's room
+          console.log(`Emitting to user_${studentId} room`);
+          io.to(`user_${studentId}`).emit('formAssigned', {
+            formId,
+            staffId,
+            status: 'Assigned',
+            updatedForm
+          });
+          
+          // Emit to the specific staff's room
+          console.log(`Emitting to user_${staffId} room`);
+          io.to(`user_${staffId}`).emit('formAssigned', {
+            formId,
+            staffId,
+            status: 'Assigned',
+            updatedForm
+          });
+          
+          // If student is connected, also emit a notification
+          const studentSocketId = connectedUsers.get(studentId);
+          if (studentSocketId) {
+            console.log('Sending direct notification to student');
+            io.to(studentSocketId).emit('newNotification', {
+              type: 'FORM_ASSIGNED',
+              title: 'Form Assigned',
+              content: `Your ${updatedForm.requestType} request has been assigned to ${updatedForm.staff.name}.`,
+              recipient: {
+                id: studentId,
+                model: 'User'
+              },
+              createdAt: new Date(),
+              isRead: false
+            });
+          }
+          
+          // If staff is connected, also emit a notification
+          const staffSocketId = connectedUsers.get(staffId);
+          if (staffSocketId) {
+            console.log('Sending direct notification to staff');
+            io.to(staffSocketId).emit('newNotification', {
+              type: 'NEW_ASSIGNMENT',
+              title: 'New Assignment',
+              content: `You've been assigned to a ${updatedForm.requestType} request in room ${updatedForm.roomNumber}.`,
+              recipient: {
+                id: staffId,
+                model: 'Staff'
+              },
+              createdAt: new Date(),
+              isRead: false
+            });
+          }
+          
+          console.log('Form assignment processing complete');
+        } catch (error) {
+          console.error('Error handling form assignment:', error);
         }
       });
 

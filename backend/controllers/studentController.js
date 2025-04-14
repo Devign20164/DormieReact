@@ -17,7 +17,14 @@ const loginStudent = asyncHandler(async (req, res) => {
     const { identifier, password } = req.body;
     console.log('Login attempt for student:', identifier);
 
-    const student = await Student.findOne({ email: identifier });
+    const student = await Student.findOne({ email: identifier })
+      .populate({
+        path: 'room',
+        populate: {
+          path: 'building',
+          select: 'name'
+        }
+      });
     console.log('Student found:', student ? 'Yes' : 'No');
 
     if (!student) {
@@ -59,11 +66,17 @@ const loginStudent = asyncHandler(async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
 
+    // Return user data with expanded profile information
     res.json({
       _id: student._id,
       name: student.name,
       email: student.email,
-      role: 'student',
+      studentDormNumber: student.studentDormNumber,
+      room: student.room ? {
+        roomNumber: student.room.roomNumber,
+        building: student.room.building?.name || 'Unassigned'
+      } : null,
+      role: 'student'
     });
   } catch (error) {
     console.error('Login error:', error);
