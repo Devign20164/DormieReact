@@ -23,14 +23,12 @@ import {
   ExitToApp as LogoutIcon,
   Message as MessageIcon,
   Apartment as BuildingIcon,
-  Assignment as FormsIcon,
   Person as StaffIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/admin-dashboard' },
-  { text: 'Forms', icon: <FormsIcon />, path: '/admin/forms' },
   { text: 'Students', icon: <PeopleIcon />, path: '/admin/students' },
   { text: 'Buildings', icon: <BuildingIcon />, path: '/admin/buildings' },
   { text: 'Staff', icon: <StaffIcon />, path: '/admin/staff' },

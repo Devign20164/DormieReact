@@ -24,9 +24,7 @@ const {
   markNotificationRead,
   markAllNotificationsRead,
   getUnreadNotificationCount,
-  deleteNotification,
-  submitRequestForm,
-  getStudentForms
+  deleteNotification
 } = require('../controllers/studentController');
 
 // Auth routes
@@ -60,9 +58,5 @@ router.delete('/notifications/delete-all', protect, deleteAllNotifications);
 router.put('/notifications/:notificationId/read', protect, markNotificationRead);
 router.put('/notifications/mark-all-read', protect, markAllNotificationsRead);
 router.delete('/notifications/:notificationId', protect, deleteNotification);
-
-// Form routes
-router.post('/forms', protect, upload.single('file'), submitRequestForm);
-router.get('/forms', protect, getStudentForms);
 
 module.exports = router; 

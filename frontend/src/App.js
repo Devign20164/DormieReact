@@ -12,8 +12,6 @@ import StaffTenantLog from './pages/StaffTenantLog';
 import StudentDashboard from './pages/StudentDashboard';
 import AdminMessaging from './pages/AdminMessaging';
 import StudentMessaging from './pages/StudentMessaging';
-import StudentForms from './pages/StudentForms';
-import AdminForms from './pages/AdminForms';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -179,24 +177,6 @@ function App() {
             element={
               <ProtectedRoute allowedRole="student">
                 <StudentMessaging />
-              </ProtectedRoute>
-            } 
-          />
-
-          <Route 
-            path="/student/forms" 
-            element={
-              <ProtectedRoute allowedRole="student">
-                <StudentForms />
-              </ProtectedRoute>
-            } 
-          />
-
-          <Route 
-            path="/admin/forms" 
-            element={
-              <ProtectedRoute allowedRole="admin">
-                <AdminForms />
               </ProtectedRoute>
             } 
           />

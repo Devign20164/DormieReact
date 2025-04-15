@@ -74,10 +74,6 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Conversation'
   }],
-  submittedRequestForms: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'JobRequestForm'
-  }],
   unreadNotifications: {
     type: Number,
     default: 0
@@ -103,14 +99,6 @@ userSchema.pre('save', async function(next) {
 // Method to compare password for login
 userSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
-};
-
-// Add method to add request form
-userSchema.methods.addRequestForm = async function(formId) {
-  if (!this.submittedRequestForms.includes(formId)) {
-    this.submittedRequestForms.push(formId);
-    await this.save();
-  }
 };
 
 const User = mongoose.model('User', userSchema);

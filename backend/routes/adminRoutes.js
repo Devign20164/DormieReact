@@ -27,16 +27,11 @@ const {
   getRoomById,
   getStudentOffenses,
   createStudentOffense,
-  getAllForms,
-  getFormDetails,
-  updateFormStatus,
-  deleteForm,
   getAllStaff,
   createStaff,
   getStaffById,
   updateStaff,
-  deleteStaff,
-  assignStaffToForm
+  deleteStaff
 } = require('../controllers/adminController');
 
 const { protect } = require('../middleware/auth');
@@ -78,13 +73,6 @@ router.post('/buildings/:buildingId/rooms', protect, createRoom);
 router.get('/rooms/:roomId', protect, getRoomById);
 router.put('/rooms/:roomId', protect, updateRoom);
 router.delete('/rooms/:roomId', protect, deleteRoom);
-
-// Form Management Routes
-router.get('/forms', protect, getAllForms);
-router.get('/forms/:formId', protect, getFormDetails);
-router.put('/forms/:formId/status', protect, updateFormStatus);
-router.delete('/forms/:formId', protect, deleteForm);
-router.post('/forms/:formId/assign', protect, assignStaffToForm);
 
 // Staff Management Routes
 router.get('/staff', protect, getAllStaff);

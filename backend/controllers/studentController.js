@@ -7,7 +7,6 @@ const Message = require('../models/messageModel');
 const Conversation = require('../models/conversationModel');
 const Notification = require('../models/notificationModel');
 const Admin = require('../models/adminModel');
-const JobRequestForm = require('../models/requestFormModel');
 
 // @desc    Auth student & get token
 // @route   POST /api/students/login
@@ -1026,133 +1025,7 @@ const deleteAllNotifications = async (req, res) => {
   }
 };
 
-// @desc    Submit a new request form
-// @route   POST /api/students/forms
-// @access  Private/Student
-const submitRequestForm = asyncHandler(async (req, res) => {
-  try {
-    const { requestType, description, scheduledDate, actualStartTime, actualEndTime } = req.body;
-    const filePath = req.file ? req.file.path : null;
-
-    if (!filePath) {
-      return res.status(400).json({ message: 'File is required' });
-    }
-
-    // Get the student's information with careful population
-    const student = await Student.findById(req.user.id)
-      .populate({
-        path: 'room',
-        select: 'roomNumber building',
-        populate: {
-          path: 'building',
-          select: 'name'
-        }
-      });
-
-    if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
-    }
-
-    if (!student.room || !student.room.building) {
-      return res.status(400).json({ message: 'Student must be assigned to a room and building to submit a request' });
-    }
-
-    // Create the form with all the necessary information
-    const requestForm = await JobRequestForm.create({
-      user: student._id,
-      room: student.room._id,
-      building: student.room.building._id,
-      requestType,
-      description,
-      scheduledDate: new Date(scheduledDate),
-      actualStartTime,
-      actualEndTime,
-      submissionDate: new Date(),
-      filePath,
-      status: 'Pending',
-      userName: student.name,
-      studentDormNumber: student.studentDormNumber,
-      roomNumber: student.room.roomNumber,
-      buildingName: student.room.building.name
-    });
-
-    // Populate the form with related information
-    const populatedForm = await JobRequestForm.findById(requestForm._id)
-      .populate('user', 'name studentDormNumber')
-      .populate('room', 'roomNumber')
-      .populate('building', 'name');
-
-    // Create notification for admins
-    const notification = await Notification.create({
-      recipient: {
-        model: 'Admin'
-      },
-      type: 'NEW_FORM',
-      title: 'New Form Submission',
-      content: `New ${requestType} Submitted`,
-      relatedTo: {
-        model: 'JobRequestForm',
-        id: requestForm._id
-      }
-    });
-
-    // Emit socket events for real-time updates
-    if (req.app.get('io')) {
-      // Emit to all clients
-      req.app.get('io').emit('newForm', populatedForm);
-
-      // Emit notification
-      req.app.get('io').emit('newNotification', notification);
-    }
-
-    res.status(201).json({
-      message: 'Form submitted successfully',
-      form: populatedForm
-    });
-  } catch (error) {
-    console.error('Submit form error:', error);
-    res.status(500).json({ 
-      message: 'Error submitting form',
-      error: error.message 
-    });
-  }
-});
-
-// @desc    Get all forms for a student
-// @route   GET /api/students/forms
-// @access  Private/Student
-const getStudentForms = asyncHandler(async (req, res) => {
-  try {
-    const forms = await JobRequestForm.find({ user: req.user.id })
-      .sort({ submissionDate: -1 })
-      .populate('user', 'name studentDormNumber')
-      .populate('room', 'roomNumber')
-      .populate('building', 'name')
-      .populate('staff', 'name');
-
-    // If socket.io is available, let the connected client know we've fetched forms
-    if (req.app.get('io')) {
-      const userSocketId = req.app.get('connectedUsers').get(req.user.id.toString());
-      
-      if (userSocketId) {
-        // Emit an event to let the client know we've refreshed forms
-        req.app.get('io').to(userSocketId).emit('formsRefreshed', {
-          count: forms.length,
-          timestamp: new Date().toISOString()
-        });
-      }
-    }
-
-    res.json(forms);
-  } catch (error) {
-    console.error('Error fetching forms:', error);
-    res.status(500).json({ 
-      message: 'Error fetching forms',
-      error: error.message 
-    });
-  }
-});
-
+// Export all controllers
 module.exports = {
   loginStudent,
   logoutStudent,
@@ -1175,7 +1048,5 @@ module.exports = {
   markAllNotificationsRead,
   getUnreadNotificationCount,
   deleteNotification,
-  deleteAllNotifications,
-  submitRequestForm,
-  getStudentForms
+  deleteAllNotifications
 }; 

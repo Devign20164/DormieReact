@@ -47,7 +47,7 @@ const notificationSchema = new mongoose.Schema({
   relatedTo: {
     model: {
       type: String,
-      enum: ['Message', 'Conversation', 'User', 'Admin', 'Staff', 'JobRequestForm']
+      enum: ['Message', 'Conversation', 'User', 'Admin', 'Staff']
     },
     id: {
       type: mongoose.Schema.Types.ObjectId
@@ -92,23 +92,6 @@ notificationSchema.statics.createMessageNotification = async function(recipient,
       senderId: sender.id,
       senderModel: sender.model,
       messageId: message._id
-    }
-  });
-};
-
-// Static method to create form update notification
-notificationSchema.statics.createFormNotification = async function(recipientId, recipientModel, type, title, content, formId) {
-  return this.create({
-    recipient: {
-      id: recipientId,
-      model: recipientModel
-    },
-    type,
-    title,
-    content,
-    relatedTo: {
-      model: 'JobRequestForm',
-      id: formId
     }
   });
 };
