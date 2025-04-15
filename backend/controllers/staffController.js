@@ -60,13 +60,27 @@ const loginStaff = asyncHandler(async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
 
-    res.json({
+    // Get Socket.io instance
+    const io = req.app.get('io');
+    const connectedUsers = req.app.get('connectedUsers');
+    
+    // Prepare response data
+    const responseData = {
       _id: staff._id,
       name: staff.name,
       role: 'staff',
       typeOfStaff: staff.typeOfStaff,
       status: staff.status
+    };
+
+    // Return staff data along with socket initialization data
+    res.json({
+      ...responseData,
+      socketInitRequired: true,
+      socketUserId: staff._id.toString()
     });
+
+    console.log('Staff login successful:', staff.name);
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({

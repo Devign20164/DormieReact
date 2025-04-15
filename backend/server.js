@@ -100,11 +100,54 @@ const startServer = async () => {
     // Import Message model after MongoDB connection is established
     const Message = require('./models/messageModel');
     const Notification = require('./models/notificationModel');
+    const Conversation = require('./models/conversationModel');
     
     // Make io and connectedUsers available to routes
     app.set('io', io);
     app.set('connectedUsers', connectedUsers);
     app.set('userActiveStatus', userActiveStatus);
+
+    // Helper function to emit notifications with de-duplication
+    const emitNotification = (notification) => {
+      if (!notification || !notification.recipient || !notification.recipient.id) {
+        console.error('Invalid notification data:', notification);
+        return;
+      }
+
+      // Generate a unique key for this notification to prevent duplicates
+      const notificationKey = `${notification._id}`;
+      const recipientId = notification.recipient.id.toString();
+      
+      // Check for duplicates - store in a global Map to track notifications by user
+      const userNotifications = io.userNotifications = io.userNotifications || new Map();
+      
+      // Get or create set for this user
+      const userProcessed = userNotifications.get(recipientId) || new Set();
+      
+      // If we've already sent this notification, don't send again
+      if (userProcessed.has(notificationKey)) {
+        console.log(`Skipping duplicate notification ${notificationKey} for user ${recipientId}`);
+        return;
+      }
+      
+      // Mark as processed
+      userProcessed.add(notificationKey);
+      userNotifications.set(recipientId, userProcessed);
+      
+      console.log(`Emitting notification ${notificationKey} to user: ${recipientId} (Total processed: ${userProcessed.size})`);
+
+      // Add a timestamp to track when this was emitted
+      notification.emittedAt = new Date().toISOString();
+      
+      // Emit to user's room - only need to emit to one place, not multiple
+      io.to(`user_${recipientId}`).emit('newNotification', notification);
+      
+      // Log completion
+      console.log('Notification emitted successfully to room:', `user_${recipientId}`);
+    };
+
+    // Make emitNotification available to routes
+    app.set('emitNotification', emitNotification);
 
     // Socket.io connection handling
     io.on('connection', (socket) => {
@@ -114,6 +157,9 @@ const startServer = async () => {
       socket.onAny((eventName, ...args) => {
         console.log(`[Socket ${socket.id}] Event: ${eventName}`, args);
       });
+
+      // Store processed notification IDs to prevent duplicates
+      const processedNotifications = new Set();
 
       // Handle user joining with their ID
       socket.on('join', (userId) => {
@@ -142,6 +188,19 @@ const startServer = async () => {
           userId: userId,
           socketId: socket.id
         });
+
+        // Send any pending notifications
+        Notification.find({
+          'recipient.id': userId,
+          isRead: false
+        })
+        .sort('-createdAt')
+        .then(notifications => {
+          if (notifications.length > 0) {
+            socket.emit('pendingNotifications', notifications);
+          }
+        })
+        .catch(err => console.error('Error fetching pending notifications:', err));
       });
 
       // Handle notification read
@@ -220,37 +279,191 @@ const startServer = async () => {
       });
 
       // Handle new message
-      socket.on('newMessage', async ({ message, conversationId }) => {
-        console.log('New message:', message, 'for conversation:', conversationId);
-        
+      socket.on('newMessage', async ({ message, conversationId, recipientId }) => {
         try {
-          // Find recipient's socket ID
-          const recipientId = message.recipient.id;
-          const recipientSocketId = connectedUsers.get(recipientId);
+          console.log('New message received:', message._id, 'for conversation:', conversationId);
           
-          // Update message with delivered status
-          const updatedMessage = await Message.findByIdAndUpdate(
-            message._id,
-            { delivered: true, deliveredAt: new Date() },
-            { new: true }
-          );
+          if (!message || !conversationId) {
+            console.error('Invalid message data:', { message, conversationId });
+            return;
+          }
           
-          // Emit delivery status to sender
-          socket.emit('messageDelivered', {
-            messageId: message._id,
-            conversationId,
-            deliveredAt: updatedMessage.deliveredAt
+          // 1. Emit to conversation room for anyone viewing this conversation
+          console.log(`Emitting to conversation_${conversationId} room`);
+          io.to(`conversation_${conversationId}`).emit('newMessage', {
+            message,
+            conversation: conversationId
           });
-
-          // If recipient is connected, emit the message to them
-          if (recipientSocketId) {
-            io.to(recipientSocketId).emit('newMessage', {
-              message: updatedMessage,
-              conversationId
+          
+          // 2. Also emit to recipient's user room for reliability
+          if (recipientId) {
+            console.log(`Emitting to user_${recipientId} room`);
+            io.to(`user_${recipientId}`).emit('newMessage', {
+              message,
+              conversation: conversationId
             });
+            
+            // 3. Also emit directly to recipient's socket if they're connected
+            const recipientSocketId = connectedUsers.get(recipientId);
+            if (recipientSocketId) {
+              console.log(`Emitting directly to recipient socket: ${recipientSocketId}`);
+              io.to(recipientSocketId).emit('newMessage', {
+                message,
+                conversation: conversationId
+              });
+            }
+            
+            // 4. Update message as delivered in database if recipient is connected
+            if (recipientSocketId || io.sockets.adapter.rooms.get(`user_${recipientId}`)) {
+              const updatedMessage = await Message.findByIdAndUpdate(
+                message._id,
+                { delivered: true, deliveredAt: new Date() },
+                { new: true }
+              );
+              
+              // 5. Notify sender about delivery status
+              const senderSocketId = connectedUsers.get(message.sender.id);
+              if (senderSocketId) {
+                io.to(senderSocketId).emit('messageDelivered', {
+                  messageId: message._id,
+                  conversationId,
+                  deliveredAt: updatedMessage.deliveredAt
+                });
+              }
+            }
           }
         } catch (error) {
           console.error('Error handling new message:', error);
+        }
+      });
+
+      // Handle joining a conversation room
+      socket.on('joinConversation', ({ conversationId }) => {
+        if (!socket.userId) {
+          console.log('User not identified, cannot join conversation');
+          return;
+        }
+        
+        console.log(`User ${socket.userId} joining conversation room: conversation_${conversationId}`);
+        socket.join(`conversation_${conversationId}`);
+        
+        // Mark user as active in this conversation
+        userActiveStatus.set(socket.userId, true);
+        
+        // Get conversation participants and notify them that this user is viewing the conversation
+        Conversation.findById(conversationId)
+          .then(conversation => {
+            if (!conversation) return;
+            
+            // Emit to the conversation room that this user is now active
+            io.to(`conversation_${conversationId}`).emit('userConversationStatus', {
+              userId: socket.userId,
+              conversationId,
+              status: 'active'
+            });
+          })
+          .catch(err => console.error('Error getting conversation participants:', err));
+      });
+      
+      // Handle leaving a conversation room
+      socket.on('leaveConversation', ({ conversationId }) => {
+        if (!socket.userId) return;
+        
+        console.log(`User ${socket.userId} leaving conversation room: conversation_${conversationId}`);
+        socket.leave(`conversation_${conversationId}`);
+        
+        // Notify participants that user has left the conversation view
+        io.to(`conversation_${conversationId}`).emit('userConversationStatus', {
+          userId: socket.userId,
+          conversationId,
+          status: 'inactive'
+        });
+      });
+      
+      // Handle typing indicator
+      socket.on('typing', ({ conversationId, isTyping }) => {
+        if (!socket.userId || !conversationId) return;
+        
+        console.log(`User ${socket.userId} ${isTyping ? 'is typing' : 'stopped typing'} in conversation ${conversationId}`);
+        
+        // Emit to the conversation room
+        io.to(`conversation_${conversationId}`).emit('typing', {
+          userId: socket.userId,
+          conversationId,
+          isTyping
+        });
+      });
+      
+      // Handle marking entire conversation as seen
+      socket.on('markConversationSeen', async ({ conversationId }) => {
+        if (!socket.userId || !conversationId) return;
+        
+        try {
+          console.log(`Marking conversation ${conversationId} as seen by user ${socket.userId}`);
+          
+          // Update all unread messages in this conversation
+          const unreadMessages = await Message.find({
+            conversation: conversationId,
+            'recipient.id': socket.userId,
+            isRead: false
+          });
+          
+          // Mark all as read
+          const now = new Date();
+          await Message.updateMany(
+            {
+              conversation: conversationId,
+              'recipient.id': socket.userId,
+              isRead: false
+            },
+            { 
+              isRead: true,
+              readAt: now 
+            }
+          );
+          
+          // Update conversation unread count
+          await Conversation.findByIdAndUpdate(
+            conversationId,
+            { $set: { [`unreadCount.${socket.userId}`]: 0 } },
+            { new: true }
+          );
+          
+          // Get conversation to find other participants
+          const conversation = await Conversation.findById(conversationId);
+          if (!conversation) return;
+          
+          // Notify other participants that messages have been seen
+          conversation.participants.forEach(participant => {
+            if (participant.id.toString() === socket.userId.toString()) return;
+            
+            const participantId = participant.id.toString();
+            // Emit to their user room
+            io.to(`user_${participantId}`).emit('conversationSeen', {
+              conversationId,
+              seenBy: socket.userId,
+              seenAt: now
+            });
+            
+            // Emit to the conversation room
+            io.to(`conversation_${conversationId}`).emit('conversationSeen', {
+              conversationId,
+              seenBy: socket.userId,
+              seenAt: now
+            });
+            
+            // Also emit directly if connected
+            const participantSocketId = connectedUsers.get(participantId);
+            if (participantSocketId) {
+              io.to(participantSocketId).emit('conversationSeen', {
+                conversationId,
+                seenBy: socket.userId,
+                seenAt: now
+              });
+            }
+          });
+        } catch (error) {
+          console.error('Error marking conversation as seen:', error);
         }
       });
 
@@ -270,15 +483,32 @@ const startServer = async () => {
           );
 
           if (message) {
+            // Emit to conversation room for anyone in this conversation
+            io.to(`conversation_${conversationId}`).emit('messageSeen', {
+              messageId,
+              conversationId,
+              readAt: message.readAt,
+              readBy: socket.userId
+            });
+            
+            // Also emit to the sender specifically
             const senderSocketId = connectedUsers.get(message.sender.id);
             if (senderSocketId) {
-              // Emit seen status to sender
               io.to(senderSocketId).emit('messageSeen', {
                 messageId,
                 conversationId,
-                readAt: message.readAt
+                readAt: message.readAt,
+                readBy: socket.userId
               });
             }
+            
+            // Also emit to the sender's user room for reliability
+            io.to(`user_${message.sender.id}`).emit('messageSeen', {
+              messageId,
+              conversationId,
+              readAt: message.readAt,
+              readBy: socket.userId
+            });
           }
         } catch (error) {
           console.error('Error marking message as seen:', error);
@@ -495,12 +725,12 @@ const startServer = async () => {
         }
       });
 
-      // Handle user disconnection
+      // Handle disconnect
       socket.on('disconnect', () => {
-        console.log('User disconnected', socket.id);
         if (socket.userId) {
-          connectedUsers.delete(socket.userId);
-          userActiveStatus.delete(socket.userId);
+          console.log('User disconnected:', socket.userId);
+          connectedUsers.delete(socket.userId.toString());
+          userActiveStatus.set(socket.userId.toString(), false);
           
           // Notify other users that this user is offline
           socket.broadcast.emit('userStatus', {

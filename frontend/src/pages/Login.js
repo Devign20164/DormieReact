@@ -14,12 +14,14 @@ import {
 } from '@mui/material';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import { useSocket } from '../context/SocketContext';
 
 const Login = () => {
   const navigate = useNavigate();
   const [role, setRole] = useState('student');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { socket } = useSocket();
 
   const validationSchema = Yup.object({
     identifier: Yup.string()
@@ -85,6 +87,12 @@ const Login = () => {
         
         // Set session flag to indicate successful login
         sessionStorage.setItem('justLoggedIn', 'true');
+
+        // Initialize socket connection if available
+        if (socket && data.socketInitRequired && data.socketUserId) {
+          console.log('Initializing socket connection for user:', data.socketUserId);
+          socket.emit('join', data.socketUserId);
+        }
 
         // Redirect based on role
         switch (role) {

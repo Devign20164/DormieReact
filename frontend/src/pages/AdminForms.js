@@ -1274,36 +1274,39 @@ const AdminForms = () => {
         onClose={() => setAssignDialogOpen(false)}
         PaperProps={{
           sx: {
-            bgcolor: 'background.paper',
-            borderRadius: 2,
-            boxShadow: 10,
+            background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+            color: '#fff',
+            borderRadius: '20px',
+            border: '1px solid rgba(255, 255, 255, 0.03)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
             width: '500px',
             maxWidth: '95vw',
           }
         }}
       >
         <DialogTitle sx={{ 
-          bgcolor: 'primary.dark', 
-          color: 'white',
+          borderBottom: '1px solid rgba(255,255,255,0.03)',
+          background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
+          py: 2,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <AssignmentInd sx={{ mr: 1 }} />
-            Assign Staff
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AssignmentInd sx={{ color: '#3B82F6' }} />
+            <Typography color="white">Assign Staff</Typography>
           </Box>
           <IconButton 
             size="small" 
             onClick={() => setAssignDialogOpen(false)}
-            sx={{ color: 'white' }}
+            sx={{ color: 'rgba(255,255,255,0.7)' }}
           >
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <DialogContent dividers sx={{ p: 3 }}>
+        <DialogContent dividers sx={{ p: 3, borderTop: 'none', borderBottom: 'none' }}>
           <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle1" gutterBottom>
+            <Typography variant="subtitle1" gutterBottom color="white">
               Assigning staff for request: {selectedForm?.requestType}
             </Typography>
             <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -1313,13 +1316,47 @@ const AdminForms = () => {
           </Box>
           
           <FormControl fullWidth error={!!assignError || !!staffError} sx={{ mb: 2 }}>
-            <InputLabel id="staff-select-label">Select Staff</InputLabel>
+            <InputLabel id="staff-select-label" sx={{ color: 'rgba(255,255,255,0.7)' }}>Select Staff</InputLabel>
             <Select
               labelId="staff-select-label"
               value={selectedStaffId || ''}
               onChange={(e) => setSelectedStaffId(e.target.value)}
               label="Select Staff"
               disabled={staffLoading}
+              sx={{ 
+                color: 'white',
+                '.MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'rgba(255,255,255,0.1)'
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'rgba(59,130,246,0.5)'
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#3B82F6'
+                },
+                '.MuiSvgIcon-root': {
+                  color: 'rgba(255,255,255,0.7)'
+                }
+              }}
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    bgcolor: '#1a1a1a',
+                    color: 'white',
+                    '& .MuiMenuItem-root': {
+                      '&:hover': {
+                        bgcolor: 'rgba(59,130,246,0.1)'
+                      },
+                      '&.Mui-selected': {
+                        bgcolor: 'rgba(59,130,246,0.2)',
+                        '&:hover': {
+                          bgcolor: 'rgba(59,130,246,0.3)'
+                        }
+                      }
+                    }
+                  }
+                }
+              }}
             >
               {staffLoading ? (
                 <MenuItem disabled>Loading staff...</MenuItem>
@@ -1337,15 +1374,17 @@ const AdminForms = () => {
             {assignError && <FormHelperText error>{assignError}</FormHelperText>}
           </FormControl>
         </DialogContent>
-        <DialogActions sx={{ p: 2, justifyContent: 'flex-end' }}>
+        <DialogActions sx={{ p: 2, justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.03)' }}>
           <Button 
             onClick={() => setAssignDialogOpen(false)}
             variant="outlined"
-            color="secondary"
             sx={{ 
               mr: 1,
+              color: 'rgba(255,255,255,0.7)',
+              borderColor: 'rgba(255,255,255,0.1)',
               '&:hover': {
-                backgroundColor: alpha('#f44336', 0.1),
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                borderColor: 'rgba(255,255,255,0.2)',
               }
             }}
           >
@@ -1353,15 +1392,20 @@ const AdminForms = () => {
           </Button>
           <Button 
             onClick={handleAssignStaff}
-            color="primary" 
             variant="contained"
             disabled={isAssigning || !selectedStaffId}
             startIcon={isAssigning ? <CircularProgress size={20} color="inherit" /> : <AssignmentInd />}
             sx={{ 
               position: 'relative',
               fontWeight: 'bold',
+              bgcolor: 'rgba(59,130,246,0.1)',
+              color: '#3B82F6',
               '&:hover': {
-                backgroundColor: 'primary.dark',
+                bgcolor: 'rgba(59,130,246,0.2)'
+              },
+              '&.Mui-disabled': {
+                color: 'rgba(255,255,255,0.3)',
+                bgcolor: 'rgba(255,255,255,0.05)'
               }
             }}
           >

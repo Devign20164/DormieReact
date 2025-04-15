@@ -14,7 +14,7 @@ import {
   InputAdornment,
   CircularProgress,
 } from '@mui/material';
-import { Send as SendIcon, Search as SearchIcon } from '@mui/icons-material';
+import { Send as SendIcon, Search as SearchIcon, DoneAll as DoneAllIcon, Check as CheckIcon, Pending as PendingIcon } from '@mui/icons-material';
 import StudentSidebar from '../components/StudentSidebar';
 import { useSocket } from '../context/SocketContext';
 import axios from 'axios';
@@ -30,8 +30,11 @@ const StudentMessaging = () => {
   const [admins, setAdmins] = useState([]);
   const [students, setStudents] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
+  const [typingUsers, setTypingUsers] = useState({});
   const { socket, isConnected } = useSocket();
   const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+  const isTypingRef = React.useRef(false);
+  const typingTimeoutRef = React.useRef(null);
 
   // Fetch all admins
   const fetchAdmins = useCallback(async () => {
@@ -105,40 +108,90 @@ const StudentMessaging = () => {
   useEffect(() => {
     if (!socket || !isConnected || !userData._id) return;
 
-    // Join socket room with user ID
-    socket.emit('join', userData._id);
+    console.log('Setting up socket events for user:', userData._id);
+    socket.emit('join', userData._id.toString());
 
-    // Listen for new messages
+    // Listen for new messages with enhanced logging
     socket.on('newMessage', ({ message, conversation: conversationId }) => {
-      console.log('New message received:', message);
+      console.log('New message received:', message._id, 'for conversation:', conversationId);
       
-      // Update messages if the conversation is currently selected
-      if (selectedChat?._id === conversationId) {
-        setMessages(prev => [...prev, message]);
-        
-        // Mark message as seen immediately if we're in the conversation
-        socket.emit('markMessageSeen', {
-          messageId: message._id,
-          conversationId: conversationId
-        });
-
-        // Notify server that we're active in this conversation
-        socket.emit('activeInConversation', { conversationId });
-      }
-
-      // Update conversations list
-      setConversations(prev => prev.map(conv => {
-        if (conv._id === conversationId) {
-          return {
-            ...conv,
-            lastMessage: message,
-            unreadCount: selectedChat?._id === conversationId 
-              ? conv.unreadCount 
-              : (conv.unreadCount || 0) + 1
-          };
+      try {
+        // Update messages if the conversation is currently selected
+        if (selectedChat?._id === conversationId) {
+          console.log('Adding message to current conversation view');
+          
+          // Check if message already exists in the list to prevent duplication
+          setMessages(prev => {
+            // Check if message with this ID already exists
+            const messageExists = prev.some(m => m._id === message._id);
+            if (messageExists) {
+              console.log('Message already exists in state, skipping:', message._id);
+              return prev;
+            }
+            
+            console.log('Adding new message to state:', message._id);
+            
+            // If this is a message from the other person, mark it as seen
+            if (message.sender.id !== userData._id) {
+              socket.emit('markMessageSeen', {
+                messageId: message._id,
+                conversationId: conversationId
+              });
+            }
+            
+            return [...prev, message];
+          });
+          
+          // Notify server that we're active in this conversation
+          socket.emit('activeInConversation', { conversationId });
+        } else {
+          console.log('Message is for a different conversation than current view');
         }
-        return conv;
-      }));
+
+        // Update conversations list
+        setConversations(prev => {
+          const updatedConversations = prev.map(conv => {
+            if (conv._id === conversationId) {
+              console.log('Updating conversation in list:', conv._id);
+              
+              // Skip if we're already using this message as the last message
+              if (conv.lastMessage && conv.lastMessage._id === message._id) {
+                return conv;
+              }
+              
+              return {
+                ...conv,
+                lastMessage: message,
+                unreadCount: selectedChat?._id === conversationId 
+                  ? conv.unreadCount 
+                  : (conv.unreadCount || 0) + 1
+              };
+            }
+            return conv;
+          });
+          
+          // Check if the conversation was actually updated
+          const wasUpdated = updatedConversations.some(
+            conv => conv._id === conversationId && conv.lastMessage?._id === message._id
+          );
+          
+          if (!wasUpdated) {
+            console.log('Conversation not found in list, might need to fetch conversations');
+            // Optionally refresh conversations list if the conversation isn't found
+            fetchConversations();
+          }
+          
+          return updatedConversations;
+        });
+        
+        // Play a notification sound or show a toast for unread messages
+        if (selectedChat?._id !== conversationId) {
+          // Add notification logic here if desired
+          console.log('Should show notification for new message');
+        }
+      } catch (error) {
+        console.error('Error processing new message:', error);
+      }
     });
 
     // Listen for message delivery status
@@ -178,15 +231,70 @@ const StudentMessaging = () => {
       });
     });
 
+    // Listen for entire conversation being marked as seen
+    socket.on('conversationSeen', ({ conversationId, seenBy, seenAt }) => {
+      console.log('Conversation marked as seen:', conversationId, 'by user:', seenBy);
+      
+      // Update all your messages in this conversation to read status
+      if (selectedChat?._id === conversationId) {
+        setMessages(prev => prev.map(msg => {
+          // Only update messages sent by the current user and to the reader
+          if (msg.sender.id === userData._id && 
+              msg.recipient.id === seenBy && 
+              !msg.isRead) {
+            return { ...msg, isRead: true, readAt: seenAt };
+          }
+          return msg;
+        }));
+      }
+      
+      // Update conversation unread count in the list 
+      setConversations(prev => prev.map(conv => {
+        if (conv._id === conversationId) {
+          return { ...conv, unreadCount: 0 };
+        }
+        return conv;
+      }));
+    });
+    
+    // Listen for conversation user status updates
+    socket.on('userConversationStatus', ({ userId, conversationId, status }) => {
+      if (selectedChat?._id === conversationId && userId !== userData._id) {
+        setOnlineUsers(prev => {
+          const newSet = new Set(prev);
+          if (status === 'active') {
+            newSet.add(userId);
+          }
+          return newSet;
+        });
+      }
+    });
+    
+    // Listen for typing indicators
+    socket.on('typing', ({ conversationId, userId, isTyping }) => {
+      console.log('Typing indicator:', { conversationId, userId, isTyping });
+      
+      if (selectedChat?._id === conversationId) {
+        setTypingUsers(prev => ({
+          ...prev,
+          [userId]: isTyping
+        }));
+      }
+    });
+
     // Clean up socket listeners
     return () => {
       socket.off('newMessage');
       socket.off('messageDelivered');
       socket.off('messageSeen');
       socket.off('userStatus');
+      socket.off('typing');
+      socket.off('conversationSeen');
+      socket.off('userConversationStatus');
       
-      // Notify server that we're inactive in the conversation
+      // If in a conversation, leave that room
       if (selectedChat) {
+        socket.emit('leaveConversation', { conversationId: selectedChat._id });
         socket.emit('inactiveInConversation', { conversationId: selectedChat._id });
       }
     };
@@ -197,68 +305,164 @@ const StudentMessaging = () => {
     if (!message.trim() || !selectedChat) return;
 
     try {
+      // Clear typing indicator
+      handleTyping(false);
+      
+      const messageText = message.trim();
+      setMessage('');  // Clear input field immediately for better UX
+      
+      // Find the recipient from the selected chat
+      const recipient = selectedChat.participants.find(p => p.id !== userData._id);
+      if (!recipient) {
+        console.error('No recipient found in conversation');
+        return;
+      }
+      
+      console.log('Sending message to recipient:', recipient.id);
+      
       const response = await axios.post('/api/students/messages', {
         conversationId: selectedChat._id,
-        content: message,
+        content: messageText,
       });
 
       // Add the new message to the messages list
       setMessages(prev => [...prev, response.data]);
       
-      // Emit new message event
-      socket.emit('newMessage', {
-        message: response.data,
-        conversationId: selectedChat._id
-      });
-
-      // Update the conversation's last message
+      // Update conversations list with new message
       setConversations(prev => prev.map(conv => 
-        conv._id === selectedChat._id 
+        conv._id === selectedChat._id
           ? { ...conv, lastMessage: response.data }
           : conv
       ));
-
-      setMessage('');
+      
+      // Ensure recipient ID is a string
+      const recipientId = recipient.id.toString();
+      
+      // Make sure socket is connected
+      if (socket && isConnected) {
+        console.log('Emitting newMessage event via socket for message:', response.data._id);
+        
+        // Emit message to both the individual room and broadcast
+        socket.emit('newMessage', {
+          message: response.data,
+          conversationId: selectedChat._id,
+          recipientId: recipientId
+        });
+        
+        // Verify message delivery
+        socket.emit('verifyMessageDelivery', {
+          messageId: response.data._id,
+          recipientId: recipientId
+        });
+      } else {
+        console.error('Socket not connected, message saved but not emitted');
+      }
     } catch (error) {
       console.error('Error sending message:', error);
+      
+      // Show the error to the user
       setError('Failed to send message');
+      
+      // Restore the message text so the user can try again
+      setMessage(message);
     }
   };
 
-  // Handle chat selection with active status
-  const handleChatSelect = useCallback((chat) => {
-    setSelectedChat(chat);
-    fetchMessages(chat._id);
+  // Handle typing indicator
+  const handleTyping = (isTyping) => {
+    if (!selectedChat || !socket || !isConnected) return;
+    
+    // Only emit if typing status changed
+    if (isTyping !== isTypingRef.current) {
+      isTypingRef.current = isTyping;
+      socket.emit('typing', {
+        conversationId: selectedChat._id,
+        isTyping
+      });
+    }
+  };
+
+  // Handle message input change with typing indicator
+  const handleMessageChange = (e) => {
+    const value = e.target.value;
+    setMessage(value);
+    
+    // Handle typing indicator with debounce
+    if (value.trim().length > 0) {
+      handleTyping(true);
+      
+      // Clear any existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Set new timeout to stop typing indicator after 2 seconds of inactivity
+      typingTimeoutRef.current = setTimeout(() => {
+        handleTyping(false);
+      }, 2000);
+    } else {
+      handleTyping(false);
+    }
+  };
+
+  // Handle selecting a chat
+  const handleChatSelect = (conversation) => {
+    setSelectedChat(conversation);
+    
+    // When selecting a new chat, clear typing state from any previous chat
+    setTypingUsers({});
+    
+    // Reset any typing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Join conversation room for real-time updates
+    if (socket && isConnected) {
+      // If we were in a previous conversation, leave that room
+      if (selectedChat && selectedChat._id !== conversation._id) {
+        socket.emit('leaveConversation', { conversationId: selectedChat._id });
+      }
+      
+      // Join the new conversation room
+      socket.emit('joinConversation', { conversationId: conversation._id });
+      console.log('Joining conversation room:', conversation._id);
+    }
+    
+    // Fetch messages for this conversation
+    fetchMessages(conversation._id);
+    
+    // Mark all messages as read immediately
+    if (conversation.unreadCount && conversation.unreadCount > 0) {
+      // Update the conversation in state to show 0 unread
+      setConversations(prev => prev.map(conv =>
+        conv._id === conversation._id ? { ...conv, unreadCount: 0 } : conv
+      ));
+      
+      // Mark messages as read on the server
+      if (socket && isConnected) {
+        socket.emit('markConversationSeen', { conversationId: conversation._id });
+      }
+    }
     
     // Notify server that we're active in this conversation
     if (socket && isConnected) {
-      socket.emit('activeInConversation', { conversationId: chat._id });
+      socket.emit('activeInConversation', { conversationId: conversation._id });
     }
-  }, [fetchMessages, socket, isConnected]);
+  };
 
-  // Mark messages as seen when viewing conversation
-  useEffect(() => {
-    if (selectedChat && messages.length > 0 && socket && isConnected) {
-      const unreadMessages = messages.filter(
-        msg => !msg.isRead && msg.sender.id !== userData._id
-      );
-
-      if (unreadMessages.length > 0) {
-        // Emit seen event for each unread message
-        unreadMessages.forEach(msg => {
-          socket.emit('markMessageSeen', {
-            messageId: msg._id,
-            conversationId: selectedChat._id
-          });
-        });
-
-        // Update local messages state
-        setMessages(prev => prev.map(msg => 
-          msg.sender.id !== userData._id ? { ...msg, isRead: true } : msg
-        ));
-      }
+  // Render message status indicator
+  const renderMessageStatus = (message) => {
+    if (message.sender.id !== userData._id) return null;
+    
+    if (message.isRead) {
+      return <DoneAllIcon fontSize="small" sx={{ color: '#3B82F6', ml: 1 }} />;
+    } else if (message.delivered) {
+      return <CheckIcon fontSize="small" sx={{ color: 'text.secondary', ml: 1 }} />;
+    } else {
+      return <PendingIcon fontSize="small" sx={{ color: 'text.secondary', ml: 1 }} />;
     }
-  }, [selectedChat, messages, socket, isConnected, userData._id]);
+  };
 
   // Initial fetch of admins, students and conversations
   useEffect(() => {
@@ -273,8 +477,8 @@ const StudentMessaging = () => {
   );
 
   const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    student.dormNumber.toString().includes(searchQuery)
+    student && student.name && student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    student && student.dormNumber && student.dormNumber.toString().includes(searchQuery)
   );
 
   // Combined and filtered list of all users
@@ -594,8 +798,8 @@ const StudentMessaging = () => {
                     fullWidth
                     placeholder="Type a message..."
                     value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    onChange={handleMessageChange}
+                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         color: '#fff',

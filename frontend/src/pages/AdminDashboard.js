@@ -6,7 +6,6 @@ import {
   Stack,
   Grid,
   IconButton,
-  Badge,
   Menu,
   MenuItem,
   List,
@@ -15,13 +14,13 @@ import {
   Divider,
 } from '@mui/material';
 import {
-  Notifications as NotificationsIcon,
   MoreVert as MoreVertIcon,
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
   Circle as CircleIcon,
 } from '@mui/icons-material';
 import AdminSidebar from '../components/AdminSidebar';
+import NotificationBell from '../components/NotificationBell';
 import axios from 'axios';
 import { useSocket } from '../context/SocketContext';
 
@@ -34,144 +33,6 @@ const statsData = [
 
 const AdminDashboard = () => {
   const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [anchorEl, setAnchorEl] = useState(null);
-  const open = Boolean(anchorEl);
-  const { socket, isConnected } = useSocket();
-
-  // Fetch notifications
-  const fetchNotifications = async () => {
-    try {
-      const response = await axios.get('/api/admin/notifications');
-      setNotifications(response.data);
-      updateUnreadCount();
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-    }
-  };
-
-  // Update unread count
-  const updateUnreadCount = async () => {
-    try {
-      const response = await axios.get('/api/admin/notifications/unread/count');
-      setUnreadCount(response.data.count);
-    } catch (error) {
-      console.error('Error fetching unread count:', error);
-    }
-  };
-
-  // Socket.IO event handlers
-  useEffect(() => {
-    if (!socket || !isConnected || !userData._id) return;
-
-    // Join socket room with admin ID
-    socket.emit('join', userData._id);
-
-    // Listen for new notifications
-    socket.on('newNotification', (notification) => {
-      console.log('New notification received:', notification);
-      setNotifications(prev => [notification, ...prev]);
-      setUnreadCount(prev => prev + 1);
-    });
-
-    // Listen for notification updates
-    socket.on('notificationUpdate', ({ type, notificationId }) => {
-      if (type === 'read') {
-        setNotifications(prev => 
-          prev.map(notif => 
-            notif._id === notificationId 
-              ? { ...notif, isRead: true }
-              : notif
-          )
-        );
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      } else if (type === 'delete') {
-        setNotifications(prev => 
-          prev.filter(notif => notif._id !== notificationId)
-        );
-      }
-    });
-
-    // Clean up socket listeners
-    return () => {
-      socket.off('newNotification');
-      socket.off('notificationUpdate');
-    };
-  }, [socket, isConnected, userData._id]);
-
-  // Mark notification as read and delete it
-  const handleNotificationClick = async (notificationId) => {
-    try {
-      await axios.delete(`/api/admin/notifications/${notificationId}`);
-      
-      // Remove the notification from the list
-      setNotifications(prev => prev.filter(notif => notif._id !== notificationId));
-      updateUnreadCount();
-
-      // Emit socket event for real-time update
-      if (socket && isConnected) {
-        socket.emit('notificationDelete', {
-          notificationId,
-          userId: userData._id
-        });
-      }
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-    }
-  };
-
-  // Delete all notifications
-  const handleMarkAllRead = async () => {
-    try {
-      console.log('Attempting to delete all notifications...');
-      const response = await axios.delete('/api/admin/notifications/delete-all');
-      console.log('Delete all response:', response.data);
-      
-      if (response.data.deletedCount === 0) {
-        console.log('No notifications to delete');
-        setNotifications([]);
-        setUnreadCount(0);
-      } else {
-        // Clear all notifications
-        setNotifications([]);
-        setUnreadCount(0);
-        
-        // Emit socket event for real-time update
-        if (socket && isConnected) {
-          socket.emit('allNotificationsDeleted', {
-            userId: userData._id
-          });
-        }
-      }
-      
-      handleClose();
-    } catch (error) {
-      console.error('Error deleting all notifications:', error.response?.data || error);
-      // Show error in console with more details
-      if (error.response) {
-        console.error('Error response:', {
-          status: error.response.status,
-          data: error.response.data,
-          headers: error.response.headers
-        });
-      }
-    }
-  };
-
-  // Initial fetch
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
-
-  // Menu handlers
-  const handleClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
 
   return (
     <Box sx={{ 
@@ -227,135 +88,7 @@ const AdminDashboard = () => {
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
-            <IconButton 
-              onClick={handleClick}
-              sx={{ 
-                color: '#6B7280',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  color: '#10B981',
-                  background: 'rgba(16, 185, 129, 0.1)',
-                }
-              }}
-            >
-              <Badge badgeContent={unreadCount} color="error">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-            <Menu
-              anchorEl={anchorEl}
-              open={open}
-              onClose={handleClose}
-              PaperProps={{
-                sx: {
-                  mt: 1.5,
-                  width: 360,
-                  maxHeight: 400,
-                  background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-                  border: '1px solid rgba(255, 255, 255, 0.03)',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-                  '& .MuiList-root': {
-                    padding: 0,
-                  },
-                }
-              }}
-              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-            >
-              <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6" sx={{ color: '#fff' }}>Notifications</Typography>
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    color: '#10B981', 
-                    cursor: 'pointer',
-                    '&:hover': { textDecoration: 'underline' }
-                  }}
-                  onClick={handleMarkAllRead}
-                >
-                  Mark all as read
-                </Typography>
-              </Box>
-              <Divider sx={{ borderColor: 'rgba(255,255,255,0.03)' }} />
-              <List sx={{
-                maxHeight: 300,
-                overflow: 'auto',
-                '&::-webkit-scrollbar': {
-                  width: '8px',
-                  background: 'transparent'
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: 'rgba(255,255,255,0.1)',
-                  borderRadius: '4px',
-                  '&:hover': {
-                    background: 'rgba(255,255,255,0.2)'
-                  }
-                }
-              }}>
-                {notifications.length > 0 ? (
-                  notifications.map((notification) => (
-                    <ListItem
-                      key={notification._id}
-                      onClick={() => handleNotificationClick(notification._id)}
-                      sx={{
-                        cursor: 'pointer',
-                        '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' },
-                        position: 'relative',
-                        ...(notification.isRead ? {} : {
-                          '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            left: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: 3,
-                            bgcolor: '#10B981',
-                            borderRadius: '0 4px 4px 0',
-                          }
-                        })
-                      }}
-                    >
-                      <ListItemText
-                        primary={notification.title}
-                        secondary={notification.content}
-                        primaryTypographyProps={{
-                          color: '#fff',
-                          fontWeight: notification.isRead ? 400 : 600
-                        }}
-                        secondaryTypographyProps={{
-                          color: '#6B7280',
-                          sx: { 
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5
-                          }
-                        }}
-                      />
-                      <Typography 
-                        variant="caption" 
-                        sx={{ 
-                          color: '#6B7280',
-                          ml: 2,
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {new Date(notification.createdAt).toLocaleDateString()}
-                      </Typography>
-                    </ListItem>
-                  ))
-                ) : (
-                  <ListItem>
-                    <ListItemText
-                      primary="No notifications"
-                      primaryTypographyProps={{
-                        color: '#6B7280',
-                        textAlign: 'center'
-                      }}
-                    />
-                  </ListItem>
-                )}
-              </List>
-            </Menu>
+            <NotificationBell userType="admin" color="#10B981" />
             <IconButton sx={{ 
               color: '#6B7280',
               transition: 'all 0.3s ease',
@@ -400,16 +133,13 @@ const AdminDashboard = () => {
                     display: 'flex', 
                     alignItems: 'center', 
                     color: stat.isIncrease ? '#10B981' : '#EF4444',
-                    background: stat.isIncrease 
-                      ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
-                      : 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)',
-                    borderRadius: '10px',
-                    px: 1.5,
-                    py: 0.5,
-                    backdropFilter: 'blur(4px)',
+                    bgcolor: stat.isIncrease ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    p: 0.5,
+                    px: 1,
+                    borderRadius: 1,
                   }}>
                     {stat.isIncrease ? <TrendingUpIcon fontSize="small" /> : <TrendingDownIcon fontSize="small" />}
-                    <Typography variant="caption" sx={{ ml: 0.5, color: 'inherit' }}>
+                    <Typography variant="caption" sx={{ ml: 0.5 }}>
                       {stat.trend}
                     </Typography>
                   </Box>
@@ -418,6 +148,105 @@ const AdminDashboard = () => {
             </Grid>
           ))}
         </Grid>
+
+        {/* Recent Activity */}
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h5" sx={{ 
+            fontWeight: 600, 
+            color: '#fff',
+            mb: 3,
+            textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+          }}>
+            Recent Activity
+          </Typography>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={7}>
+              <Card sx={{ 
+                background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+                borderRadius: '20px',
+                p: 3,
+                border: '1px solid rgba(255, 255, 255, 0.03)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+                height: '100%',
+              }}>
+                <Typography variant="h6" sx={{ color: '#fff', mb: 2 }}>
+                  Latest Student Check-ins
+                </Typography>
+                <List>
+                  {[1, 2, 3, 4, 5].map((item) => (
+                    <ListItem 
+                      key={item}
+                      sx={{ 
+                        px: 0, 
+                        borderBottom: item < 5 ? '1px solid rgba(255,255,255,0.03)' : 'none',
+                        py: 1,
+                      }}
+                    >
+                      <ListItemText
+                        primary={`Student ${item}`}
+                        secondary={`Checked in at ${new Date().toLocaleTimeString()}`}
+                        primaryTypographyProps={{
+                          color: '#fff',
+                        }}
+                        secondaryTypographyProps={{
+                          color: '#6B7280',
+                        }}
+                      />
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        color: '#10B981',
+                      }}>
+                        <CircleIcon sx={{ fontSize: 10, mr: 0.5 }} />
+                        <Typography variant="caption">
+                          Active
+                        </Typography>
+                      </Box>
+                    </ListItem>
+                  ))}
+                </List>
+              </Card>
+            </Grid>
+            <Grid item xs={12} md={5}>
+              <Card sx={{ 
+                background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+                borderRadius: '20px',
+                p: 3,
+                border: '1px solid rgba(255, 255, 255, 0.03)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+                height: '100%',
+              }}>
+                <Typography variant="h6" sx={{ color: '#fff', mb: 2 }}>
+                  Maintenance Requests
+                </Typography>
+                <List>
+                  {[1, 2, 3].map((item) => (
+                    <ListItem
+                      key={item}
+                      sx={{ 
+                        px: 0, 
+                        borderBottom: item < 3 ? '1px solid rgba(255,255,255,0.03)' : 'none',
+                        py: 1,
+                      }}
+                    >
+                      <ListItemText
+                        primary={`Maintenance Request #${item}0${item}`}
+                        secondary={`${item === 1 ? 'Pending' : item === 2 ? 'In Progress' : 'Completed'}`}
+                        primaryTypographyProps={{
+                          color: '#fff',
+                        }}
+                        secondaryTypographyProps={{
+                          color: item === 1 ? '#EF4444' : item === 2 ? '#F59E0B' : '#10B981',
+                          fontWeight: 600,
+                        }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Card>
+            </Grid>
+          </Grid>
+        </Box>
       </Box>
     </Box>
   );

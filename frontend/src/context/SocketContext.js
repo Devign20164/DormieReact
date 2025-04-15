@@ -17,6 +17,33 @@ export const SocketProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
 
+  // Create a function to join a room
+  const joinRoom = (userId) => {
+    if (socket && userId) {
+      console.log('[SocketProvider] Joining room for user:', userId);
+      socket.emit('join', userId);
+    }
+  };
+
+  // Auto-join room based on user data in localStorage
+  useEffect(() => {
+    if (socket && isConnected) {
+      try {
+        // Check if user is logged in
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        
+        if (userData && userData._id) {
+          console.log('[SocketProvider] Auto-joining room for user:', userData._id);
+          socket.emit('join', userData._id);
+        } else {
+          console.log('[SocketProvider] No user data found for auto-join');
+        }
+      } catch (error) {
+        console.error('[SocketProvider] Error auto-joining room:', error);
+      }
+    }
+  }, [socket, isConnected]);
+
   useEffect(() => {
     console.log('[SocketProvider] Initializing socket connection to:', SOCKET_URL);
     
@@ -101,6 +128,7 @@ export const SocketProvider = ({ children }) => {
   const value = {
     socket,
     isConnected,
+    joinRoom,
   };
 
   return (

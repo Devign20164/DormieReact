@@ -66,8 +66,12 @@ const loginStudent = asyncHandler(async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
 
-    // Return user data with expanded profile information
-    res.json({
+    // Get Socket.io instance
+    const io = req.app.get('io');
+    const connectedUsers = req.app.get('connectedUsers');
+    
+    // Prepare response data
+    const responseData = {
       _id: student._id,
       name: student.name,
       email: student.email,
@@ -77,7 +81,16 @@ const loginStudent = asyncHandler(async (req, res) => {
         building: student.room.building?.name || 'Unassigned'
       } : null,
       role: 'student'
+    };
+
+    // Return student data along with socket initialization data
+    res.json({
+      ...responseData,
+      socketInitRequired: true,
+      socketUserId: student._id.toString()
     });
+
+    console.log('Student login successful:', student.name);
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({
@@ -624,19 +637,20 @@ const sendMessage = asyncHandler(async (req, res) => {
     });
 
     // Create notification for recipient
-    await Notification.create({
+    const notification = await Notification.create({
       recipient: {
         id: recipient.id,
         model: recipient.model
       },
-      type: 'message',
-      title: 'New Message',
-      content: `New message from ${req.user.name}`,
+      type: 'MESSAGE',
+      title: `New message from ${req.user.name}`,
+      content: content.length > 30 ? content.substring(0, 30) + '...' : content,
       relatedTo: {
-        model: 'Message',
-        id: message._id
+        model: 'Conversation',
+        id: conversation._id
       }
     });
+    console.log('Notification created:', notification._id);
 
     // Get the populated message to send in response
     const populatedMessage = await Message.findById(message._id)
@@ -646,10 +660,27 @@ const sendMessage = asyncHandler(async (req, res) => {
     // Try-catch block for socket emission to prevent errors from breaking the response
     try {
       if (req.app.get('io')) {
+        // Send the message event for the chat interface
         req.app.get('io').to(recipient.id.toString()).emit('newMessage', {
           message: populatedMessage,
           conversation: conversationId
         });
+        
+        // Add debug information
+        console.log(`Student sending notification for message ${message._id} to ${recipient.id}`);
+        
+        // Use the emitNotification helper function for notification
+        const emitNotification = req.app.get('emitNotification');
+        if (emitNotification) {
+          // Prevent potential duplicates by ensuring this notification hasn't been sent before
+          notification._studentSentAt = new Date().toISOString();
+          
+          // Use the emitNotification helper, which will handle the emitting
+          emitNotification(notification);
+          console.log(`Student used emitNotification helper for message ${message._id}`);
+        } else {
+          console.log('emitNotification function not available');
+        }
       }
     } catch (socketError) {
       console.error('Socket emission error:', socketError);

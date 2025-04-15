@@ -62,11 +62,25 @@ const loginAdmin = asyncHandler(async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
 
-    res.json({
+    // Get Socket.io instance
+    const io = req.app.get('io');
+    const connectedUsers = req.app.get('connectedUsers');
+    
+    // Prepare response data
+    const responseData = {
       _id: admin._id,
       name: admin.name,
       role: 'admin',
+    };
+
+    // Return admin data along with socket initialization data
+    res.json({
+      ...responseData,
+      socketInitRequired: true,
+      socketUserId: admin._id.toString()
     });
+
+    console.log('Admin login successful:', admin.name);
   } catch (error) {
     console.error('JWT Error:', error);
     res.status(500).json({
@@ -213,23 +227,39 @@ const sendMessage = asyncHandler(async (req, res) => {
         id: recipient.id,
         model: 'User'
       },
-      type: 'message',
-      title: 'New Message',
-      content: `New message from ${req.user.name}`,
+      type: 'MESSAGE',
+      title: `New message from ${req.user ? req.user.name : 'Admin'}`,
+      content: content.length > 30 ? content.substring(0, 30) + '...' : content,
       relatedTo: {
-        model: 'Message',
-        id: message._id
+        model: 'Conversation',
+        id: conversation._id
       }
     });
-    console.log('Notification created:', notification);
+    console.log('Notification created:', notification._id);
 
     // Emit socket event for real-time updates
     if (req.app.get('io')) {
+      // Send the message event for the chat interface
       req.app.get('io').to(recipient.id.toString()).emit('newMessage', {
         message,
         conversation: conversationId
       });
-      console.log('Socket event emitted');
+      
+      // Add debug information
+      console.log(`Admin sending notification for message ${message._id} to ${recipient.id}`);
+      
+      // Use the emitNotification helper function for notification
+      const emitNotification = req.app.get('emitNotification');
+      if (emitNotification) {
+        // Prevent potential duplicates by ensuring this notification hasn't been sent before
+        notification._adminSentAt = new Date().toISOString();
+        
+        // Use the emitNotification helper, which will handle the emitting
+        emitNotification(notification);
+        console.log(`Admin used emitNotification helper for message ${message._id}`);
+      } else {
+        console.log('emitNotification function not available');
+      }
     } else {
       console.log('Socket.io not initialized');
     }
