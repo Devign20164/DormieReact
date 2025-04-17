@@ -24,12 +24,16 @@ const {
   markNotificationRead,
   markAllNotificationsRead,
   getUnreadNotificationCount,
-  deleteNotification
+  deleteNotification,
+  // Form related controllers
+  submitForm,
+  getStudentForms,
+  getFormById,
+  cancelForm
 } = require('../controllers/studentController');
 
 // Auth routes
 router.post('/login', loginStudent);
-router.post('/logout', protect, logoutStudent);
 router.get('/profile', protect, getStudentProfile);
 
 // Student management routes
@@ -43,20 +47,26 @@ router.get('/check-email/:email', checkEmailExists);
 router.get('/check-dorm/:dormNumber', checkDormNumberExists);
 router.get('/check-phone/:phone', checkPhoneExists);
 
-// Messaging routes
+// Chat routes
+router.post('/conversations', protect, startConversation);
+router.post('/messages', protect, sendMessage);
+router.get('/conversations', protect, getConversations);
+router.get('/messages/:conversationId', protect, getMessages);
 router.get('/admins', protect, getAdmins);
 router.get('/others', protect, getOtherStudents);
-router.post('/conversations', protect, startConversation);
-router.get('/conversations', protect, getConversations);
-router.get('/conversations/:conversationId/messages', protect, getMessages);
-router.post('/messages', protect, sendMessage);
 
 // Notification routes
 router.get('/notifications', protect, getNotifications);
-router.get('/notifications/unread/count', protect, getUnreadNotificationCount);
-router.delete('/notifications/delete-all', protect, deleteAllNotifications);
-router.put('/notifications/:notificationId/read', protect, markNotificationRead);
-router.put('/notifications/mark-all-read', protect, markAllNotificationsRead);
-router.delete('/notifications/:notificationId', protect, deleteNotification);
+router.put('/notifications/:id/read', protect, markNotificationRead);
+router.put('/notifications/read-all', protect, markAllNotificationsRead);
+router.get('/notifications/unread-count', protect, getUnreadNotificationCount);
+router.delete('/notifications/:id', protect, deleteNotification);
+router.delete('/notifications', protect, deleteAllNotifications);
+
+// Form routes
+router.post('/forms', protect, upload.single('file'), submitForm);
+router.get('/forms', protect, getStudentForms);
+router.get('/forms/:id', protect, getFormById);
+router.delete('/forms/:id', protect, cancelForm);
 
 module.exports = router; 

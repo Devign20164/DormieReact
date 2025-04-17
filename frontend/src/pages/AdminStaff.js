@@ -52,6 +52,8 @@ const AdminStaff = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
+    contactNumber: '',
     typeOfStaff: 'Cleaner',
   });
 
@@ -90,6 +92,8 @@ const AdminStaff = () => {
       setEditingStaff(staffMember);
       setFormData({
         name: staffMember.name,
+        email: staffMember.email,
+        contactNumber: staffMember.contactNumber,
         typeOfStaff: staffMember.typeOfStaff,
       });
     } else {
@@ -111,6 +115,8 @@ const AdminStaff = () => {
   const resetForm = () => {
     setFormData({
       name: '',
+      email: '',
+      contactNumber: '',
       typeOfStaff: 'Cleaner',
     });
     setEditingStaff(null);
@@ -484,6 +490,66 @@ const AdminStaff = () => {
                   name="name"
                   label="Name"
                   value={formData.name}
+                  onChange={handleInputChange}
+                  fullWidth
+                  required
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': {
+                      color: '#fff',
+                      '& fieldset': {
+                        borderColor: 'rgba(255,255,255,0.1)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(16, 185, 129, 0.5)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#10B981',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255,255,255,0.7)',
+                    },
+                    '& .Mui-focused.MuiInputLabel-root': {
+                      color: '#10B981',
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  name="email"
+                  label="Email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  fullWidth
+                  required
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': {
+                      color: '#fff',
+                      '& fieldset': {
+                        borderColor: 'rgba(255,255,255,0.1)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(16, 185, 129, 0.5)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#10B981',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255,255,255,0.7)',
+                    },
+                    '& .Mui-focused.MuiInputLabel-root': {
+                      color: '#10B981',
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  name="contactNumber"
+                  label="Contact Number"
+                  value={formData.contactNumber}
                   onChange={handleInputChange}
                   fullWidth
                   required

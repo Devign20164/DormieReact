@@ -41,14 +41,12 @@ const StaffSidebar = () => {
       { text: 'Dashboard', icon: <DashboardIcon />, path: '/staff-dashboard' },
     ];
 
-    // Assignments menu item only for Cleaner and Maintenance staff
-    if (staffType === 'Cleaner' || staffType === 'Maintenance') {
-      baseItems.push({ 
-        text: 'Assignments', 
-        icon: <AssignmentsIcon />, 
-        path: '/staff/assignments' 
-      });
-    }
+    // Assignments menu item for all staff types
+    baseItems.push({ 
+      text: 'Assignments', 
+      icon: <AssignmentsIcon />, 
+      path: '/staff/assignments' 
+    });
 
     // Tenant Log only for Security staff
     if (staffType === 'Security') {

@@ -7,11 +7,13 @@ import AdminStudent from './pages/AdminStudent';
 import AdminBuilding from './pages/AdminBuilding';
 import AdminStaff from './pages/AdminStaff';
 import StaffDashboard from './pages/StaffDashboard';
-import StaffAssignments from './pages/StaffAssignments';
 import StaffTenantLog from './pages/StaffTenantLog';
+import StaffAssignment from './pages/StaffAssignment';
 import StudentDashboard from './pages/StudentDashboard';
 import AdminMessaging from './pages/AdminMessaging';
 import StudentMessaging from './pages/StudentMessaging';
+import StudentForm from './pages/StudentForm';
+import AdminForm from './pages/AdminForm';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -137,6 +139,15 @@ function App() {
           />
           
           <Route 
+            path="/admin/forms" 
+            element={
+              <ProtectedRoute allowedRole="admin">
+                <AdminForm />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
             path="/staff-dashboard" 
             element={
               <ProtectedRoute allowedRole="staff">
@@ -146,19 +157,19 @@ function App() {
           />
           
           <Route 
-            path="/staff/assignments" 
-            element={
-              <ProtectedRoute allowedRole="staff">
-                <StaffAssignments />
-              </ProtectedRoute>
-            } 
-          />
-
-          <Route 
             path="/staff/tenant-log" 
             element={
               <ProtectedRoute allowedRole="staff">
                 <StaffTenantLog />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/staff/assignments" 
+            element={
+              <ProtectedRoute allowedRole="staff">
+                <StaffAssignment />
               </ProtectedRoute>
             } 
           />
@@ -180,7 +191,16 @@ function App() {
               </ProtectedRoute>
             } 
           />
-
+          
+          <Route 
+            path="/student/forms" 
+            element={
+              <ProtectedRoute allowedRole="student">
+                <StudentForm />
+              </ProtectedRoute>
+            } 
+          />
+          
           {/* Redirect root to login */}
           <Route path="/" element={<Navigate to="/login" />} />
           

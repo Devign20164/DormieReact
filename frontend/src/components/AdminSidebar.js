@@ -24,6 +24,7 @@ import {
   Message as MessageIcon,
   Apartment as BuildingIcon,
   Person as StaffIcon,
+  Description as FormsIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -32,6 +33,7 @@ const menuItems = [
   { text: 'Students', icon: <PeopleIcon />, path: '/admin/students' },
   { text: 'Buildings', icon: <BuildingIcon />, path: '/admin/buildings' },
   { text: 'Staff', icon: <StaffIcon />, path: '/admin/staff' },
+  { text: 'Forms', icon: <FormsIcon />, path: '/admin/forms' },
   { text: 'Messages', icon: <MessageIcon />, path: '/admin/messages' },
   { text: 'Reports', icon: <AssignmentIcon />, path: '/reports' },
   { text: 'Schedule', icon: <EventIcon />, path: '/schedule' },

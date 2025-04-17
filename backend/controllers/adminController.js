@@ -11,6 +11,7 @@ const Building = require('../models/buildingModel');
 const Room = require('../models/roomModel');
 const Offense = require('../models/offenseModel');
 const Staff = require('../models/staffModel');
+const Form = require('../models/FormModel');
 
 // @desc    Auth admin & get token
 // @route   POST /api/admin/login
@@ -351,13 +352,27 @@ const getAllStudents = asyncHandler(async (req, res) => {
 // Get all notifications for an admin
 const getNotifications = async (req, res) => {
   try {
+    // Query notifications that are either:
+    // 1. Specific to this admin (has recipient.id matching this admin's ID)
+    // 2. OR meant for all admins (has recipient.model='Admin' but no recipient.id)
     const notifications = await Notification.find({
-      'recipient.id': req.user._id,
-      'recipient.model': 'Admin'
+      $or: [
+        // Admin-specific notifications
+        {
+          'recipient.id': req.user._id,
+          'recipient.model': 'Admin'
+        },
+        // Role-based notifications for all admins
+        {
+          'recipient.model': 'Admin',
+          'recipient.id': { $exists: false }
+        }
+      ]
     })
     .sort({ createdAt: -1 })
     .limit(50);  // Limit to most recent 50 notifications
 
+    console.log(`Found ${notifications.length} notifications for admin ${req.user._id}`);
     res.json(notifications);
   } catch (error) {
     console.error('Error fetching notifications:', error);
@@ -392,16 +407,32 @@ const markNotificationRead = async (req, res) => {
 // Mark all notifications as read
 const markAllNotificationsRead = async (req, res) => {
   try {
-    await Notification.updateMany(
+    // Mark both specific and role-based admin notifications as read
+    const result = await Notification.updateMany(
       {
-        'recipient.id': req.user._id,
-        'recipient.model': 'Admin',
-        isRead: false
+        $or: [
+          // Admin-specific notifications
+          {
+            'recipient.id': req.user._id,
+            'recipient.model': 'Admin',
+            isRead: false
+          },
+          // Role-based notifications for all admins
+          {
+            'recipient.model': 'Admin',
+            'recipient.id': { $exists: false },
+            isRead: false
+          }
+        ]
       },
       { isRead: true }
     );
 
-    res.json({ message: 'All notifications marked as read' });
+    console.log(`Marked ${result.modifiedCount} notifications as read for admin ${req.user._id}`);
+    res.json({ 
+      message: 'All notifications marked as read',
+      count: result.modifiedCount
+    });
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
     res.status(500).json({ message: 'Error updating notifications' });
@@ -412,11 +443,23 @@ const markAllNotificationsRead = async (req, res) => {
 const getUnreadNotificationCount = async (req, res) => {
   try {
     const count = await Notification.countDocuments({
-      'recipient.id': req.user._id,
-      'recipient.model': 'Admin',
-      isRead: false
+      $or: [
+        // Admin-specific notifications
+        {
+          'recipient.id': req.user._id,
+          'recipient.model': 'Admin',
+          isRead: false
+        },
+        // Role-based notifications for all admins
+        {
+          'recipient.model': 'Admin',
+          'recipient.id': { $exists: false },
+          isRead: false
+        }
+      ]
     });
 
+    console.log(`Found ${count} unread notifications for admin ${req.user._id}`);
     res.json({ count });
   } catch (error) {
     console.error('Error counting unread notifications:', error);
@@ -447,7 +490,7 @@ const deleteNotification = async (req, res) => {
 // Delete all notifications
 const deleteAllNotifications = asyncHandler(async (req, res) => {
   try {
-    console.log('Deleting notifications for user:', req.user._id);
+    console.log('Deleting notifications for admin:', req.user._id);
     
     if (!req.user._id) {
       console.log('User ID missing in request');
@@ -456,9 +499,20 @@ const deleteAllNotifications = asyncHandler(async (req, res) => {
       });
     }
 
+    // Delete both specific and role-based admin notifications
     const result = await Notification.deleteMany({
-      'recipient.id': req.user._id,
-      'recipient.model': 'Admin'
+      $or: [
+        // Admin-specific notifications
+        {
+          'recipient.id': req.user._id,
+          'recipient.model': 'Admin'
+        },
+        // Role-based notifications for all admins
+        {
+          'recipient.model': 'Admin',
+          'recipient.id': { $exists: false }
+        }
+      ]
     });
 
     console.log('Delete result:', result);
@@ -901,18 +955,21 @@ const getAllStaff = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const createStaff = asyncHandler(async (req, res) => {
   try {
-    const { name, typeOfStaff } = req.body;
+    const { name, email, contactNumber, typeOfStaff } = req.body;
+    const password = req.body.password || 'staffPassword'; // Set default password if not provided
 
-    // Check if staff with the same name already exists
-    const staffExists = await Staff.findOne({ name });
+    // Check if staff with the same email already exists
+    const staffExists = await Staff.findOne({ email });
     if (staffExists) {
-      return res.status(400).json({ message: 'Staff member with this name already exists' });
+      return res.status(400).json({ message: 'Staff member with this email already exists' });
     }
 
     const newStaff = await Staff.create({
       name,
+      email,
+      contactNumber,
+      password,
       typeOfStaff,
-      password: 'staffPassword', // Explicitly set password to trigger the pre-save middleware
       status: 'Available'
     });
 
@@ -920,6 +977,8 @@ const createStaff = asyncHandler(async (req, res) => {
     const staffResponse = {
       _id: newStaff._id,
       name: newStaff.name,
+      email: newStaff.email,
+      contactNumber: newStaff.contactNumber,
       typeOfStaff: newStaff.typeOfStaff,
       status: newStaff.status,
       createdAt: newStaff.createdAt,
@@ -1018,6 +1077,38 @@ const deleteStaff = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get all forms
+// @route   GET /api/admin/forms
+// @access  Private/Admin
+const getAllForms = asyncHandler(async (req, res) => {
+  try {
+    const forms = await Form.find()
+      .populate('student', 'name email')
+      .populate('assignedStaff', 'name')
+      .sort({ createdAt: -1 }); // Sort by newest first
+
+    res.json({
+      forms: forms.map(form => ({
+        _id: form._id,
+        title: form.title,
+        description: form.description,
+        formType: form.formType,
+        status: form.status,
+        studentInfo: form.studentInfo,
+        location: form.location,
+        preferredTiming: form.preferredTiming,
+        statusHistory: form.statusHistory,
+        attachments: form.attachments,
+        createdAt: form.createdAt,
+        updatedAt: form.updatedAt
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching forms:', error);
+    res.status(500).json({ message: 'Error fetching forms' });
+  }
+});
+
 module.exports = {
   loginAdmin,
   logoutAdmin,
@@ -1049,5 +1140,6 @@ module.exports = {
   createStaff,
   getStaffById,
   updateStaff,
-  deleteStaff
+  deleteStaff,
+  getAllForms
 }; 

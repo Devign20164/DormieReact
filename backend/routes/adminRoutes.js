@@ -31,7 +31,8 @@ const {
   createStaff,
   getStaffById,
   updateStaff,
-  deleteStaff
+  deleteStaff,
+  getAllForms
 } = require('../controllers/adminController');
 
 const { protect } = require('../middleware/auth');
@@ -80,5 +81,8 @@ router.post('/staff', protect, createStaff);
 router.get('/staff/:id', protect, getStaffById);
 router.put('/staff/:id', protect, updateStaff);
 router.delete('/staff/:id', protect, deleteStaff);
+
+// Forms routes
+router.get('/forms', protect, getAllForms);
 
 module.exports = router; 

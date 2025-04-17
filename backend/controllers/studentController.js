@@ -1,12 +1,15 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Student = require('../models/userModel');
+const Form = require('../models/FormModel');
 const asyncHandler = require('express-async-handler');
 const config = require('../config/config');
 const Message = require('../models/messageModel');
 const Conversation = require('../models/conversationModel');
 const Notification = require('../models/notificationModel');
 const Admin = require('../models/adminModel');
+const fs = require('fs');
+const path = require('path');
 
 // @desc    Auth student & get token
 // @route   POST /api/students/login
@@ -1025,6 +1028,311 @@ const deleteAllNotifications = async (req, res) => {
   }
 };
 
+// @desc    Submit a new service request form
+// @route   POST /api/students/forms
+// @access  Private
+const submitForm = asyncHandler(async (req, res) => {
+  try {
+    const {
+      title,
+      description,
+      buildingName,
+      roomNumber,
+      formType,
+      priority,
+      preferredStartTime,
+      preferredEndTime
+    } = req.body;
+
+    // Get student information from authentication
+    const student = await Student.findById(req.user.id);
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Create form with file attachment if any
+    const formData = {
+      student: student._id,
+      studentInfo: {
+        name: student.name,
+        email: student.email,
+        dormNumber: student.studentDormNumber,
+        contactNumber: student.contactInfo || ''
+      },
+      title,
+      description,
+      location: {
+        buildingName,
+        roomNumber
+      },
+      formType: formType || 'Maintenance',
+      priority: priority || 'Medium',
+      preferredTiming: {
+        startTime: new Date(preferredStartTime),
+        endTime: new Date(preferredEndTime)
+      },
+      status: 'Submitted',
+      statusHistory: [{
+        status: 'Submitted',
+        timestamp: new Date(),
+        updatedBy: {
+          id: student._id,
+          model: 'User'
+        }
+      }]
+    };
+
+    // Handle file attachment if present
+    if (req.file) {
+      formData.attachments = [{
+        filename: req.file.filename,
+        path: req.file.path,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        uploadDate: new Date()
+      }];
+    }
+
+    // Save the form
+    const newForm = await Form.create(formData);
+
+    // Create notification for admin
+    const notification = await Notification.create({
+      recipient: { model: 'Admin' }, // This will notify all admins
+      sender: {
+        model: 'User',
+        id: student._id
+      },
+      type: 'FORM_STATUS_CHANGE',
+      title: 'New Form Submission',
+      content: `${student.name} has submitted a new ${formType || 'maintenance'} request: "${title}"`,
+      relatedTo: {
+        model: 'Form',
+        id: newForm._id
+      }
+    });
+
+    // Emit socket notifications if available
+    if (req.app.get('io')) {
+      try {
+        // Find all admin users to notify
+        const admins = await Admin.find().select('_id');
+        
+        // Emit to each admin
+        for (const admin of admins) {
+          const adminSocketId = req.app.get('connectedUsers').get(admin._id.toString());
+          if (adminSocketId) {
+            req.app.get('io').to(adminSocketId).emit('newNotification', notification);
+          }
+        }
+        
+        // Also emit to the student for their own notification
+        const studentNotification = await Notification.create({
+          recipient: { 
+            id: student._id,
+            model: 'User' 
+          },
+          type: 'SYSTEM',
+          title: 'Form Submitted',
+          content: `Your ${formType || 'maintenance'} request "${title}" has been submitted successfully.`,
+          relatedTo: {
+            model: 'Form',
+            id: newForm._id
+          }
+        });
+        
+        const studentSocketId = req.app.get('connectedUsers').get(student._id.toString());
+        if (studentSocketId) {
+          req.app.get('io').to(studentSocketId).emit('newNotification', studentNotification);
+        }
+      } catch (socketError) {
+        console.error('Error emitting socket notification:', socketError);
+        // Don't fail the request if socket emission fails
+      }
+    }
+
+    res.status(201).json({
+      message: 'Form submitted successfully',
+      form: newForm
+    });
+  } catch (error) {
+    console.error('Error submitting form:', error);
+    res.status(500).json({
+      message: 'Error submitting form',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Get all forms submitted by the student
+// @route   GET /api/students/forms
+// @access  Private
+const getStudentForms = asyncHandler(async (req, res) => {
+  try {
+    const forms = await Form.find({ student: req.user.id })
+      .sort({ createdAt: -1 }) // Most recent first
+      .select('title formType status createdAt preferredTiming statusHistory') // Select relevant fields
+      .lean(); // Convert to plain JS objects for better performance
+
+    // Format the response data
+    const formattedForms = forms.map(form => {
+      // Calculate progress percentage based on status
+      let progress = 0;
+      switch (form.status) {
+        case 'Submitted':
+          progress = 25;
+          break;
+        case 'Approved':
+        case 'Assigned':
+          progress = 50;
+          break;
+        case 'In Progress':
+          progress = 75;
+          break;
+        case 'Completed':
+          progress = 100;
+          break;
+        default:
+          progress = 0;
+      }
+
+      // Format date for display
+      const formattedDate = new Date(form.createdAt).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+
+      return {
+        id: form._id,
+        title: form.title,
+        type: form.formType.toLowerCase(),
+        status: form.status.toLowerCase().replace(' ', '_'),
+        date: formattedDate,
+        progress,
+        // Include other fields as needed
+        description: form.description,
+        preferredStartTime: form.preferredTiming?.startTime,
+        preferredEndTime: form.preferredTiming?.endTime,
+        statusHistory: form.statusHistory
+      };
+    });
+
+    res.json(formattedForms);
+  } catch (error) {
+    console.error('Error fetching forms:', error);
+    res.status(500).json({
+      message: 'Error fetching forms',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Get a specific form by ID
+// @route   GET /api/students/forms/:id
+// @access  Private
+const getFormById = asyncHandler(async (req, res) => {
+  try {
+    const form = await Form.findOne({ 
+      _id: req.params.id,
+      student: req.user.id // Ensure the form belongs to the requesting student
+    }).populate('assignedStaff', 'name');
+
+    if (!form) {
+      return res.status(404).json({ message: 'Form not found' });
+    }
+
+    res.json(form);
+  } catch (error) {
+    console.error('Error fetching form:', error);
+    res.status(500).json({
+      message: 'Error fetching form',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Cancel a form request
+// @route   DELETE /api/students/forms/:id
+// @access  Private
+const cancelForm = asyncHandler(async (req, res) => {
+  try {
+    const form = await Form.findOne({ 
+      _id: req.params.id,
+      student: req.user.id
+    });
+
+    if (!form) {
+      return res.status(404).json({ message: 'Form not found' });
+    }
+
+    // Only allow cancellation if the form is not already in progress or completed
+    if (['In Progress', 'Completed'].includes(form.status)) {
+      return res.status(400).json({ 
+        message: 'Cannot cancel a form that is already in progress or completed' 
+      });
+    }
+
+    // Update form status to Cancelled
+    form.status = 'Cancelled';
+    form.statusHistory.push({
+      status: 'Cancelled',
+      timestamp: new Date(),
+      updatedBy: {
+        id: req.user.id,
+        model: 'User'
+      },
+      notes: 'Cancelled by student'
+    });
+
+    await form.save();
+
+    // Create notification for admin
+    const notification = await Notification.create({
+      recipient: { model: 'Admin' },
+      sender: {
+        model: 'User',
+        id: req.user.id
+      },
+      type: 'FORM_STATUS_CHANGE',
+      title: 'Service Request Cancelled',
+      content: `${req.user.name} has cancelled their request: "${form.title}"`,
+      relatedTo: {
+        model: 'Form',
+        id: form._id
+      }
+    });
+
+    // Emit socket notifications if available
+    if (req.app.get('io')) {
+      try {
+        // Find all admin users to notify
+        const admins = await Admin.find().select('_id');
+        
+        // Emit to each admin
+        for (const admin of admins) {
+          const adminSocketId = req.app.get('connectedUsers').get(admin._id.toString());
+          if (adminSocketId) {
+            req.app.get('io').to(adminSocketId).emit('newNotification', notification);
+          }
+        }
+      } catch (socketError) {
+        console.error('Error emitting socket notification for cancellation:', socketError);
+        // Don't fail the request if socket emission fails
+      }
+    }
+
+    res.json({ message: 'Form cancelled successfully' });
+  } catch (error) {
+    console.error('Error cancelling form:', error);
+    res.status(500).json({
+      message: 'Error cancelling form',
+      error: error.message
+    });
+  }
+});
+
 // Export all controllers
 module.exports = {
   loginStudent,
@@ -1048,5 +1356,9 @@ module.exports = {
   markAllNotificationsRead,
   getUnreadNotificationCount,
   deleteNotification,
-  deleteAllNotifications
+  deleteAllNotifications,
+  submitForm,
+  getStudentForms,
+  getFormById,
+  cancelForm
 }; 

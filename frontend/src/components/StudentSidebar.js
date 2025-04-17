@@ -19,12 +19,14 @@ import {
   ExitToApp as LogoutIcon,
   MenuBook as MenuBookIcon,
   Message as MessageIcon,
+  Description as RequestIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/student-dashboard' },
   { text: 'Profile', icon: <PersonIcon />, path: '/student/profile' },
+  { text: 'Service Requests', icon: <RequestIcon />, path: '/student/forms' },
   { text: 'Courses', icon: <MenuBookIcon />, path: '/student/courses' },
   { text: 'Messages', icon: <MessageIcon />, path: '/student/messages' },
   { text: 'Notifications', icon: <NotificationsIcon />, path: '/student/notifications' },

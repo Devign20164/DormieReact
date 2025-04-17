@@ -91,15 +91,23 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
   const handleNewNotification = (notification) => {
     console.log('Processing new notification:', notification);
     
-    // Ignore if not for this user
-    if (notification.recipient.id !== userData._id) {
-      console.log('Notification not for current user, ignoring');
+    // Skip notifications that have already been processed
+    if (processedNotifications.current.has(notification._id)) {
+      console.log('Notification already processed, ignoring:', notification._id);
       return;
     }
     
-    // Check if already processed to avoid duplicates
-    if (processedNotifications.current.has(notification._id)) {
-      console.log('Notification already processed, ignoring:', notification._id);
+    // Check if notification is for this user specifically or for their role
+    const isForThisUser = 
+      // Notification has specific recipient ID that matches this user
+      (notification.recipient.id && notification.recipient.id === userData._id) ||
+      // Notification is for all admins and this user is an admin
+      (notification.recipient.model === 'Admin' && userType === 'admin') ||
+      // Notification is for all staff and this user is staff
+      (notification.recipient.model === 'Staff' && userType === 'staff');
+      
+    if (!isForThisUser) {
+      console.log('Notification not for current user, ignoring');
       return;
     }
     
@@ -113,8 +121,11 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
       console.log('Incrementing unread count for new notification');
       setUnreadCount(prev => prev + 1);
       
-      // Sound and visual notification for messages
-      if (notification.type === 'MESSAGE') {
+      // Sound and visual notification 
+      // Play sound for messages and form submissions
+      if (notification.type === 'MESSAGE' || 
+          notification.type === 'SYSTEM' || 
+          notification.type === 'FORM_STATUS_CHANGE') {
         playNotificationSound();
         triggerPulse();
       }
@@ -252,7 +263,9 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
         });
       }
       
+      // Close the notifications menu
       handleClose();
+      
     } catch (error) {
       console.error('Error deleting all notifications:', error.response?.data || error);
     }
@@ -357,14 +370,32 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
                       top: 0,
                       bottom: 0,
                       width: 3,
-                      bgcolor: color,
+                      bgcolor: notification.type === 'FORM_STATUS_CHANGE' || notification.type === 'SYSTEM' 
+                        ? '#10B981' 
+                        : notification.type === 'MESSAGE' 
+                          ? '#3B82F6' 
+                          : color,
                       borderRadius: '0 4px 4px 0',
                     }
                   })
                 }}
               >
                 <ListItemText
-                  primary={notification.title}
+                  primary={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {/* Add icon based on notification type */}
+                      {(notification.type === 'FORM_STATUS_CHANGE' || notification.relatedTo?.model === 'Form') && (
+                        <Box sx={{ 
+                          width: 8, 
+                          height: 8, 
+                          borderRadius: '50%', 
+                          bgcolor: '#10B981',
+                          mr: 1
+                        }} />
+                      )}
+                      {notification.title}
+                    </Box>
+                  }
                   secondary={notification.content}
                   primaryTypographyProps={{
                     color: '#fff',
