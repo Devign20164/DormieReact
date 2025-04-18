@@ -32,10 +32,13 @@ const {
   getStaffById,
   updateStaff,
   deleteStaff,
-  getAllForms
+  getAllForms,
+  getFormById,
+  updateFormStatus,
+  assignStaffToForm
 } = require('../controllers/adminController');
 
-const { protect } = require('../middleware/auth');
+const { protect} = require('../middleware/auth');
 
 // Auth routes
 router.post('/login', loginAdmin);
@@ -82,7 +85,10 @@ router.get('/staff/:id', protect, getStaffById);
 router.put('/staff/:id', protect, updateStaff);
 router.delete('/staff/:id', protect, deleteStaff);
 
-// Forms routes
+// Form routes
 router.get('/forms', protect, getAllForms);
+router.get('/forms/:id', protect, getFormById);
+router.put('/forms/:id/status', protect, updateFormStatus);
+router.put('/forms/:id/assign', protect, assignStaffToForm);
 
 module.exports = router; 

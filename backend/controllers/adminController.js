@@ -1077,35 +1077,472 @@ const deleteStaff = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Get all forms
+// @desc    Get all maintenance forms
 // @route   GET /api/admin/forms
 // @access  Private/Admin
 const getAllForms = asyncHandler(async (req, res) => {
   try {
-    const forms = await Form.find()
-      .populate('student', 'name email')
-      .populate('assignedStaff', 'name')
-      .sort({ createdAt: -1 }); // Sort by newest first
-
+    // Get query parameters for filtering
+    const { 
+      status, 
+      formType, 
+      startDate, 
+      endDate, 
+      studentId,
+      staffId,
+      sort = '-createdAt' // Default sort by newest first
+    } = req.query;
+    
+    // Build query object
+    const query = {};
+    
+    // Add filters if provided
+    if (status) query.status = status;
+    if (formType) query.formType = formType;
+    if (studentId) query.student = studentId;
+    if (staffId) query.staff = staffId;
+    
+    // Date range filter for preferredStartTime
+    if (startDate || endDate) {
+      query.preferredStartTime = {};
+      if (startDate) query.preferredStartTime.$gte = new Date(startDate);
+      if (endDate) query.preferredStartTime.$lte = new Date(endDate);
+    }
+    
+    // Fetch forms with populated references
+    const forms = await Form.find(query)
+      .populate('student', 'name email studentDormNumber room')
+      .populate({
+        path: 'student',
+        populate: {
+          path: 'room',
+          select: 'roomNumber building',
+          populate: {
+            path: 'building',
+            select: 'name'
+          }
+        }
+      })
+      .populate('staff', 'name email typeOfStaff status')
+      .populate('admin', 'name')
+      .sort(sort);
+    
+    // Calculate some stats for admin dashboard
+    const formStats = {
+      total: forms.length,
+      pending: forms.filter(form => form.status === 'Pending').length,
+      assigned: forms.filter(form => form.status === 'Assigned').length,
+      inProgress: forms.filter(form => form.status === 'In Progress').length,
+      completed: forms.filter(form => form.status === 'Completed').length,
+      rejected: forms.filter(form => form.status === 'Rejected').length
+    };
+    
     res.json({
-      forms: forms.map(form => ({
-        _id: form._id,
-        title: form.title,
-        description: form.description,
-        formType: form.formType,
-        status: form.status,
-        studentInfo: form.studentInfo,
-        location: form.location,
-        preferredTiming: form.preferredTiming,
-        statusHistory: form.statusHistory,
-        attachments: form.attachments,
-        createdAt: form.createdAt,
-        updatedAt: form.updatedAt
-      }))
+      forms,
+      stats: formStats,
+      count: forms.length
     });
   } catch (error) {
     console.error('Error fetching forms:', error);
-    res.status(500).json({ message: 'Error fetching forms' });
+    res.status(500).json({ 
+      message: 'Error fetching maintenance forms',
+      error: error.message 
+    });
+  }
+});
+
+// @desc    Get form by ID
+// @route   GET /api/admin/forms/:id
+// @access  Private/Admin
+const getFormById = asyncHandler(async (req, res) => {
+  try {
+    const form = await Form.findById(req.params.id)
+      .populate('student', 'name email studentDormNumber room')
+      .populate({
+        path: 'student',
+        populate: {
+          path: 'room',
+          select: 'roomNumber building',
+          populate: {
+            path: 'building',
+            select: 'name'
+          }
+        }
+      })
+      .populate('staff', 'name email typeOfStaff status')
+      .populate('admin', 'name');
+    
+    if (!form) {
+      return res.status(404).json({ message: 'Form not found' });
+    }
+    
+    res.json(form);
+  } catch (error) {
+    console.error('Error fetching form details:', error);
+    res.status(500).json({ 
+      message: 'Error fetching form details',
+      error: error.message 
+    });
+  }
+});
+
+// @desc    Update form status
+// @route   PUT /api/admin/forms/:id/status
+// @access  Private/Admin
+const updateFormStatus = asyncHandler(async (req, res) => {
+  try {
+    const { status, notes } = req.body;
+    
+    if (!status) {
+      return res.status(400).json({ message: 'Status is required' });
+    }
+    
+    // Admins are not allowed to set forms to 'In Progress' or 'Completed' status
+    // These actions are reserved for staff
+    if (status === 'In Progress' || status === 'Completed') {
+      return res.status(403).json({ 
+        message: `Admins cannot change a form's status to ${status}. This action is reserved for staff.` 
+      });
+    }
+    
+    // Find the form
+    const form = await Form.findById(req.params.id);
+    
+    if (!form) {
+      return res.status(404).json({ message: 'Form not found' });
+    }
+    
+    // Validate status transitions
+    const validTransitions = {
+      'Pending': ['Approved', 'Rejected'],
+      'Approved': ['Assigned', 'Rejected'],
+      'Rejected': ['Rescheduled'],
+      'Assigned': ['Rejected'],
+      'In Progress': [],  // Admins can't change from In Progress
+      'Completed': [],    // Admins can't change from Completed
+      'Rescheduled': ['Pending']
+    };
+    
+    if (!validTransitions[form.status].includes(status)) {
+      return res.status(400).json({ 
+        message: `Cannot change status from ${form.status} to ${status}. Valid next statuses are: ${validTransitions[form.status].join(', ')}` 
+      });
+    }
+    
+    // Update status and admin reference
+    form.status = status;
+    form.admin = req.user.id;
+    
+    // Initialize statusHistory array if it doesn't exist
+    if (!form.statusHistory) {
+      form.statusHistory = [];
+    }
+    
+    // Add status history entry with notes
+    form.statusHistory.push({
+      status,
+      changedBy: req.user.id,
+      changedAt: new Date(),
+      notes: notes || `Status changed to ${status} by admin`
+    });
+    
+    // If changing to Rejected status, record the rejection reason
+    if (status === 'Rejected' && notes) {
+      form.rejectionReason = notes;
+    }
+    
+    // If changing to Rescheduled, prepare for new scheduling
+    if (status === 'Rescheduled') {
+      form.previousStatus = 'Rejected';
+    }
+    
+    // Save the updated form
+    const updatedForm = await form.save();
+    
+    // Create a notification for the student
+    const notificationContent = getNotificationContentForStatus(form.formType, status);
+    
+    await Notification.create({
+      recipient: {
+        id: form.student,
+        model: 'User'
+      },
+      type: 'FORM_STATUS_CHANGED',
+      title: 'Form Status Updated',
+      content: notificationContent,
+      relatedTo: {
+        model: 'Form',
+        id: form._id
+      },
+      metadata: {
+        formType: form.formType,
+        status,
+        formId: form._id
+      }
+    });
+    
+    // If there's a staff assigned, create notification for them too
+    if (form.staff) {
+      await Notification.create({
+        recipient: {
+          id: form.staff,
+          model: 'Staff'
+        },
+        type: 'FORM_STATUS_CHANGED',
+        title: 'Form Status Updated',
+        content: `A ${form.formType} request assigned to you has been ${status.toLowerCase()}.`,
+        relatedTo: {
+          model: 'Form',
+          id: form._id
+        },
+        metadata: {
+          formType: form.formType,
+          status,
+          formId: form._id
+        }
+      });
+    }
+    
+    // Emit socket events for real-time updates if available
+    if (req.app && req.app.get('io')) {
+      try {
+        // Notify student about status change
+        req.app.get('io').to(form.student.toString()).emit('formStatusChanged', {
+          formId: form._id,
+          status,
+          message: notificationContent
+        });
+        
+        // If staff is assigned, notify them as well
+        if (form.staff) {
+          req.app.get('io').to(form.staff.toString()).emit('formStatusChanged', {
+            formId: form._id,
+            status,
+            message: `A ${form.formType} request has been ${status.toLowerCase()}.`
+          });
+        }
+        
+        // Broadcast to admins
+        req.app.get('io').to('admins').emit('formStatusChanged', {
+          formId: form._id,
+          status,
+          updatedAt: new Date().toISOString(),
+          updatedBy: req.user.name || 'Admin'
+        });
+      } catch (socketError) {
+        console.error('Socket error:', socketError);
+        // Don't let socket errors affect the API response
+      }
+    }
+    
+    // Return fully populated form
+    const populatedForm = await Form.findById(updatedForm._id)
+      .populate('student', 'name email studentDormNumber room')
+      .populate({
+        path: 'student',
+        populate: {
+          path: 'room',
+          populate: {
+            path: 'building',
+            select: 'name'
+          }
+        }
+      })
+      .populate('staff', 'name email typeOfStaff status')
+      .populate('admin', 'name');
+    
+    res.json(populatedForm);
+  } catch (error) {
+    console.error('Error updating form status:', error);
+    res.status(500).json({ 
+      message: 'Error updating form status',
+      error: error.message
+    });
+  }
+});
+
+// Helper function to get appropriate notification content based on status
+const getNotificationContentForStatus = (formType, status) => {
+  switch (status) {
+    case 'Approved':
+      return `Your ${formType} request has been approved and is awaiting staff assignment.`;
+    case 'Rejected':
+      return `Your ${formType} request has been rejected. Please check for details.`;
+    case 'Assigned':
+      return `Your ${formType} request has been assigned to a staff member.`;
+    case 'In Progress':
+      return `Work on your ${formType} request has started.`;
+    case 'Completed':
+      return `Your ${formType} request has been completed. Please leave a review.`;
+    case 'Rescheduled':
+      return `Your ${formType} request has been marked for rescheduling. Please update your preferred time.`;
+    default:
+      return `Your ${formType} request status has been updated to ${status}.`;
+  }
+};
+
+// @desc    Assign staff to form
+// @route   PUT /api/admin/forms/:id/assign
+// @access  Private/Admin
+const assignStaffToForm = asyncHandler(async (req, res) => {
+  try {
+    const { staffId } = req.body;
+    
+    if (!staffId) {
+      return res.status(400).json({ message: 'Staff ID is required' });
+    }
+    
+    // Find the form
+    const form = await Form.findById(req.params.id);
+    
+    if (!form) {
+      return res.status(404).json({ message: 'Form not found' });
+    }
+    
+    // Check if form is in appropriate status for staff assignment
+    if (form.status !== 'Approved' && form.status !== 'Pending') {
+      return res.status(400).json({ 
+        message: `Cannot assign staff to form with status ${form.status}. Form must be Approved or Pending.` 
+      });
+    }
+    
+    // Find the staff member
+    const staff = await Staff.findById(staffId);
+    
+    if (!staff) {
+      return res.status(404).json({ message: 'Staff member not found' });
+    }
+    
+    // Check if staff is available
+    if (staff.status === 'Unavailable' || staff.status === 'On Leave') {
+      return res.status(400).json({ message: 'The selected staff member is currently unavailable' });
+    }
+    
+    // Map form types to required staff types
+    const staffTypeMapping = {
+      'Repair': 'Maintenance',
+      'Maintenance': 'Maintenance',
+      'Cleaning': 'Cleaner'
+    };
+    
+    const requiredStaffType = staffTypeMapping[form.formType];
+    
+    // Validate that staff type matches the required type for the form
+    if (staff.typeOfStaff !== requiredStaffType) {
+      return res.status(400).json({ 
+        message: `This form requires a ${requiredStaffType} staff member. Selected staff member is ${staff.typeOfStaff}.` 
+      });
+    }
+    
+    // Update form with staff assignment and change status to 'Assigned'
+    form.staff = staffId;
+    form.status = 'Assigned';
+    form.admin = req.user.id;
+    form.statusHistory.push({
+      status: 'Assigned',
+      changedBy: req.user.id,
+      changedAt: new Date(),
+      notes: `Assigned to ${staff.name}`
+    });
+    
+    // Save the updated form
+    const updatedForm = await form.save();
+    
+    // Update staff member's assigned forms
+    await Staff.findByIdAndUpdate(staffId, {
+      $push: { assignedForms: form._id }
+    });
+    
+    // Create notification for the student
+    await Notification.create({
+      recipient: {
+        id: form.student,
+        model: 'User'
+      },
+      type: 'FORM_ASSIGNED',
+      title: 'Staff Assigned to Your Request',
+      content: `${staff.name} has been assigned to your ${form.formType} request.`,
+      relatedTo: {
+        model: 'Form',
+        id: form._id
+      },
+      metadata: {
+        formType: form.formType,
+        staffId: staffId,
+        staffName: staff.name,
+        formId: form._id
+      }
+    });
+    
+    // Create notification for the staff
+    await Notification.create({
+      recipient: {
+        id: staffId,
+        model: 'Staff'
+      },
+      type: 'FORM_ASSIGNED',
+      title: 'New Task Assignment',
+      content: `You have been assigned to a ${form.formType} request.`,
+      relatedTo: {
+        model: 'Form',
+        id: form._id
+      },
+      metadata: {
+        formType: form.formType,
+        formId: form._id
+      }
+    });
+    
+    // Emit socket events
+    if (req.app.get('io')) {
+      // Notify student
+      req.app.get('io').to(form.student.toString()).emit('newNotification', {
+        type: 'FORM_ASSIGNED',
+        content: `${staff.name} has been assigned to your ${form.formType} request.`,
+        formId: form._id,
+        staffName: staff.name
+      });
+      
+      // Notify staff
+      req.app.get('io').to(staffId.toString()).emit('newNotification', {
+        type: 'NEW_ASSIGNMENT',
+        content: `You have been assigned to a ${form.formType} request.`,
+        formId: form._id
+      });
+      
+      // Broadcast assignment to all admins
+      req.app.get('io').to('admins').emit('formAssigned', {
+        formId: form._id,
+        staffId,
+        staffName: staff.name,
+        updatedAt: new Date().toISOString(),
+        assignedBy: req.user.id
+      });
+    }
+    
+    // Return populated form
+    const populatedForm = await Form.findById(form._id)
+      .populate('student', 'name email studentDormNumber room')
+      .populate({
+        path: 'student',
+        populate: {
+          path: 'room',
+          populate: {
+            path: 'building',
+            select: 'name'
+          }
+        }
+      })
+      .populate('staff', 'name email typeOfStaff status')
+      .populate('admin', 'name');
+    
+    res.json(populatedForm);
+  } catch (error) {
+    console.error('Error assigning staff to form:', error);
+    res.status(500).json({ 
+      message: 'Error assigning staff to form',
+      error: error.message 
+    });
   }
 });
 
@@ -1141,5 +1578,8 @@ module.exports = {
   getStaffById,
   updateStaff,
   deleteStaff,
-  getAllForms
+  getAllForms,
+  getFormById,
+  updateFormStatus,
+  assignStaffToForm
 }; 

@@ -25,12 +25,11 @@ const {
   markAllNotificationsRead,
   getUnreadNotificationCount,
   deleteNotification,
-  // Form related controllers
-  submitForm,
+  createForm,
   getStudentForms,
-  getFormById,
-  cancelForm
+  submitFormReview,
 } = require('../controllers/studentController');
+const Form = require('../models/FormModel');
 
 // Auth routes
 router.post('/login', loginStudent);
@@ -64,9 +63,33 @@ router.delete('/notifications/:id', protect, deleteNotification);
 router.delete('/notifications', protect, deleteAllNotifications);
 
 // Form routes
-router.post('/forms', protect, upload.single('file'), submitForm);
+router.post('/forms', protect, createForm);
 router.get('/forms', protect, getStudentForms);
-router.get('/forms/:id', protect, getFormById);
-router.delete('/forms/:id', protect, cancelForm);
+// Route to get a single form by ID
+router.get('/forms/:id', protect, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id || req.user._id.toString();
+    
+    // Find the form
+    const form = await Form.findById(id);
+    
+    // Check if form exists
+    if (!form) {
+      return res.status(404).json({ message: 'Form not found' });
+    }
+    
+    // Check if form belongs to this student
+    if (form.student.toString() !== userId) {
+      return res.status(403).json({ message: 'Access denied: You can only view your own forms' });
+    }
+    
+    res.json(form);
+  } catch (error) {
+    console.error('Error fetching form by ID:', error);
+    res.status(500).json({ message: 'Error fetching form details', error: error.message });
+  }
+});
+router.post('/forms/:id/review', protect, submitFormReview);
 
 module.exports = router; 

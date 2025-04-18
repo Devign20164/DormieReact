@@ -18,15 +18,15 @@ const notificationSchema = new mongoose.Schema({
       'MESSAGE', 
       'MESSAGE_SEEN',
       'CONVERSATION_SEEN',
-      'SYSTEM', 
+      'SYSTEM',
       'ALERT',
-      'FORM_STATUS_CHANGE',
+      'FORM_SUBMITTED',
+      'FORM_STATUS_CHANGED',
       'FORM_ASSIGNED',
-      'FORM_COMPLETED',
       'FORM_REJECTED',
-      'FORM_PRIORITY_CHANGE',
-      'FORM_DUE_SOON',
-      'FORM_OVERDUE'
+      'FORM_IN_PROGRESS',
+      'FORM_COMPLETED',
+      'FORM_REVIEW_NEEDED'
     ]
   },
   title: {
@@ -93,152 +93,107 @@ notificationSchema.statics.createMessageNotification = async function(recipient,
   });
 };
 
+// Static method to create form submission notification
+notificationSchema.statics.createFormSubmittedNotification = async function(form, student) {
+  return this.create({
+    recipient: {
+      id: form.admin,
+      model: 'Admin'
+    },
+    type: 'FORM_SUBMITTED',
+    title: 'New Form Submission',
+    content: `New ${form.formType} request submitted by ${student.name}`,
+    relatedTo: {
+      model: 'Form',
+      id: form._id
+    },
+    metadata: {
+      formType: form.formType,
+      studentId: student._id,
+      preferredStartTime: form.preferredStartTime
+    }
+  });
+};
+
 // Static method to create form status change notification
-notificationSchema.statics.createFormStatusNotification = async function(form, previousStatus, recipientInfo) {
+notificationSchema.statics.createFormStatusNotification = async function(form, newStatus, actor) {
   const statusMessages = {
-    'Submitted': 'Your form has been submitted successfully',
-    'Approved': 'Your form has been approved by an administrator',
-    'In Queue': 'Your form is now in the task queue awaiting assignment',
-    'Assigned': 'Your form has been assigned to a staff member',
-    'In Progress': 'Work on your request has started',
-    'Completed': 'Your request has been completed',
-    'Rejected': 'Your form has been rejected'
+    'Approved': 'Your form has been approved',
+    'Rejected': 'Your form has been rejected',
+    'Assigned': 'Your form has been assigned to staff',
+    'In Progress': 'Staff has started working on your request',
+    'In Review': 'Your form is ready for review',
+    'Completed': 'Your form has been completed'
   };
 
-  const statusTitles = {
-    'Submitted': 'Form Submitted',
-    'Approved': 'Form Approved',
-    'In Queue': 'Form In Queue',
-    'Assigned': 'Form Assigned',
-    'In Progress': 'Work Started',
-    'Completed': 'Request Completed',
-    'Rejected': 'Form Rejected'
-  };
+  const recipients = [
+    { id: form.student, model: 'User' }
+  ];
 
-  // Determine the correct notification type based on status
-  let notificationType = 'FORM_STATUS_CHANGE';
-  if (form.status === 'Assigned') notificationType = 'FORM_ASSIGNED';
-  if (form.status === 'Completed') notificationType = 'FORM_COMPLETED';
-  if (form.status === 'Rejected') notificationType = 'FORM_REJECTED';
-
-  return this.create({
-    recipient: recipientInfo,
-    type: notificationType,
-    title: statusTitles[form.status],
-    content: statusMessages[form.status],
-    relatedTo: {
-      model: 'Form',
-      id: form._id
-    },
-    metadata: {
-      formTitle: form.title,
-      previousStatus: previousStatus,
-      currentStatus: form.status,
-      assignedStaff: form.assignedStaff,
-      priority: form.priority,
-      category: form.category
-    }
-  });
-};
-
-// Static method to create form priority change notification
-notificationSchema.statics.createPriorityChangeNotification = async function(form, previousPriority, recipientInfo) {
-  return this.create({
-    recipient: recipientInfo,
-    type: 'FORM_PRIORITY_CHANGE',
-    title: 'Form Priority Changed',
-    content: `The priority of your request "${form.title}" has been changed from ${previousPriority} to ${form.priority}`,
-    relatedTo: {
-      model: 'Form',
-      id: form._id
-    },
-    metadata: {
-      formTitle: form.title,
-      previousPriority: previousPriority,
-      currentPriority: form.priority
-    }
-  });
-};
-
-// Static method to create form due soon notification
-notificationSchema.statics.createDueSoonNotification = async function(form, recipientInfo) {
-  return this.create({
-    recipient: recipientInfo,
-    type: 'FORM_DUE_SOON',
-    title: 'Task Due Soon',
-    content: `The task "${form.title}" is due soon`,
-    relatedTo: {
-      model: 'Form',
-      id: form._id
-    },
-    metadata: {
-      formTitle: form.title,
-      dueDate: form.dueDate,
-      priority: form.priority
-    }
-  });
-};
-
-// Static method to create form overdue notification
-notificationSchema.statics.createOverdueNotification = async function(form, recipientInfo) {
-  return this.create({
-    recipient: recipientInfo,
-    type: 'FORM_OVERDUE',
-    title: 'Task Overdue',
-    content: `The task "${form.title}" is now overdue`,
-    relatedTo: {
-      model: 'Form',
-      id: form._id
-    },
-    metadata: {
-      formTitle: form.title,
-      dueDate: form.dueDate,
-      priority: form.priority
-    }
-  });
-};
-
-// Static method to notify all relevant parties about a form status change
-notificationSchema.statics.notifyFormStatusChange = async function(form, previousStatus) {
-  const notifications = [];
-  
-  // Always notify the student
-  if (form.student) {
-    notifications.push(
-      await this.createFormStatusNotification(form, previousStatus, {
-        id: form.student,
-        model: 'User'
-      })
-    );
+  // If form is assigned, notify the staff member
+  if (newStatus === 'Assigned' && form.staff) {
+    recipients.push({ id: form.staff, model: 'Staff' });
   }
-  
-  // Notify the assigned staff if exists and status relevant
-  if (form.assignedStaff && ['Assigned', 'In Queue', 'In Progress'].includes(form.status)) {
-    notifications.push(
-      await this.createFormStatusNotification(form, previousStatus, {
-        id: form.assignedStaff,
-        model: 'Staff'
-      })
-    );
-  }
-  
-  // Notify admin for specific states
-  if (['Submitted', 'In Queue', 'Overdue'].includes(form.status)) {
-    // Get all admin users - this would depend on your implementation
-    // This is a placeholder - you would need to implement the actual query
-    const adminIds = await mongoose.model('User').find({ role: 'admin' }).select('_id');
-    
-    for (const adminId of adminIds) {
-      notifications.push(
-        await this.createFormStatusNotification(form, previousStatus, {
-          id: adminId,
-          model: 'User'
-        })
-      );
+
+  const notifications = recipients.map(recipient => ({
+    recipient,
+    type: 'FORM_STATUS_CHANGED',
+    title: 'Form Status Update',
+    content: statusMessages[newStatus] || `Form status changed to ${newStatus}`,
+    relatedTo: {
+      model: 'Form',
+      id: form._id
+    },
+    metadata: {
+      newStatus,
+      actorId: actor._id,
+      actorModel: actor.model
     }
-  }
-  
-  return notifications;
+  }));
+
+  return this.create(notifications);
+};
+
+// Static method to create form rejection notification
+notificationSchema.statics.createFormRejectionNotification = async function(form, admin, reason) {
+  return this.create({
+    recipient: {
+      id: form.student,
+      model: 'User'
+    },
+    type: 'FORM_REJECTED',
+    title: 'Form Rejected',
+    content: `Your form has been rejected: ${reason}`,
+    relatedTo: {
+      model: 'Form',
+      id: form._id
+    },
+    metadata: {
+      rejectionReason: reason,
+      adminId: admin._id
+    }
+  });
+};
+
+// Static method to create form review needed notification
+notificationSchema.statics.createFormReviewNotification = async function(form) {
+  return this.create({
+    recipient: {
+      id: form.student,
+      model: 'User'
+    },
+    type: 'FORM_REVIEW_NEEDED',
+    title: 'Form Review Required',
+    content: 'Please review your completed form',
+    relatedTo: {
+      model: 'Form',
+      id: form._id
+    },
+    metadata: {
+      formType: form.formType,
+      staffId: form.staff
+    }
+  });
 };
 
 const Notification = mongoose.model('Notification', notificationSchema);

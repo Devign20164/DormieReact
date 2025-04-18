@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import {
   Notifications as NotificationsIcon,
+  Message as MessageIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useSocket } from '../context/SocketContext';
@@ -67,11 +68,13 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
   // Fetch notifications
   const fetchNotifications = async () => {
     try {
+      console.log(`[NotificationBell] Fetching notifications for ${userType} with ID:`, userData._id);
       const response = await axios.get(`${apiBaseRoute}/notifications`);
-      console.log('Fetched notifications:', response.data.length);
       
       // Process and deduplicate
       const notifs = response.data;
+      console.log(`[NotificationBell] Found ${notifs.length} notifications for ${userType} ${userData._id}`);
+      
       notifs.forEach(notif => {
         processedNotifications.current.add(notif._id);
       });
@@ -80,20 +83,20 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
       
       // Count unread notifications accurately
       const unreadNotifs = notifs.filter(notif => !notif.isRead);
-      console.log('Unread notifications count:', unreadNotifs.length);
+      console.log(`[NotificationBell] ${unreadNotifs.length} unread notifications for ${userType}`);
       setUnreadCount(unreadNotifs.length);
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error(`[NotificationBell] Error fetching notifications for ${userType}:`, error);
     }
   };
 
   // Handle new notification event
   const handleNewNotification = (notification) => {
-    console.log('Processing new notification:', notification);
+    console.log(`[NotificationBell] Processing new notification for ${userType}:`, notification);
     
     // Skip notifications that have already been processed
     if (processedNotifications.current.has(notification._id)) {
-      console.log('Notification already processed, ignoring:', notification._id);
+      console.log(`[NotificationBell] Notification already processed for ${userType}, ignoring:`, notification._id);
       return;
     }
     
@@ -104,12 +107,16 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
       // Notification is for all admins and this user is an admin
       (notification.recipient.model === 'Admin' && userType === 'admin') ||
       // Notification is for all staff and this user is staff
-      (notification.recipient.model === 'Staff' && userType === 'staff');
+      (notification.recipient.model === 'Staff' && userType === 'staff') ||
+      // Notification is for a specific user and this is a student
+      (notification.recipient.model === 'User' && userType === 'student' && notification.recipient.id === userData._id);
       
     if (!isForThisUser) {
-      console.log('Notification not for current user, ignoring');
+      console.log(`[NotificationBell] Notification not for current ${userType}, ignoring`);
       return;
     }
+    
+    console.log(`[NotificationBell] Adding new notification for ${userType}`);
     
     // Mark as processed
     processedNotifications.current.add(notification._id);
@@ -118,102 +125,67 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
     setNotifications(prev => [notification, ...prev]);
     
     if (!notification.isRead) {
-      console.log('Incrementing unread count for new notification');
+      console.log(`[NotificationBell] Incrementing unread count for ${userType}`);
       setUnreadCount(prev => prev + 1);
       
-      // Sound and visual notification 
-      // Play sound for messages and form submissions
-      if (notification.type === 'MESSAGE' || 
-          notification.type === 'SYSTEM' || 
-          notification.type === 'FORM_STATUS_CHANGE') {
+      // Play sound and trigger pulse for messages and system notifications
+      if (notification.type === 'MESSAGE' || notification.type === 'SYSTEM') {
         playNotificationSound();
         triggerPulse();
       }
     }
   };
 
+  // Initial fetch when component mounts
+  useEffect(() => {
+    if (userData._id) {
+      console.log(`[NotificationBell] Initial fetch for ${userType} ${userData._id}`);
+      fetchNotifications();
+    }
+  }, [userData._id]);
+
   // Socket.IO event handlers
   useEffect(() => {
     if (!socket || !isConnected || !userData._id) {
-      console.log('Socket connection prerequisites not met');
+      console.log(`[NotificationBell] Socket connection prerequisites not met for ${userType}:`, {
+        hasSocket: !!socket,
+        isConnected,
+        userId: userData._id
+      });
       return;
     }
 
-    console.log('Setting up notification listeners');
-    
-    // Clean up existing listeners
-    socket.off('newNotification');
-    socket.off('notificationUpdate');
-
-    // Join user's room if needed
-    joinRoom(userData._id);
-
-    // Listen for new notifications
-    socket.on('newNotification', handleNewNotification);
-
-    // Listen for notification updates
-    socket.on('notificationUpdate', ({ type, notificationId, userId }) => {
-      console.log('Notification update:', type, notificationId);
+    const setupSocketListeners = () => {
+      console.log(`[NotificationBell] Setting up notification listeners for ${userType}:`, userData._id);
       
-      // Skip if not for this user
-      if (userId && userId !== userData._id) return;
-      
-      if (type === 'read') {
-        setNotifications(prev => 
-          prev.map(notif => 
-            notif._id === notificationId 
-              ? { ...notif, isRead: true }
-              : notif
-          )
-        );
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      } else if (type === 'delete') {
-        setNotifications(prev => {
-          // Check if notification was unread before removing
-          const wasUnread = prev.some(notif => 
-            notif._id === notificationId && !notif.isRead
-          );
-          
-          if (wasUnread) {
-            setUnreadCount(prev => Math.max(0, prev - 1));
-          }
-          
-          return prev.filter(notif => notif._id !== notificationId);
-        });
-      } else if (type === 'readAll' || type === 'deleteAll') {
-        setNotifications([]);
-        setUnreadCount(0);
-      }
-    });
-
-    // Clean up
-    return () => {
-      console.log('Cleaning up notification listeners');
+      // Clean up existing listeners
       socket.off('newNotification');
       socket.off('notificationUpdate');
-    };
-  }, [socket, isConnected, userData._id, joinRoom]);
 
-  // Initial fetch when socket is connected or user data changes
-  useEffect(() => {
-    if (socket && isConnected && userData._id) {
-      console.log('Fetching notifications after connection established');
-      fetchNotifications();
-    }
+      // Join user's room
+      joinRoom(userData._id);
+      console.log(`[NotificationBell] ${userType} joined room:`, userData._id);
+
+      // Listen for new notifications
+      socket.on('newNotification', (notification) => {
+        console.log(`[NotificationBell] ${userType} received new notification:`, notification);
+        handleNewNotification(notification);
+      });
+    };
+
+    // Initial setup
+    setupSocketListeners();
+
+    // Cleanup function
+    return () => {
+      console.log(`[NotificationBell] Cleaning up socket listeners for ${userType}`);
+      if (socket) {
+        socket.off('newNotification');
+        socket.off('notificationUpdate');
+      }
+    };
   }, [socket, isConnected, userData._id]);
 
-  // Regular polling as fallback
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (userData._id) {
-        fetchNotifications();
-      }
-    }, 60000); // Check every minute as a fallback
-    
-    return () => clearInterval(interval);
-  }, [userData._id]);
-
-  // Menu handlers
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -222,63 +194,55 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
     setAnchorEl(null);
   };
 
-  // Mark notification as read and delete it
   const handleNotificationClick = async (notificationId) => {
     try {
-      await axios.delete(`${apiBaseRoute}/notifications/${notificationId}`);
-      
-      // Remove the notification from the list
-      setNotifications(prev => prev.filter(notif => notif._id !== notificationId));
+      await axios.put(`${apiBaseRoute}/notifications/${notificationId}/read`);
+      setNotifications(notifications.map(notif => 
+        notif._id === notificationId ? { ...notif, isRead: true } : notif
+      ));
       setUnreadCount(prev => Math.max(0, prev - 1));
-
-      // Emit socket event for real-time update
-      if (socket && isConnected) {
-        socket.emit('notificationDelete', {
-          notificationId,
-          userId: userData._id
-        });
-      }
     } catch (error) {
-      console.error('Error deleting notification:', error);
+      console.error('Error marking notification as read:', error);
     }
   };
 
-  // Delete all notifications
   const handleMarkAllRead = async () => {
     try {
-      console.log('Attempting to delete all notifications...');
-      const response = await axios.delete(`${apiBaseRoute}/notifications/delete-all`);
-      console.log('Delete all response:', response.data);
-      
-      // Clear all notifications
-      setNotifications([]);
-      
-      // Reset unread count explicitly
+      await axios.put(`${apiBaseRoute}/notifications/mark-all-read`);
+      setNotifications(notifications.map(notif => ({ ...notif, isRead: true })));
       setUnreadCount(0);
-      
-      // Emit socket event for real-time update
-      if (socket && isConnected) {
-        socket.emit('allNotificationsDeleted', {
-          userId: userData._id
-        });
-      }
-      
-      // Close the notifications menu
       handleClose();
-      
     } catch (error) {
-      console.error('Error deleting all notifications:', error.response?.data || error);
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  const getNotificationContent = (notification) => {
+    switch (notification.type) {
+      case 'MESSAGE':
+        return {
+          icon: <MessageIcon sx={{ color: '#3B82F6' }} />,
+          content: notification.content
+        };
+      case 'SYSTEM':
+        return {
+          icon: <NotificationsIcon sx={{ color: '#10B981' }} />,
+          content: notification.content
+        };
+      default:
+        return {
+          icon: <NotificationsIcon sx={{ color: '#6B7280' }} />,
+          content: notification.content
+        };
     }
   };
 
   return (
     <>
-      <IconButton 
+      <IconButton
         onClick={handleClick}
-        sx={{ 
-          color: '#6B7280',
-          transition: 'all 0.3s ease',
-          animation: isPulsing ? 'pulse 1s infinite' : 'none',
+        sx={{
+          animation: isPulsing ? 'pulse 1s cubic-bezier(0, 0, 0.2, 1)' : 'none',
           '@keyframes pulse': {
             '0%': {
               transform: 'scale(1)',
@@ -293,16 +257,13 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
               boxShadow: '0 0 0 0 rgba(16, 185, 129, 0)',
             },
           },
-          '&:hover': {
-            color: color,
-            background: `rgba(${parseInt(color.slice(1, 3), 16)}, ${parseInt(color.slice(3, 5), 16)}, ${parseInt(color.slice(5, 7), 16)}, 0.1)`,
-          }
         }}
       >
         <Badge badgeContent={unreadCount} color="error">
-          <NotificationsIcon />
+          <NotificationsIcon sx={{ color }} />
         </Badge>
       </IconButton>
+
       <Menu
         anchorEl={anchorEl}
         open={open}
@@ -312,126 +273,80 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
             mt: 1.5,
             width: 360,
             maxHeight: 400,
-            background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-            border: '1px solid rgba(255, 255, 255, 0.03)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-            '& .MuiList-root': {
-              padding: 0,
-            },
+            backgroundColor: '#1F2937',
+            backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05))',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
           }
         }}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6" sx={{ color: '#fff' }}>Notifications</Typography>
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              color: color, 
-              cursor: 'pointer',
-              '&:hover': { textDecoration: 'underline' }
-            }}
-            onClick={handleMarkAllRead}
-          >
-            Mark all as read
-          </Typography>
+          {unreadCount > 0 && (
+            <Typography
+              variant="button"
+              sx={{
+                color: '#10B981',
+                cursor: 'pointer',
+                '&:hover': { textDecoration: 'underline' }
+              }}
+              onClick={handleMarkAllRead}
+            >
+              Mark all as read
+            </Typography>
+          )}
         </Box>
-        <Divider sx={{ borderColor: 'rgba(255,255,255,0.03)' }} />
-        <List sx={{
-          maxHeight: 300,
-          overflow: 'auto',
-          '&::-webkit-scrollbar': {
-            width: '8px',
-            background: 'transparent'
-          },
-          '&::-webkit-scrollbar-thumb': {
-            background: 'rgba(255,255,255,0.1)',
-            borderRadius: '4px',
-            '&:hover': {
-              background: 'rgba(255,255,255,0.2)'
-            }
-          }
-        }}>
-          {notifications.length > 0 ? (
-            notifications.map((notification) => (
-              <ListItem
-                key={notification._id}
-                onClick={() => handleNotificationClick(notification._id)}
-                sx={{
-                  cursor: 'pointer',
-                  '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' },
-                  position: 'relative',
-                  ...(notification.isRead ? {} : {
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      width: 3,
-                      bgcolor: notification.type === 'FORM_STATUS_CHANGE' || notification.type === 'SYSTEM' 
-                        ? '#10B981' 
-                        : notification.type === 'MESSAGE' 
-                          ? '#3B82F6' 
-                          : color,
-                      borderRadius: '0 4px 4px 0',
-                    }
-                  })
-                }}
-              >
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {/* Add icon based on notification type */}
-                      {(notification.type === 'FORM_STATUS_CHANGE' || notification.relatedTo?.model === 'Form') && (
-                        <Box sx={{ 
-                          width: 8, 
-                          height: 8, 
-                          borderRadius: '50%', 
-                          bgcolor: '#10B981',
-                          mr: 1
-                        }} />
-                      )}
-                      {notification.title}
-                    </Box>
-                  }
-                  secondary={notification.content}
-                  primaryTypographyProps={{
-                    color: '#fff',
-                    fontWeight: notification.isRead ? 400 : 600
-                  }}
-                  secondaryTypographyProps={{
-                    color: '#6B7280',
-                    sx: { 
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5
-                    }
-                  }}
-                />
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    color: '#6B7280',
-                    ml: 2,
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  {new Date(notification.createdAt).toLocaleDateString()}
-                </Typography>
-              </ListItem>
-            ))
-          ) : (
+        <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+        <List sx={{ p: 0 }}>
+          {notifications.length === 0 ? (
             <ListItem>
               <ListItemText
                 primary="No notifications"
-                primaryTypographyProps={{
-                  color: '#6B7280',
-                  textAlign: 'center'
+                sx={{ 
+                  '.MuiListItemText-primary': { 
+                    color: '#9CA3AF',
+                    textAlign: 'center'
+                  }
                 }}
               />
             </ListItem>
+          ) : (
+            notifications.map((notification, index) => {
+              const { icon, content } = getNotificationContent(notification);
+              return (
+                <React.Fragment key={notification._id}>
+                  <ListItem
+                    onClick={() => handleNotificationClick(notification._id)}
+                    sx={{
+                      cursor: 'pointer',
+                      bgcolor: notification.isRead ? 'transparent' : 'rgba(16, 185, 129, 0.1)',
+                      '&:hover': {
+                        bgcolor: 'rgba(255, 255, 255, 0.05)'
+                      }
+                    }}
+                  >
+                    <Box sx={{ mr: 2 }}>{icon}</Box>
+                    <ListItemText
+                      primary={notification.title}
+                      secondary={content}
+                      sx={{
+                        '.MuiListItemText-primary': { color: '#fff' },
+                        '.MuiListItemText-secondary': { color: '#9CA3AF' }
+                      }}
+                    />
+                    <Typography
+                      variant="caption"
+                      sx={{ color: '#6B7280', ml: 2, minWidth: 'fit-content' }}
+                    >
+                      {new Date(notification.createdAt).toLocaleDateString()}
+                    </Typography>
+                  </ListItem>
+                  {index < notifications.length - 1 && (
+                    <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+                  )}
+                </React.Fragment>
+              );
+            })
           )}
         </List>
       </Menu>
