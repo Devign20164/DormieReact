@@ -16,12 +16,24 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const socketRef = React.useRef(null);
 
   // Create a function to join a room
   const joinRoom = (userId) => {
-    if (socket && userId) {
+    if (socketRef.current && userId) {
       console.log('[SocketProvider] Joining room for user:', userId);
-      socket.emit('join', userId);
+      socketRef.current.emit('join', userId);
+    }
+  };
+
+  // Create a function to force reconnection
+  const reconnect = () => {
+    console.log('[SocketProvider] Manual reconnection requested');
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      setTimeout(() => {
+        socketRef.current.connect();
+      }, 500);
     }
   };
 
@@ -35,6 +47,11 @@ export const SocketProvider = ({ children }) => {
         if (userData && userData._id) {
           console.log('[SocketProvider] Auto-joining room for user:', userData._id);
           socket.emit('join', userData._id);
+          
+          // Join user type room (admin or student)
+          const userType = userData.role || (userData.isAdmin ? 'admin' : 'student');
+          console.log(`[SocketProvider] Joining ${userType} room`);
+          socket.emit('joinUserType', userType);
         } else {
           console.log('[SocketProvider] No user data found for auto-join');
         }
@@ -58,12 +75,36 @@ export const SocketProvider = ({ children }) => {
       forceNew: true
     });
 
+    socketRef.current = socketInstance;
     console.log('[SocketProvider] Socket instance created');
+
+    // Setup regular ping to keep connection alive
+    const pingInterval = setInterval(() => {
+      if (socketInstance && socketInstance.connected) {
+        console.log('[SocketProvider] Sending ping to keep connection alive');
+        socketInstance.emit('ping');
+      }
+    }, 25000);
 
     socketInstance.on('connect', () => {
       console.log('[SocketProvider] Socket connected successfully with ID:', socketInstance.id);
       setIsConnected(true);
       setReconnectAttempts(0);
+      
+      // Re-join rooms after reconnection
+      try {
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        if (userData && userData._id) {
+          console.log('[SocketProvider] Re-joining rooms after reconnection');
+          socketInstance.emit('join', userData._id);
+          
+          // Join user type room (admin or student)
+          const userType = userData.role || (userData.isAdmin ? 'admin' : 'student');
+          socketInstance.emit('joinUserType', userType);
+        }
+      } catch (error) {
+        console.error('[SocketProvider] Error re-joining rooms:', error);
+      }
     });
 
     socketInstance.on('disconnect', (reason) => {
@@ -114,11 +155,17 @@ export const SocketProvider = ({ children }) => {
       }, 5000);
     });
 
+    // Listen for pong to confirm connection is active
+    socketInstance.on('pong', () => {
+      console.log('[SocketProvider] Received pong from server, connection active');
+    });
+
     setSocket(socketInstance);
 
     // Cleanup function
     return () => {
       console.log('[SocketProvider] Cleaning up socket connection');
+      clearInterval(pingInterval);
       if (socketInstance) {
         socketInstance.disconnect();
       }
@@ -129,6 +176,7 @@ export const SocketProvider = ({ children }) => {
     socket,
     isConnected,
     joinRoom,
+    reconnect
   };
 
   return (

@@ -104,40 +104,111 @@ const StudentMessaging = () => {
     }
   }, []);
 
+  // Force socket connection when component mounts
+  useEffect(() => {
+    console.log('[StudentMessaging] Component mounted - ensuring socket connection');
+    if (socket && !isConnected) {
+      console.log('[StudentMessaging] Forcing socket reconnection on component mount');
+      socket.connect();
+    } else if (socket) {
+      console.log('[StudentMessaging] Socket already connected - re-registering for events');
+      // Re-register for events to ensure we're receiving messages
+      socket.emit('join', userData._id?.toString());
+      socket.emit('joinUserType', 'student');
+    }
+  }, []);
+
   // Socket.IO event handlers
   useEffect(() => {
-    if (!socket || !isConnected || !userData._id) return;
+    if (!socket) return;
 
-    console.log('Setting up socket events for user:', userData._id);
-    socket.emit('join', userData._id.toString());
+    console.log('[StudentMessaging] Setting up socket events for user:', userData._id);
+    
+    // Force connection status check
+    const connectionStatus = socket.connected;
+    console.log('[StudentMessaging] Current socket connection status:', connectionStatus ? 'connected' : 'disconnected');
+    
+    // Force reconnection if socket exists but is not connected
+    if (!connectionStatus) {
+      console.log('[StudentMessaging] Socket exists but not connected. Attempting reconnection...');
+      socket.connect();
+    }
+    
+    if (connectionStatus) {
+      console.log('[StudentMessaging] Socket already connected, joining rooms with ID:', userData._id);
+      socket.emit('join', userData._id?.toString());
+      socket.emit('joinUserType', 'student');
+    }
+    
+    // Listen for connection status
+    socket.on('connect', () => {
+      console.log('[StudentMessaging] Socket connected successfully with ID:', socket.id);
+      // Join the room for this user
+      socket.emit('join', userData._id?.toString());
+      socket.emit('joinUserType', 'student');
+      
+      // Join conversation room if one is selected
+      if (selectedChat) {
+        socket.emit('joinConversation', { conversationId: selectedChat._id });
+        socket.emit('activeInConversation', { conversationId: selectedChat._id });
+        socket.emit('listenToConversation', { conversationId: selectedChat._id });
+      }
+      
+      // Refresh conversations after reconnect
+      fetchConversations();
+    });
+    
+    socket.on('disconnect', () => {
+      console.log('[StudentMessaging] Socket disconnected');
+    });
 
     // Listen for new messages with enhanced logging
     socket.on('newMessage', ({ message, conversation: conversationId }) => {
-      console.log('New message received:', message._id, 'for conversation:', conversationId);
+      console.log('[StudentMessaging] New message received:', message, 'for conversation:', conversationId);
       
       try {
+        // Play notification sound for new messages
+        const audio = new Audio('/notification.mp3');
+        audio.play().catch(err => console.log('[StudentMessaging] Could not play notification sound:', err));
+        
+        // Check if the message is from someone else - if so, play notification sound
+        if (message.sender.id !== userData._id) {
+          // You could add a sound effect here
+          console.log('[StudentMessaging] Message from another user received');
+        }
+      
         // Update messages if the conversation is currently selected
         if (selectedChat?._id === conversationId) {
-          console.log('Adding message to current conversation view');
+          console.log('[StudentMessaging] Adding message to current conversation view');
           
           // Check if message already exists in the list to prevent duplication
           setMessages(prev => {
             // Check if message with this ID already exists
             const messageExists = prev.some(m => m._id === message._id);
             if (messageExists) {
-              console.log('Message already exists in state, skipping:', message._id);
+              console.log('[StudentMessaging] Message already exists in state, skipping:', message._id);
               return prev;
             }
             
-            console.log('Adding new message to state:', message._id);
+            console.log('[StudentMessaging] Adding new message to state:', message._id);
             
             // If this is a message from the other person, mark it as seen
             if (message.sender.id !== userData._id) {
+              console.log('[StudentMessaging] Marking message as seen:', message._id);
               socket.emit('markMessageSeen', {
                 messageId: message._id,
                 conversationId: conversationId
               });
             }
+            
+            // Force a small delay to ensure React re-renders properly
+            setTimeout(() => {
+              // Scroll to the bottom of the message container
+              const messageContainer = document.querySelector('.message-container');
+              if (messageContainer) {
+                messageContainer.scrollTop = messageContainer.scrollHeight;
+              }
+            }, 100);
             
             return [...prev, message];
           });
@@ -145,14 +216,15 @@ const StudentMessaging = () => {
           // Notify server that we're active in this conversation
           socket.emit('activeInConversation', { conversationId });
         } else {
-          console.log('Message is for a different conversation than current view');
+          console.log('[StudentMessaging] Message is for a different conversation than current view:', 
+            selectedChat?._id, 'vs', conversationId);
         }
 
         // Update conversations list
         setConversations(prev => {
           const updatedConversations = prev.map(conv => {
             if (conv._id === conversationId) {
-              console.log('Updating conversation in list:', conv._id);
+              console.log('[StudentMessaging] Updating conversation in list:', conv._id);
               
               // Skip if we're already using this message as the last message
               if (conv.lastMessage && conv.lastMessage._id === message._id) {
@@ -176,8 +248,8 @@ const StudentMessaging = () => {
           );
           
           if (!wasUpdated) {
-            console.log('Conversation not found in list, might need to fetch conversations');
-            // Optionally refresh conversations list if the conversation isn't found
+            console.log('[StudentMessaging] Conversation not found in list, fetching conversations');
+            // Refresh conversations list if the conversation isn't found
             fetchConversations();
           }
           
@@ -187,10 +259,10 @@ const StudentMessaging = () => {
         // Play a notification sound or show a toast for unread messages
         if (selectedChat?._id !== conversationId) {
           // Add notification logic here if desired
-          console.log('Should show notification for new message');
+          console.log('[StudentMessaging] Should show notification for new message');
         }
       } catch (error) {
-        console.error('Error processing new message:', error);
+        console.error('[StudentMessaging] Error processing new message:', error);
       }
     });
 
@@ -314,11 +386,11 @@ const StudentMessaging = () => {
       // Find the recipient from the selected chat
       const recipient = selectedChat.participants.find(p => p.id !== userData._id);
       if (!recipient) {
-        console.error('No recipient found in conversation');
+        console.error('[StudentMessaging] No recipient found in conversation');
         return;
       }
       
-      console.log('Sending message to recipient:', recipient.id);
+      console.log('[StudentMessaging] Sending message to recipient:', recipient.id);
       
       const response = await axios.post('/api/students/messages', {
         conversationId: selectedChat._id,
@@ -327,6 +399,14 @@ const StudentMessaging = () => {
 
       // Add the new message to the messages list
       setMessages(prev => [...prev, response.data]);
+      
+      // Force scroll to bottom
+      setTimeout(() => {
+        const messageContainer = document.querySelector('.message-container');
+        if (messageContainer) {
+          messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+      }, 100);
       
       // Update conversations list with new message
       setConversations(prev => prev.map(conv => 
@@ -338,9 +418,14 @@ const StudentMessaging = () => {
       // Ensure recipient ID is a string
       const recipientId = recipient.id.toString();
       
+      // Check if recipient is an admin for special handling
+      const isAdminRecipient = recipientId && selectedChat.participants.some(p => 
+        p.id === recipientId && (p.role === 'admin' || p.isAdmin)
+      );
+      
       // Make sure socket is connected
       if (socket && isConnected) {
-        console.log('Emitting newMessage event via socket for message:', response.data._id);
+        console.log('[StudentMessaging] Emitting newMessage event via socket for message:', response.data._id);
         
         // Emit message to both the individual room and broadcast
         socket.emit('newMessage', {
@@ -349,16 +434,49 @@ const StudentMessaging = () => {
           recipientId: recipientId
         });
         
+        // If sending to admin, use special channel to ensure delivery
+        if (isAdminRecipient) {
+          console.log('[StudentMessaging] Sending message to admin via admin channel');
+          socket.emit('studentMessageToAdmin', {
+            message: response.data,
+            conversationId: selectedChat._id,
+            recipientId: recipientId
+          });
+        }
+        
         // Verify message delivery
         socket.emit('verifyMessageDelivery', {
           messageId: response.data._id,
           recipientId: recipientId
         });
       } else {
-        console.error('Socket not connected, message saved but not emitted');
+        console.error('[StudentMessaging] Socket not connected, attempting to connect');
+        // Try to reconnect socket
+        if (socket) {
+          socket.connect();
+          setTimeout(() => {
+            if (socket.connected) {
+              console.log('[StudentMessaging] Reconnected, now emitting message');
+              socket.emit('newMessage', {
+                message: response.data,
+                conversationId: selectedChat._id,
+                recipientId: recipientId
+              });
+              
+              // If sending to admin, use special channel to ensure delivery
+              if (isAdminRecipient) {
+                socket.emit('studentMessageToAdmin', {
+                  message: response.data,
+                  conversationId: selectedChat._id,
+                  recipientId: recipientId
+                });
+              }
+            }
+          }, 1000);
+        }
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('[StudentMessaging] Error sending message:', error);
       
       // Show the error to the user
       setError('Failed to send message');
@@ -418,7 +536,7 @@ const StudentMessaging = () => {
     }
     
     // Join conversation room for real-time updates
-    if (socket && isConnected) {
+    if (socket) {
       // If we were in a previous conversation, leave that room
       if (selectedChat && selectedChat._id !== conversation._id) {
         socket.emit('leaveConversation', { conversationId: selectedChat._id });
@@ -426,7 +544,12 @@ const StudentMessaging = () => {
       
       // Join the new conversation room
       socket.emit('joinConversation', { conversationId: conversation._id });
-      console.log('Joining conversation room:', conversation._id);
+      socket.emit('activeInConversation', { conversationId: conversation._id });
+      
+      // Explicitly register for messages in this conversation
+      socket.emit('listenToConversation', { conversationId: conversation._id });
+      
+      console.log('[StudentMessaging] Joined conversation room:', conversation._id);
     }
     
     // Fetch messages for this conversation
@@ -444,11 +567,6 @@ const StudentMessaging = () => {
         socket.emit('markConversationSeen', { conversationId: conversation._id });
       }
     }
-    
-    // Notify server that we're active in this conversation
-    if (socket && isConnected) {
-      socket.emit('activeInConversation', { conversationId: conversation._id });
-    }
   };
 
   // Render message status indicator
@@ -463,6 +581,19 @@ const StudentMessaging = () => {
       return <PendingIcon fontSize="small" sx={{ color: 'text.secondary', ml: 1 }} />;
     }
   };
+
+  // Auto-scroll to bottom when messages update
+  useEffect(() => {
+    if (messages.length > 0) {
+      console.log('[StudentMessaging] Messages updated, scrolling to bottom');
+      setTimeout(() => {
+        const messageContainer = document.querySelector('.message-container');
+        if (messageContainer) {
+          messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [messages]);
 
   // Initial fetch of admins, students and conversations
   useEffect(() => {
@@ -486,6 +617,61 @@ const StudentMessaging = () => {
     ...filteredAdmins.map(admin => ({ ...admin, type: 'admin' })),
     ...filteredStudents.map(student => ({ ...student, type: 'student' }))
   ];
+
+  // Near fetchConversations function
+  // Poll for conversations periodically to ensure we have the latest data
+  useEffect(() => {
+    // Initial fetch
+    fetchConversations();
+    
+    // Set up polling for new conversations
+    const intervalId = setInterval(() => {
+      if (isConnected) {
+        console.log('[StudentMessaging] Polling for new conversations');
+        fetchConversations();
+      }
+    }, 30000); // Poll every 30 seconds
+    
+    return () => clearInterval(intervalId);
+  }, [fetchConversations, isConnected]);
+
+  // Add debug tracing for Socket.IO issues
+  const debugSocketEvents = () => {
+    if (!socket) return;
+    
+    const originalEmit = socket.emit;
+    
+    // Override emit to add logging
+    socket.emit = function(event, ...args) {
+      console.log(`[Socket Debug] EMIT: ${event}`, args);
+      return originalEmit.apply(this, [event, ...args]);
+    };
+    
+    const eventHandlers = socket._callbacks || {};
+    
+    console.log('[Socket Debug] Current event listeners:', 
+      Object.keys(eventHandlers).map(k => k.replace('$', '')));
+      
+    // Test socket connection
+    socket.emit('ping');
+    
+    // Force refresh of connection
+    if (socket.connected) {
+      console.log('[Socket Debug] Socket is connected with ID:', socket.id);
+    } else {
+      console.log('[Socket Debug] Socket is NOT connected, attempting reconnection...');
+      socket.connect();
+    }
+  };
+  
+  // Debug socket after component mounts
+  useEffect(() => {
+    // Wait a bit for socket to initialize properly
+    setTimeout(() => {
+      console.log('[StudentMessaging] Running socket debug...');
+      debugSocketEvents();
+    }, 2000);
+  }, [socket]);
 
   return (
     <Box sx={{ 
@@ -533,6 +719,27 @@ const StudentMessaging = () => {
           }}>
             Messages
           </Typography>
+          {!isConnected && (
+            <Box 
+              onClick={() => socket && socket.connect()}
+              sx={{
+                py: 1,
+                px: 2,
+                borderRadius: '8px',
+                bgcolor: 'rgba(255,0,0,0.2)',
+                color: '#fff',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                '&:hover': {
+                  bgcolor: 'rgba(255,0,0,0.3)'
+                }
+              }}
+            >
+              <Typography variant="body2">Disconnected - Click to reconnect</Typography>
+            </Box>
+          )}
         </Box>
 
         <Box sx={{ 
@@ -725,7 +932,7 @@ const StudentMessaging = () => {
                 </Box>
 
                 {/* Messages */}
-                <Box sx={{ 
+                <Box className="message-container" sx={{ 
                   flexGrow: 1, 
                   p: 2,
                   overflow: 'auto',

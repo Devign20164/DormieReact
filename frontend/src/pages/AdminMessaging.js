@@ -110,11 +110,11 @@ const AdminMessaging = () => {
       // Find the recipient from the selected chat
       const recipient = selectedChat.participants.find(p => p.id !== userData._id);
       if (!recipient) {
-        console.error('No recipient found in conversation');
+        console.error('[AdminMessaging] No recipient found in conversation');
         return;
       }
       
-      console.log('Sending message to recipient:', recipient.id);
+      console.log('[AdminMessaging] Sending message to recipient:', recipient.id);
       
       // Make API call to save the message
       const response = await axios.post('/api/admin/messages', {
@@ -124,6 +124,14 @@ const AdminMessaging = () => {
 
       // Add the new message to the messages list
       setMessages(prev => [...prev, response.data]);
+      
+      // Force scroll to bottom
+      setTimeout(() => {
+        const messageContainer = document.querySelector('.message-container');
+        if (messageContainer) {
+          messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+      }, 100);
       
       // Update conversations list with new message
       setConversations(prev => prev.map(conv => 
@@ -137,7 +145,7 @@ const AdminMessaging = () => {
       
       // Make sure socket is connected
       if (socket && isConnected) {
-        console.log('Emitting newMessage event via socket for message:', response.data._id);
+        console.log('[AdminMessaging] Emitting newMessage event via socket for message:', response.data._id);
         
         // Emit message to both the individual room and broadcast
         socket.emit('newMessage', {
@@ -152,10 +160,24 @@ const AdminMessaging = () => {
           recipientId: recipientId
         });
       } else {
-        console.error('Socket not connected, message saved but not emitted');
+        console.error('[AdminMessaging] Socket not connected, attempting to connect');
+        // Try to reconnect socket
+        if (socket) {
+          socket.connect();
+          setTimeout(() => {
+            if (socket.connected) {
+              console.log('[AdminMessaging] Reconnected, now emitting message');
+              socket.emit('newMessage', {
+                message: response.data,
+                conversationId: selectedChat._id,
+                recipientId: recipientId
+              });
+            }
+          }, 1000);
+        }
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('[AdminMessaging] Error sending message:', error);
       
       // Show the error to the user
       setError('Failed to send message');
@@ -234,7 +256,7 @@ const AdminMessaging = () => {
     }
     
     // Join conversation room for real-time updates
-    if (socket && isConnected) {
+    if (socket) {
       // If we were in a previous conversation, leave that room
       if (selectedChat && selectedChat._id !== conversation._id) {
         socket.emit('leaveConversation', { conversationId: selectedChat._id });
@@ -243,6 +265,11 @@ const AdminMessaging = () => {
       // Join the new conversation room
       socket.emit('joinConversation', { conversationId: conversation._id });
       socket.emit('activeInConversation', { conversationId: conversation._id });
+      
+      // Explicitly register for messages in this conversation
+      socket.emit('listenToConversation', { conversationId: conversation._id });
+      
+      console.log('[AdminMessaging] Joined conversation room:', conversation._id);
     }
     
     // Fetch messages for this conversation
@@ -262,40 +289,94 @@ const AdminMessaging = () => {
     }
   };
 
+  // Force socket connection when component mounts
+  useEffect(() => {
+    console.log('[AdminMessaging] Component mounted - ensuring socket connection');
+    if (socket && !isConnected) {
+      console.log('[AdminMessaging] Forcing socket reconnection on component mount');
+      socket.connect();
+    } else if (socket) {
+      console.log('[AdminMessaging] Socket already connected - re-registering for events');
+      // Re-register for events to ensure we're receiving messages
+      socket.emit('join', userData._id?.toString());
+      socket.emit('joinUserType', 'admin');
+      socket.emit('registerAdminForMessages');
+    }
+  }, []);
+
   // Setup socket events
   useEffect(() => {
-    if (!socket || !isConnected || !userData._id) return;
+    if (!socket) return;
 
-    console.log('Setting up socket events for admin:', userData._id);
-    socket.emit('join', userData._id.toString());
+    console.log('[AdminMessaging] Setting up socket events for admin:', userData._id);
+    
+    // Force connection status check
+    const connectionStatus = socket.connected;
+    console.log('[AdminMessaging] Current socket connection status:', connectionStatus ? 'connected' : 'disconnected');
+    
+    // Force reconnection if socket exists but is not connected
+    if (!connectionStatus) {
+      console.log('[AdminMessaging] Socket exists but not connected. Attempting reconnection...');
+      socket.connect();
+    }
+    
+    if (connectionStatus) {
+      console.log('[AdminMessaging] Socket already connected, joining rooms with ID:', userData._id);
+      socket.emit('join', userData._id?.toString());
+      socket.emit('joinUserType', 'admin');
+      
+      // Register for global admin notifications
+      socket.emit('registerAdminForNotifications');
+      socket.emit('registerAdminForMessages');
+    }
 
     // Listen for new messages with enhanced logging
     socket.on('newMessage', ({ message, conversation: conversationId }) => {
-      console.log('New message received:', message._id, 'for conversation:', conversationId);
+      console.log('[AdminMessaging] New message received:', message, 'for conversation:', conversationId);
       
       try {
+        // Play notification sound for new messages
+        const audio = new Audio('/notification.mp3');
+        audio.play().catch(err => console.log('[AdminMessaging] Could not play notification sound:', err));
+        
+        // Check if the message is from someone else - if so, play notification sound
+        if (message.sender.id !== userData._id) {
+          // You could add a sound effect here
+          console.log('[AdminMessaging] Message from another user received');
+        }
+        
         // Update messages if the conversation is currently selected
         if (selectedChat?._id === conversationId) {
-          console.log('Adding message to current conversation view');
+          console.log('[AdminMessaging] Adding message to current conversation view');
           
           // Check if message already exists in the list to prevent duplication
           setMessages(prev => {
             // Check if message with this ID already exists
             const messageExists = prev.some(m => m._id === message._id);
             if (messageExists) {
-              console.log('Message already exists in state, skipping:', message._id);
+              console.log('[AdminMessaging] Message already exists in state, skipping:', message._id);
               return prev;
             }
             
-            console.log('Adding new message to state:', message._id);
+            console.log('[AdminMessaging] Adding new message to state:', message._id);
             
             // If this is a message from the other person, mark it as seen
             if (message.sender.id !== userData._id) {
+              console.log('[AdminMessaging] Marking message as seen:', message._id);
               socket.emit('markMessageSeen', {
                 messageId: message._id,
                 conversationId: conversationId
               });
             }
+            
+            // Force a small delay to ensure React re-renders properly
+            setTimeout(() => {
+              // Scroll to the bottom of the message container
+              const messageContainer = document.querySelector('.message-container');
+              if (messageContainer) {
+                messageContainer.scrollTop = messageContainer.scrollHeight;
+              }
+            }, 100);
             
             return [...prev, message];
           });
@@ -303,43 +384,38 @@ const AdminMessaging = () => {
           // Notify server that we're active in this conversation
           socket.emit('activeInConversation', { conversationId });
         } else {
-          console.log('Message is for a different conversation than current view');
+          console.log('[AdminMessaging] Message is for a different conversation than current view:', 
+            selectedChat?._id, 'vs', conversationId);
         }
 
-        // Update conversations list
+        // Update the conversations list to reflect new message
         setConversations(prev => {
-          const updatedConversations = prev.map(conv => {
+          const updated = prev.map(conv => {
             if (conv._id === conversationId) {
-              console.log('Updating conversation in list:', conv._id);
-              
-              // Skip if we're already using this message as the last message
+              // If this conversation already has the message, don't modify it
               if (conv.lastMessage && conv.lastMessage._id === message._id) {
                 return conv;
               }
               
+              // Update with new last message
+              console.log('[AdminMessaging] Updating conversation last message:', conv.student?.name || 'Unknown Student');
               return {
                 ...conv,
                 lastMessage: message,
                 unreadCount: selectedChat?._id === conversationId 
-                  ? conv.unreadCount 
+                  ? 0 // If we're viewing this conversation, reset counter
                   : (conv.unreadCount || 0) + 1
               };
             }
             return conv;
           });
           
-          // Check if the conversation was actually updated
-          const wasUpdated = updatedConversations.some(
-            conv => conv._id === conversationId && conv.lastMessage?._id === message._id
-          );
-          
-          if (!wasUpdated) {
-            console.log('Conversation not found in list, might need to fetch conversations');
-            // Optionally refresh conversations list if the conversation isn't found
-            fetchConversations();
-          }
-          
-          return updatedConversations;
+          // Re-sort conversations to bring the one with the new message to top
+          return updated.sort((a, b) => {
+            const aDate = a?.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt) : new Date(0);
+            const bDate = b?.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt) : new Date(0);
+            return bDate - aDate;
+          });
         });
         
         // Play a notification sound or show a toast for unread messages
@@ -347,8 +423,8 @@ const AdminMessaging = () => {
           // Add notification logic here if desired
           console.log('Should show notification for new message');
         }
-      } catch (error) {
-        console.error('Error processing new message:', error);
+      } catch (err) {
+        console.error('[AdminMessaging] Error handling new message:', err);
       }
     });
 
@@ -365,15 +441,13 @@ const AdminMessaging = () => {
     });
 
     // Listen for message seen events
-    socket.on('messageSeen', ({ messageId, conversationId, readAt }) => {
-      console.log('Message seen:', messageId);
-      
-      // Update message seen status if in the current conversation
-      if (selectedChat?._id === conversationId) {
-        setMessages(prev => prev.map(msg => 
-          msg._id === messageId ? { ...msg, isRead: true, readAt } : msg
-        ));
-      }
+    socket.on('messageSeen', ({ messageId }) => {
+      console.log('[AdminMessaging] Message seen event received for:', messageId);
+      setMessages(prev => 
+        prev.map(msg => 
+          msg._id === messageId ? { ...msg, seen: true } : msg
+        )
+      );
     });
 
     // Listen for user status changes
@@ -432,8 +506,67 @@ const AdminMessaging = () => {
       }
     });
 
+    // Listen for special student-to-admin messages
+    socket.on('studentMessageToAdmin', ({ message, conversation: conversationId }) => {
+      console.log('[AdminMessaging] Received student message via admin channel:', message, 'for conversation:', conversationId);
+      
+      try {
+        // Update messages if the conversation is currently selected
+        if (selectedChat?._id === conversationId) {
+          console.log('[AdminMessaging] Adding student message to current conversation view');
+          
+          // Check if message already exists in the list to prevent duplication
+          setMessages(prev => {
+            // Check if message with this ID already exists
+            const messageExists = prev.some(m => m._id === message._id);
+            if (messageExists) {
+              console.log('[AdminMessaging] Message already exists in state, skipping:', message._id);
+              return prev;
+            }
+            
+            console.log('[AdminMessaging] Adding new student message to state:', message._id);
+            
+            // Mark message as seen since we're actively viewing this conversation
+            socket.emit('markMessageSeen', {
+              messageId: message._id,
+              conversationId: conversationId
+            });
+            
+            // Force a small delay to ensure React re-renders properly
+            setTimeout(() => {
+              // Scroll to the bottom of the message container
+              const messageContainer = document.querySelector('.message-container');
+              if (messageContainer) {
+                messageContainer.scrollTop = messageContainer.scrollHeight;
+              }
+            }, 100);
+            
+            return [...prev, message];
+          });
+        } else {
+          console.log('[AdminMessaging] Student message is for a different conversation, updating counts');
+          // Update unread counts and trigger fetch if needed
+          fetchConversations();
+        }
+      } catch (err) {
+        console.error('[AdminMessaging] Error handling student message:', err);
+      }
+    });
+
+    // Listen for new global admin notifications
+    socket.on('adminNotification', ({ type, data }) => {
+      console.log('[AdminMessaging] Received admin notification:', type, data);
+      
+      // If it's a new message notification, refresh conversations
+      if (type === 'newMessage') {
+        console.log('[AdminMessaging] New message notification, refreshing conversations');
+        fetchConversations();
+      }
+    });
+
     // Clean up socket listeners
     return () => {
+      console.log('[AdminMessaging] Cleaning up socket events');
       socket.off('newMessage');
       socket.off('messageDelivered');
       socket.off('messageSeen');
@@ -441,6 +574,8 @@ const AdminMessaging = () => {
       socket.off('typing');
       socket.off('conversationSeen');
       socket.off('userConversationStatus');
+      socket.off('studentMessageToAdmin');
+      socket.off('adminNotification');
       
       // If in a conversation, leave that room
       if (selectedChat) {
@@ -449,6 +584,19 @@ const AdminMessaging = () => {
       }
     };
   }, [socket, isConnected, selectedChat, userData._id, fetchConversations]);
+
+  // Auto-scroll to bottom when messages update
+  useEffect(() => {
+    if (messages.length > 0) {
+      console.log('[AdminMessaging] Messages updated, scrolling to bottom');
+      setTimeout(() => {
+        const messageContainer = document.querySelector('.message-container');
+        if (messageContainer) {
+          messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [messages]);
 
   // Initial fetch of students and conversations
   useEffect(() => {
@@ -468,6 +616,61 @@ const AdminMessaging = () => {
       p && p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())
     )
   );
+
+  // Near fetchConversations function
+  // Poll for conversations periodically to ensure we have the latest data
+  useEffect(() => {
+    // Initial fetch
+    fetchConversations();
+    
+    // Set up polling for new conversations
+    const intervalId = setInterval(() => {
+      if (isConnected) {
+        console.log('[AdminMessaging] Polling for new conversations');
+        fetchConversations();
+      }
+    }, 30000); // Poll every 30 seconds
+    
+    return () => clearInterval(intervalId);
+  }, [fetchConversations, isConnected]);
+
+  // Add debug tracing for Socket.IO issues
+  const debugSocketEvents = () => {
+    if (!socket) return;
+    
+    const originalEmit = socket.emit;
+    
+    // Override emit to add logging
+    socket.emit = function(event, ...args) {
+      console.log(`[Socket Debug] EMIT: ${event}`, args);
+      return originalEmit.apply(this, [event, ...args]);
+    };
+    
+    const eventHandlers = socket._callbacks || {};
+    
+    console.log('[Socket Debug] Current event listeners:', 
+      Object.keys(eventHandlers).map(k => k.replace('$', '')));
+      
+    // Test socket connection
+    socket.emit('ping');
+    
+    // Force refresh of connection
+    if (socket.connected) {
+      console.log('[Socket Debug] Socket is connected with ID:', socket.id);
+    } else {
+      console.log('[Socket Debug] Socket is NOT connected, attempting reconnection...');
+      socket.connect();
+    }
+  };
+  
+  // Debug socket after component mounts
+  useEffect(() => {
+    // Wait a bit for socket to initialize properly
+    setTimeout(() => {
+      console.log('[AdminMessaging] Running socket debug...');
+      debugSocketEvents();
+    }, 2000);
+  }, [socket]);
 
   return (
     <Box sx={{ 
@@ -515,6 +718,27 @@ const AdminMessaging = () => {
           }}>
             Messages
           </Typography>
+          {!isConnected && (
+            <Box 
+              onClick={() => socket && socket.connect()}
+              sx={{
+                py: 1,
+                px: 2,
+                borderRadius: '8px',
+                bgcolor: 'rgba(255,0,0,0.2)',
+                color: '#fff',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                '&:hover': {
+                  bgcolor: 'rgba(255,0,0,0.3)'
+                }
+              }}
+            >
+              <Typography variant="body2">Disconnected - Click to reconnect</Typography>
+            </Box>
+          )}
         </Box>
 
         <Box sx={{ 
@@ -606,12 +830,12 @@ const AdminMessaging = () => {
                   >
                     <ListItemAvatar>
                       <Avatar sx={{ bgcolor: hasUnreadMessages ? '#10B981' : '#374151' }}>
-                        {student.name[0]}
+                        {student?.name?.[0] || '?'}
                       </Avatar>
                     </ListItemAvatar>
                     <ListItemText 
-                      primary={student.name}
-                      secondary={`Dorm #${student.dormNumber}`}
+                      primary={student?.name || 'Unknown Student'}
+                      secondary={`Dorm #${student?.dormNumber || 'N/A'}`}
                       primaryTypographyProps={{
                         color: '#fff',
                       }}
@@ -650,12 +874,12 @@ const AdminMessaging = () => {
                     {selectedChat.participants.find(p => p.id !== userData._id)?.name?.[0] || '?'}
                   </Avatar>
                   <Typography variant="h6" sx={{ color: '#fff' }}>
-                    {selectedChat.participants.find(p => p.id !== userData._id)?.name}
+                    {selectedChat.participants.find(p => p.id !== userData._id)?.name || 'Unknown Student'}
                   </Typography>
                 </Box>
 
                 {/* Messages */}
-                <Box sx={{ 
+                <Box className="message-container" sx={{ 
                   flexGrow: 1, 
                   p: 2,
                   overflow: 'auto',
@@ -685,21 +909,21 @@ const AdminMessaging = () => {
                   ) : (
                     messages.map((msg) => (
                       <Box
-                        key={msg._id}
+                        key={msg?._id || Math.random().toString()}
                         sx={{
-                          alignSelf: msg.sender.id === userData._id ? 'flex-end' : 'flex-start',
+                          alignSelf: msg?.sender?.id === userData._id ? 'flex-end' : 'flex-start',
                           maxWidth: '70%',
                         }}
                       >
                         <Paper
                           sx={{
                             p: 1.5,
-                            bgcolor: msg.sender.id === userData._id ? '#10B981' : 'rgba(255,255,255,0.03)',
-                            color: msg.sender.id === userData._id ? 'white' : '#fff',
+                            bgcolor: msg?.sender?.id === userData._id ? '#10B981' : 'rgba(255,255,255,0.03)',
+                            color: msg?.sender?.id === userData._id ? 'white' : '#fff',
                             borderRadius: 2,
                           }}
                         >
-                          <Typography variant="body1">{msg.content}</Typography>
+                          <Typography variant="body1">{msg?.content || ''}</Typography>
                           <Box sx={{ 
                             display: 'flex',
                             alignItems: 'center',
@@ -713,7 +937,7 @@ const AdminMessaging = () => {
                                 opacity: 0.8,
                               }}
                             >
-                              {new Date(msg.createdAt).toLocaleTimeString()}
+                              {msg?.createdAt ? new Date(msg.createdAt).toLocaleTimeString() : ''}
                             </Typography>
                           </Box>
                         </Paper>

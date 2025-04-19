@@ -7,6 +7,7 @@ const { Server } = require('socket.io');
 const config = require('./config/config');
 const path = require('path');
 const fs = require('fs');
+const setupSocketHandlers = require('./utils/socketHandler');
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -90,6 +91,91 @@ app.use((err, req, res, next) => {
 const connectedUsers = new Map();
 const userActiveStatus = new Map();
 
+// Make io and connectedUsers available to routes
+app.set('io', io);
+app.set('connectedUsers', connectedUsers);
+app.set('userActiveStatus', userActiveStatus);
+
+// Helper function to emit notifications with de-duplication
+const emitNotification = (notification) => {
+  if (!notification || !notification.recipient || !notification.recipient.id) {
+    console.error('Invalid notification data:', notification);
+    return;
+  }
+
+  // Generate a unique key for this notification to prevent duplicates
+  const notificationKey = `${notification._id}`;
+  const recipientId = notification.recipient.id.toString();
+  
+  // Check for duplicates - store in a global Map to track notifications by user
+  const userNotifications = io.userNotifications = io.userNotifications || new Map();
+  
+  // Get or create set for this user
+  const userProcessed = userNotifications.get(recipientId) || new Set();
+  
+  // If we've already sent this notification, don't send again
+  if (userProcessed.has(notificationKey)) {
+    console.log(`Skipping duplicate notification ${notificationKey} for user ${recipientId}`);
+    return;
+  }
+  
+  // Mark as processed
+  userProcessed.add(notificationKey);
+  userNotifications.set(recipientId, userProcessed);
+  
+  console.log(`Emitting notification ${notificationKey} to user: ${recipientId} (Total processed: ${userProcessed.size})`);
+
+  // Add a timestamp to track when this was emitted
+  notification.emittedAt = new Date().toISOString();
+  
+  // Emit to user's room - only need to emit to one place, not multiple
+  io.to(`user_${recipientId}`).emit('newNotification', notification);
+  
+  // Log completion
+  console.log('Notification emitted successfully to room:', `user_${recipientId}`);
+};
+
+// Make emitNotification available to routes
+app.set('emitNotification', emitNotification);
+
+// Set up enhanced socket handlers
+const socketHandlers = setupSocketHandlers(io, connectedUsers, userActiveStatus);
+app.set('socketHandlers', socketHandlers);
+
+// Enable debug mode for Socket.IO in development
+if (process.env.NODE_ENV !== 'production') {
+  io.on('connection', (socket) => {
+    console.log(`[DEBUG] Socket ${socket.id} connected`);
+    
+    socket.onAny((event, ...args) => {
+      console.log(`[DEBUG] Socket ${socket.id} event: ${event}`, JSON.stringify(args));
+    });
+  });
+}
+
+// Handle pending notifications during socket connection
+io.on('connection', (socket) => {
+  // This will be called first, before our enhanced handler
+  socket.on('join', async (userId) => {
+    if (!userId) return;
+    
+    try {
+      // Fetch pending notifications
+      const Notification = require('./models/notificationModel');
+      const notifications = await Notification.find({
+        'recipient.id': userId,
+        isRead: false
+      }).sort('-createdAt');
+      
+      if (notifications.length > 0) {
+        socket.emit('pendingNotifications', notifications);
+      }
+    } catch (error) {
+      console.error('Error fetching pending notifications:', error);
+    }
+  });
+});
+
 // Connect to MongoDB and start server
 const startServer = async () => {
   try {
@@ -102,53 +188,6 @@ const startServer = async () => {
     const Notification = require('./models/notificationModel');
     const Conversation = require('./models/conversationModel');
     
-    // Make io and connectedUsers available to routes
-    app.set('io', io);
-    app.set('connectedUsers', connectedUsers);
-    app.set('userActiveStatus', userActiveStatus);
-
-    // Helper function to emit notifications with de-duplication
-    const emitNotification = (notification) => {
-      if (!notification || !notification.recipient || !notification.recipient.id) {
-        console.error('Invalid notification data:', notification);
-        return;
-      }
-
-      // Generate a unique key for this notification to prevent duplicates
-      const notificationKey = `${notification._id}`;
-      const recipientId = notification.recipient.id.toString();
-      
-      // Check for duplicates - store in a global Map to track notifications by user
-      const userNotifications = io.userNotifications = io.userNotifications || new Map();
-      
-      // Get or create set for this user
-      const userProcessed = userNotifications.get(recipientId) || new Set();
-      
-      // If we've already sent this notification, don't send again
-      if (userProcessed.has(notificationKey)) {
-        console.log(`Skipping duplicate notification ${notificationKey} for user ${recipientId}`);
-        return;
-      }
-      
-      // Mark as processed
-      userProcessed.add(notificationKey);
-      userNotifications.set(recipientId, userProcessed);
-      
-      console.log(`Emitting notification ${notificationKey} to user: ${recipientId} (Total processed: ${userProcessed.size})`);
-
-      // Add a timestamp to track when this was emitted
-      notification.emittedAt = new Date().toISOString();
-      
-      // Emit to user's room - only need to emit to one place, not multiple
-      io.to(`user_${recipientId}`).emit('newNotification', notification);
-      
-      // Log completion
-      console.log('Notification emitted successfully to room:', `user_${recipientId}`);
-    };
-
-    // Make emitNotification available to routes
-    app.set('emitNotification', emitNotification);
-
     // Socket.io connection handling
     io.on('connection', (socket) => {
       console.log('A user connected', socket.id);
@@ -158,54 +197,7 @@ const startServer = async () => {
         console.log(`[Socket ${socket.id}] Event: ${eventName}`, args);
       });
 
-      // Store processed notification IDs to prevent duplicates
-      const processedNotifications = new Set();
-
-      // Handle user joining with their ID
-      socket.on('join', (userId) => {
-        if (!userId) {
-          console.log('User attempted to join without ID');
-          return;
-        }
-        
-        console.log('User joined:', userId, 'Socket ID:', socket.id);
-        socket.userId = userId;
-        connectedUsers.set(userId.toString(), socket.id);
-        userActiveStatus.set(userId.toString(), true);
-
-        // Join a room specific to this user
-        socket.join(`user_${userId}`);
-
-        // Notify other users that this user is online
-        socket.broadcast.emit('userStatus', {
-          userId: userId,
-          status: 'online'
-        });
-        
-        // Send acknowledgment back to client
-        socket.emit('joinAcknowledged', {
-          status: 'success',
-          userId: userId,
-          socketId: socket.id
-        });
-
-        // Send any pending notifications
-        Notification.find({
-          'recipient.id': userId,
-          isRead: false
-        })
-        .sort('-createdAt')
-        .then(notifications => {
-          if (notifications.length > 0) {
-            socket.emit('pendingNotifications', notifications);
-          }
-        })
-        .catch(error => {
-          console.error('Error fetching pending notifications:', error);
-        });
-      });
-
-      // Handle message seen status
+      // Handle message seen status - keep for backward compatibility 
       socket.on('messageSeen', async ({ messageId }) => {
         try {
           const message = await Message.findById(messageId);
@@ -217,6 +209,14 @@ const startServer = async () => {
             const senderSocketId = connectedUsers.get(message.sender.id.toString());
             if (senderSocketId) {
               io.to(senderSocketId).emit('messageSeen', { messageId });
+            }
+            
+            // Also broadcast to conversation room
+            if (message.conversationId) {
+              io.to(`conversation_${message.conversationId}`).emit('messageSeen', { 
+                messageId,
+                conversationId: message.conversationId
+              });
             }
           }
         } catch (error) {
