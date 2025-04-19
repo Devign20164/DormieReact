@@ -94,7 +94,7 @@ const StudentMessaging = () => {
   const fetchMessages = useCallback(async (conversationId) => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/students/conversations/${conversationId}/messages`);
+      const response = await axios.get(`/api/students/messages/${conversationId}`);
       setMessages(response.data);
     } catch (error) {
       console.error('Error fetching messages:', error);
