@@ -34,6 +34,7 @@ import {
   InputLabel,
   FormHelperText,
   InputAdornment,
+  Rating,
 } from '@mui/material';
 import {
   Assignment as AssignmentIcon,
@@ -673,29 +674,55 @@ const StudentForm = () => {
     setSelectedForm(null);
   };
 
-  const handleOpenReviewDialog = () => {
-    // Add validation before opening the review dialog
-    console.log('Opening review dialog for form:', {
-      id: selectedForm?._id,
-      title: selectedForm?.title,
-      status: selectedForm?.status,
-      hasReview: selectedForm?.studentReview ? !!selectedForm?.studentReview.rating : false,
-      reviewData: selectedForm?.studentReview || 'none'
+  const handleOpenReviewDialog = async () => {
+    if (!selectedForm) return;
+    
+    // Log current form state for debugging
+    console.log('Review dialog request for form:', {
+      id: selectedForm._id,
+      title: selectedForm.title,
+      status: selectedForm.status,
+      hasReview: selectedForm.studentReview ? !!selectedForm.studentReview.rating : false
     });
     
-    // Check again if the form is completed and not already reviewed
-    if (selectedForm?.status !== 'Completed') {
-      toast.error('Only completed forms can be reviewed');
-      return;
+    try {
+      // First refresh all forms to ensure our data is current
+      await refreshForms();
+      
+      // Then get the latest version of this specific form
+      const freshForm = await refreshSelectedFormData(selectedForm._id);
+      if (!freshForm) {
+        toast.error('Could not retrieve the latest form data. Please try again.');
+        return;
+      }
+      
+      // Check if the form is completed
+      if (freshForm.status !== 'Completed') {
+        toast.info('Only completed forms can be reviewed');
+        return;
+      }
+      
+      // Improved check for existing review
+      const hasExistingReview = freshForm.studentReview && 
+          typeof freshForm.studentReview === 'object' && 
+          'rating' in freshForm.studentReview && 
+          freshForm.studentReview.rating > 0;
+      
+      if (hasExistingReview) {
+        console.log('Review already exists:', freshForm.studentReview);
+        toast.info('You have already reviewed this form');
+        
+        // Update the selected form with fresh data
+        setSelectedForm(freshForm);
+        return;
+      }
+      
+      // If we get here, the form is completed and doesn't have a review yet
+      setReviewDialog(true);
+    } catch (error) {
+      console.error('Error checking form review status:', error);
+      toast.error('Error checking form status. Please try again.');
     }
-    
-    if (selectedForm?.studentReview?.rating > 0) {
-      toast.error('You have already reviewed this form');
-      return;
-    }
-    
-    // If all is good, open the dialog
-    setReviewDialog(true);
   };
 
   const handleCloseReviewDialog = () => {
@@ -719,44 +746,50 @@ const StudentForm = () => {
       
       if (!selectedForm || !selectedForm._id) {
         toast.error('Cannot identify the form to review');
+        setLoading(false);
         return;
       }
       
-      // First, get the latest form data directly from the server to ensure we have the most up-to-date information
+      // Refresh all form data first to ensure everything is up to date
+      await refreshForms();
+      
+      // Then fetch the specific form data 
       console.log('Refreshing form data before review submission for form:', selectedForm._id);
       const freshForm = await refreshSelectedFormData(selectedForm._id);
       
-      // If we couldn't get fresh data, use what we have, otherwise use the fresh data
-      const formToReview = freshForm || selectedForm;
-      
-      // Check if the form already has a review using the fresh data
-      const hasExistingReview = formToReview.studentReview && 
-                               formToReview.studentReview.rating && 
-                               formToReview.studentReview.rating > 0;
-      
-      // Log detailed information about the selected form and its review status
-      console.log('Form review check (with fresh data):', {
-        formId: formToReview._id,
-        formTitle: formToReview.title,
-        formStatus: formToReview.status,
-        hasStudentReview: !!formToReview.studentReview,
-        studentReviewType: typeof formToReview.studentReview,
-        reviewData: formToReview.studentReview,
-        hasExistingReview
-      });
-      
-      if (hasExistingReview) {
-        toast.error('You have already reviewed this form');
-        handleCloseReviewDialog();
+      if (!freshForm) {
+        toast.error('Could not retrieve the latest form data. Please try again.');
+        setLoading(false);
         return;
       }
       
-      console.log('Submitting review for form:', formToReview._id);
+      // Check if the form status is Completed
+      if (freshForm.status !== 'Completed') {
+        toast.error('Only completed forms can be reviewed');
+        handleCloseReviewDialog();
+        setLoading(false);
+        return;
+      }
+      
+      // More thorough check if the form already has a review
+      if (freshForm.studentReview && 
+          (typeof freshForm.studentReview === 'object' && freshForm.studentReview.rating > 0)) {
+        
+        console.log('Form already has a review:', freshForm.studentReview);
+        toast.info('You have already reviewed this form');
+        
+        // Update the local state with the fresh data that includes the review
+        setSelectedForm(freshForm);
+        handleCloseReviewDialog();
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Submitting review for form:', freshForm._id);
       console.log('Review data:', reviewData);
       
-      // First attempt
       try {
-        const response = await axios.post(`/api/students/forms/${formToReview._id}/review`, {
+        const response = await axios.post(`/api/students/forms/${freshForm._id}/review`, {
           rating: reviewData.rating,
           comment: reviewData.comment
         }, {
@@ -766,82 +799,71 @@ const StudentForm = () => {
           }
         });
         
-        console.log('Review response:', response.data);
+        console.log('Review submission successful:', response.data);
         
         // Update the form in local state
-        if (response.data) {
-          updateFormWithReview(formToReview._id);
-          toast.success('Thank you for your review!');
-          handleCloseReviewDialog();
-        }
-      } catch (firstErr) {
-        console.warn('First review attempt failed, retrying:', firstErr);
+        updateFormWithReview(freshForm._id);
+        toast.success('Thank you for your review!');
+        handleCloseReviewDialog();
         
-        // Show a message about the retry
-        toast.info('Processing your review, please wait...');
+        // Refresh all forms after a successful submission
+        setTimeout(() => {
+          refreshForms();
+        }, 1000);
+      } catch (error) {
+        console.error('Error submitting review:', error);
         
-        // Wait a moment before retry
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        try {
-          // Second attempt
-          const response = await axios.post(`/api/students/forms/${formToReview._id}/review`, {
-            rating: reviewData.rating,
-            comment: reviewData.comment
-          }, {
-            withCredentials: true,
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          });
+        // Check if the server provided a specific error message
+        if (error.response?.data?.message) {
+          toast.error(`Error: ${error.response.data.message}`);
           
-          console.log('Review response (retry):', response.data);
-          
-          // Update the form in local state
-          if (response.data) {
-            updateFormWithReview(formToReview._id);
-            toast.success('Thank you for your review!');
-            handleCloseReviewDialog();
+          // If the message indicates the review already exists, refresh the form data
+          if (error.response.data.message.includes('already reviewed')) {
+            refreshSelectedFormData(freshForm._id).then(updatedForm => {
+              if (updatedForm) {
+                setSelectedForm(updatedForm);
+              }
+            });
           }
-        } catch (retryErr) {
-          // If the retry also fails, show a more detailed error message
-          console.error('Retry also failed:', retryErr);
+        } else if (error.response?.status === 400) {
+          toast.error('Invalid review data. Please check your rating and try again.');
+        } else if (error.response?.status === 403) {
+          toast.error('You are not authorized to review this form.');
+        } else if (error.response?.status === 500) {
+          // For 500 errors, the review may actually have been saved despite the error
+          console.log('Server error but review might have been saved. Optimistically updating UI.');
           
-          // Check if the server returned a specific error message
-          if (retryErr.response?.data?.message) {
-            toast.error(`Error: ${retryErr.response.data.message}`);
-          } else {
-            // But assure the user the review likely went through
-            toast.info('Your review may have been saved. Please refresh the page to check.');
-          }
-          
+          // Update the UI as if the review was saved successfully
+          updateFormWithReview(freshForm._id);
+          toast.info('Your review was submitted but we had trouble confirming it. The page will refresh to check the status.');
           handleCloseReviewDialog();
+          
+          // Refresh form data after a delay to check if the review was actually saved
+          setTimeout(() => {
+            refreshSelectedFormData(freshForm._id);
+            refreshForms();
+          }, 1500);
+        } else {
+          // For any other errors, also assume the review might have gone through
+          updateFormWithReview(freshForm._id);
+          toast.info('Your review may have been saved. The page will refresh to check the status.');
+          handleCloseReviewDialog();
+          
+          // Refresh form data after a delay
+          setTimeout(() => {
+            refreshSelectedFormData(freshForm._id);
+            refreshForms();
+          }, 1500);
         }
       }
     } catch (err) {
-      console.error('Error submitting review:', err);
-      
-      if (err.response) {
-        console.error('Response data:', err.response.data);
-        console.error('Status code:', err.response.status);
-        
-        if (err.response.data && err.response.data.message) {
-          toast.error(`Error: ${err.response.data.message}`);
-        } else if (err.response.status === 500) {
-          toast.error('Server error occurred. Please try again or refresh the page.');
-        } else {
-          toast.error('Failed to submit review. Please try again later.');
-        }
-      } else if (err.request) {
-        toast.error('No response received from server. Please check your connection.');
-      } else {
-        toast.error('Failed to submit review. Please try again later.');
-      }
+      console.error('Unexpected error in review submission process:', err);
+      toast.error('An unexpected error occurred. Please try again later.');
     } finally {
       setLoading(false);
     }
   };
-  
+
   // Helper function to update form data with a new review
   const updateFormWithReview = (formId) => {
     // Update forms array
@@ -1141,7 +1163,8 @@ const StudentForm = () => {
                 <Paper sx={{ 
                   p: 3, 
                   bgcolor: 'rgba(255, 255, 255, 0.03)',
-                  borderRadius: '12px'
+                  borderRadius: '12px',
+                  mb: selectedForm.studentReview && selectedForm.studentReview.rating > 0 ? 3 : 0
                 }}>
                   <Typography variant="subtitle1" sx={{ color: '#fff', mb: 2, fontWeight: 600 }}>
                     Status Timeline
@@ -1363,6 +1386,39 @@ const StudentForm = () => {
                     </Stack>
                   </Box>
                 </Paper>
+                
+                {/* Review display section - only show if a review exists */}
+                {selectedForm.studentReview && selectedForm.studentReview.rating > 0 && (
+                  <Paper sx={{ 
+                    p: 3, 
+                    bgcolor: 'rgba(255, 255, 255, 0.03)',
+                    borderRadius: '12px'
+                  }}>
+                    <Typography variant="subtitle1" sx={{ color: '#fff', mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                      <StarIcon sx={{ color: '#F59E0B', mr: 1, fontSize: 20 }} />
+                      Your Review
+                    </Typography>
+                    
+                    <Box sx={{ mb: 2 }}>
+                      <Rating 
+                        value={selectedForm.studentReview.rating} 
+                        readOnly 
+                        sx={{ color: '#F59E0B', mb: 1 }}
+                      />
+                      <Typography variant="caption" sx={{ color: '#9CA3AF', display: 'block' }}>
+                        Submitted on {format(new Date(selectedForm.studentReview.reviewDate), 'MMM d, yyyy')}
+                      </Typography>
+                    </Box>
+                    
+                    {selectedForm.studentReview.comment && (
+                      <Box sx={{ bgcolor: 'rgba(0,0,0,0.2)', p: 2, borderRadius: '8px' }}>
+                        <Typography variant="body2" sx={{ color: '#fff', fontStyle: 'italic' }}>
+                          "{selectedForm.studentReview.comment}"
+                        </Typography>
+                      </Box>
+                    )}
+                  </Paper>
+                )}
               </Grid>
             </Grid>
           </Box>
@@ -1384,20 +1440,36 @@ const StudentForm = () => {
             Close
           </Button>
           
-          {selectedForm.status === 'Completed' && !selectedForm.studentReview && (
-            <Button
-              variant="contained"
-              startIcon={<StarIcon />}
-              onClick={handleOpenReviewDialog}
-              sx={{
-                background: 'linear-gradient(145deg, #10B981 0%, #059669 100%)',
-                '&:hover': {
-                  background: 'linear-gradient(145deg, #059669 0%, #047857 100%)',
-                },
-              }}
-            >
-              Leave Review
-            </Button>
+          {selectedForm.status === 'Completed' && (
+            selectedForm.studentReview && selectedForm.studentReview.rating > 0 ? (
+              // Show the review data directly in the form details
+              <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
+                <Typography variant="body2" sx={{ color: '#9CA3AF', mr: 1 }}>
+                  Your Review:
+                </Typography>
+                <Rating 
+                  value={selectedForm.studentReview.rating} 
+                  readOnly 
+                  size="small"
+                  sx={{ color: '#F59E0B' }}
+                />
+              </Box>
+            ) : (
+              // If no review exists, show the "Leave Review" button
+              <Button
+                variant="contained"
+                startIcon={<StarIcon />}
+                onClick={handleOpenReviewDialog}
+                sx={{
+                  background: 'linear-gradient(145deg, #10B981 0%, #059669 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(145deg, #059669 0%, #047857 100%)',
+                  },
+                }}
+              >
+                Leave Review
+              </Button>
+            )
           )}
         </DialogActions>
       </Dialog>

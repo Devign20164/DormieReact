@@ -1315,58 +1315,28 @@ const submitFormReview = asyncHandler(async (req, res) => {
     const updatedForm = await form.save();
     console.log('Review saved successfully for form:', id);
     
-    // Create a notification for the staff member
-    if (form.staff) {
-      await Notification.create({
-        recipient: {
-          id: form.staff,
-          model: 'Staff'
-        },
-        type: 'FORM_REVIEWED',
-        title: 'New Review Received',
-        content: `A student has left a ${rating}-star review for your service.`,
-        relatedTo: {
-          model: 'Form',
-          id: form._id
-        },
-        metadata: {
-          formType: form.formType,
-          rating,
-          formId: form._id
-        }
-      });
-      
-      // Emit socket event if available
-      if (req.app.get('io')) {
+    // Create notifications for staff and admin
+    try {
+      await Notification.createFormReviewedNotification(form, rating);
+      console.log('Review notifications created successfully');
+    } catch (notificationError) {
+      console.error('Error creating review notification:', notificationError);
+      // Continue processing even if notification creation fails
+      // The review itself is already saved
+    }
+    
+    // Emit socket events if available
+    if (req.app.get('io')) {
+      // Notify staff if assigned
+      if (form.staff) {
         req.app.get('io').to(form.staff.toString()).emit('newNotification', {
           type: 'FORM_REVIEWED',
           content: `A student has left a ${rating}-star review for your service.`,
           formId: form._id
         });
       }
-    }
-    
-    // Also notify admin
-    await Notification.create({
-      recipient: {
-        model: 'Admin'
-      },
-      type: 'FORM_REVIEWED',
-      title: 'New Form Review',
-      content: `A student has left a ${rating}-star review for a ${form.formType} request.`,
-      relatedTo: {
-        model: 'Form',
-        id: form._id
-      },
-      metadata: {
-        formType: form.formType,
-        rating,
-        formId: form._id
-      }
-    });
-    
-    // Broadcast to admins
-    if (req.app.get('io')) {
+      
+      // Broadcast to admins
       req.app.get('io').to('admins').emit('newNotification', {
         type: 'FORM_REVIEWED',
         content: `A student has left a ${rating}-star review for a ${form.formType} request.`,

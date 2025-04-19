@@ -26,7 +26,8 @@ const notificationSchema = new mongoose.Schema({
       'FORM_REJECTED',
       'FORM_IN_PROGRESS',
       'FORM_COMPLETED',
-      'FORM_REVIEW_NEEDED'
+      'FORM_REVIEW_NEEDED',
+      'FORM_REVIEWED'
     ]
   },
   title: {
