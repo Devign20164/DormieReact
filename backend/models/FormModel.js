@@ -43,7 +43,7 @@ const formSchema = new mongoose.Schema({
     status: {
         type: String,
         required: true,
-        enum: ['Pending', 'Approved', 'Rejected', 'Assigned', 'In Progress', 'In Review', 'Completed', 'Rescheduled'],
+        enum: ['Pending', 'Approved', 'Rejected', 'Assigned', 'In Progress', 'In Review', 'Completed'],
         default: 'Pending'
     },
     
@@ -52,7 +52,7 @@ const formSchema = new mongoose.Schema({
         status: {
             type: String,
             required: true,
-            enum: ['Pending', 'Approved', 'Rejected', 'Assigned', 'In Progress', 'In Review', 'Completed', 'Rescheduled']
+            enum: ['Pending', 'Approved', 'Rejected', 'Assigned', 'In Progress', 'In Review', 'Completed']
         },
         changedBy: {
             type: mongoose.Schema.Types.ObjectId,
@@ -68,7 +68,7 @@ const formSchema = new mongoose.Schema({
     // Previous status (for cases like rescheduling)
     previousStatus: {
         type: String,
-        enum: ['Pending', 'Approved', 'Rejected', 'Assigned', 'In Progress', 'In Review', 'Completed', 'Rescheduled']
+        enum: ['Pending', 'Approved', 'Rejected', 'Assigned', 'In Progress', 'In Review', 'Completed']
     },
     
     // User References

@@ -9,13 +9,31 @@ import {
   ListItem,
   ListItemText,
   Divider,
+  Button,
 } from '@mui/material';
 import {
   Notifications as NotificationsIcon,
   Message as MessageIcon,
+  NotificationsOff as NotificationsOffIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useSocket } from '../context/SocketContext';
+
+// Add styles for pulsing animation
+const pulsingAnimationStyle = {
+  '@keyframes pulse': {
+    '0%': {
+      boxShadow: '0 0 0 0 rgba(255, 255, 255, 0.4)',
+    },
+    '70%': {
+      boxShadow: '0 0 0 10px rgba(255, 255, 255, 0)',
+    },
+    '100%': {
+      boxShadow: '0 0 0 0 rgba(255, 255, 255, 0)',
+    },
+  },
+  animation: 'pulse 1.5s infinite',
+};
 
 const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
   const userData = JSON.parse(localStorage.getItem('userData') || '{}');
@@ -25,6 +43,9 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
   const open = Boolean(anchorEl);
   const { socket, isConnected, joinRoom } = useSocket();
   const [isPulsing, setIsPulsing] = useState(false);
+  
+  // Add missing anchorRef
+  const anchorRef = useRef(null);
   
   // Reference to the notification sound
   const notificationSoundRef = useRef(new Audio('/notification.mp3'));
@@ -196,7 +217,17 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
 
   const handleNotificationClick = async (notificationId) => {
     try {
-      await axios.put(`${apiBaseRoute}/notifications/${notificationId}/read`);
+      // Use different endpoints based on user type
+      if (userType === 'admin') {
+        await axios.put(`${apiBaseRoute}/notifications/${notificationId}/read`);
+      } else if (userType === 'student') {
+        // Student route uses /:id/read where id is the notification ID
+        await axios.put(`${apiBaseRoute}/notifications/${notificationId}/read`);
+      } else if (userType === 'staff') {
+        // Assuming staff route is similar to admin's
+        await axios.put(`${apiBaseRoute}/notifications/${notificationId}/read`);
+      }
+
       setNotifications(notifications.map(notif => 
         notif._id === notificationId ? { ...notif, isRead: true } : notif
       ));
@@ -208,8 +239,19 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
 
   const handleMarkAllRead = async () => {
     try {
-      await axios.put(`${apiBaseRoute}/notifications/mark-all-read`);
-      setNotifications(notifications.map(notif => ({ ...notif, isRead: true })));
+      // Use different endpoints based on user type
+      if (userType === 'admin') {
+        await axios.delete(`${apiBaseRoute}/notifications/delete-all`);
+      } else if (userType === 'student') {
+        // Student route uses PUT for read-all instead of DELETE
+        await axios.put(`${apiBaseRoute}/notifications/read-all`);
+      } else if (userType === 'staff') {
+        // Assuming staff route is similar to admin's
+        await axios.delete(`${apiBaseRoute}/notifications/delete-all`);
+      }
+      
+      // Clear notifications from the state
+      setNotifications([]);
       setUnreadCount(0);
       handleClose();
     } catch (error) {
@@ -240,76 +282,187 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
   return (
     <>
       <IconButton
+        color="inherit"
+        ref={anchorRef}
         onClick={handleClick}
         sx={{
-          animation: isPulsing ? 'pulse 1s cubic-bezier(0, 0, 0.2, 1)' : 'none',
-          '@keyframes pulse': {
-            '0%': {
-              transform: 'scale(1)',
-              boxShadow: '0 0 0 0 rgba(16, 185, 129, 0.7)',
+          position: 'relative',
+          background: 'linear-gradient(145deg, #1a1a25, #252535)',
+          border: '1px solid rgba(255, 255, 255, 0.05)',
+          borderRadius: '12px',
+          padding: '10px',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
+          transition: 'all 0.3s ease',
+          '&:hover': {
+            boxShadow: '0 6px 25px rgba(0, 0, 0, 0.6)',
+            transform: 'translateY(-2px)',
+            background: 'linear-gradient(145deg, #202030, #2c2c40)',
+          },
+          ...(isPulsing && pulsingAnimationStyle),
+        }}
+      >
+        <Badge
+          badgeContent={unreadCount}
+          max={99}
+          color="error"
+          sx={{
+            '& .MuiBadge-badge': {
+              backgroundColor: '#ffffff',
+              color: '#000000',
+              fontWeight: 'bold',
+              boxShadow: '0 0 10px rgba(0, 0, 0, 0.2)',
             },
-            '70%': {
-              transform: 'scale(1.1)',
-              boxShadow: '0 0 0 10px rgba(16, 185, 129, 0)',
+          }}
+        >
+          <NotificationsIcon sx={{ color: '#ffffff' }} />
+        </Badge>
+      </IconButton>
+      <Menu
+        anchorEl={anchorEl}
+        id="notification-menu"
+        open={open}
+        onClose={handleClose}
+        onClick={handleClose}
+        PaperProps={{
+          elevation: 5,
+          sx: {
+            maxWidth: 400,
+            minWidth: 340,
+            overflow: 'visible',
+            background: 'linear-gradient(180deg, #121218, #18181f 10%)',
+            borderRadius: '15px',
+            border: '1px solid rgba(255, 255, 255, 0.05)',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.8)',
+            mt: 1.5,
+            '&:before': {
+              content: '""',
+              display: 'block',
+              position: 'absolute',
+              top: 0,
+              right: 18,
+              width: 10,
+              height: 10,
+              bgcolor: '#121218',
+              transform: 'translateY(-50%) rotate(45deg)',
+              zIndex: 0,
+              borderLeft: '1px solid rgba(255, 255, 255, 0.05)',
+              borderTop: '1px solid rgba(255, 255, 255, 0.05)',
             },
-            '100%': {
-              transform: 'scale(1)',
-              boxShadow: '0 0 0 0 rgba(16, 185, 129, 0)',
+            '&::-webkit-scrollbar': {
+              width: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'rgba(0, 0, 0, 0.1)',
+              borderRadius: '10px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: 'linear-gradient(180deg, #333340, #252530)',
+              borderRadius: '10px',
+              border: '2px solid rgba(0, 0, 0, 0.1)',
             },
           },
         }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
-        <Badge badgeContent={unreadCount} color="error">
-          <NotificationsIcon sx={{ color }} />
-        </Badge>
-      </IconButton>
-
-      <Menu
-        anchorEl={anchorEl}
-        open={open}
-        onClose={handleClose}
-        PaperProps={{
-          sx: {
-            mt: 1.5,
-            width: 360,
-            maxHeight: 400,
-            backgroundColor: '#1F2937',
-            backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05))',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-          }
-        }}
-      >
-        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6" sx={{ color: '#fff' }}>Notifications</Typography>
-          {unreadCount > 0 && (
-            <Typography
-              variant="button"
-              sx={{
-                color: '#10B981',
-                cursor: 'pointer',
-                '&:hover': { textDecoration: 'underline' }
+        <Box sx={{ 
+          p: 2, 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+          background: 'linear-gradient(90deg, #151520, #1c1c28)',
+          borderTopLeftRadius: '15px',
+          borderTopRightRadius: '15px',
+        }}>
+          <Box>
+            <Typography 
+              sx={{ 
+                fontWeight: 700, 
+                fontSize: '1.1rem', 
+                color: '#f8f8f8',
+                textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
               }}
-              onClick={handleMarkAllRead}
             >
-              Mark all as read
+              Notifications
             </Typography>
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                color: '#aaaabc',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5
+              }}
+            >
+              You have <span style={{ 
+                fontWeight: 600, 
+                backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                padding: '1px 6px',
+                borderRadius: '10px',
+                color: '#ffffff',
+              }}>{unreadCount}</span> unread
+            </Typography>
+          </Box>
+          {unreadCount > 0 && (
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleMarkAllRead();
+              }}
+              size="small"
+              sx={{
+                color: '#ffffff',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                borderRadius: '20px',
+                fontSize: '0.75rem',
+                py: 0.5,
+                px: 1.5,
+                textTransform: 'none',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                fontWeight: 500,
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  boxShadow: '0 0 15px rgba(255, 255, 255, 0.05)'
+                }
+              }}
+            >
+              Mark all read
+            </Button>
           )}
         </Box>
-        <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
-        <List sx={{ p: 0 }}>
+        <List
+          sx={{
+            p: 0,
+            overflowY: 'auto',
+            maxHeight: 400,
+            '&::-webkit-scrollbar': {
+              width: '6px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'rgba(0, 0, 0, 0.1)',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: 'linear-gradient(180deg, #333340, #252530)',
+              borderRadius: '10px',
+            },
+          }}
+        >
           {notifications.length === 0 ? (
-            <ListItem>
-              <ListItemText
-                primary="No notifications"
-                sx={{ 
-                  '.MuiListItemText-primary': { 
-                    color: '#9CA3AF',
-                    textAlign: 'center'
-                  }
-                }}
-              />
-            </ListItem>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                py: 4,
+                background: 'linear-gradient(145deg, #15151d, #1a1a22)',
+              }}
+            >
+              <NotificationsOffIcon sx={{ color: '#3a3a50', fontSize: 40, mb: 2 }} />
+              <Typography sx={{ color: '#8888a0' }}>No notifications</Typography>
+            </Box>
           ) : (
             notifications.map((notification, index) => {
               const { icon, content } = getNotificationContent(notification);
@@ -319,31 +472,62 @@ const NotificationBell = ({ userType = 'admin', color = '#10B981' }) => {
                     onClick={() => handleNotificationClick(notification._id)}
                     sx={{
                       cursor: 'pointer',
-                      bgcolor: notification.isRead ? 'transparent' : 'rgba(16, 185, 129, 0.1)',
+                      bgcolor: notification.isRead ? 'transparent' : 'rgba(35, 35, 50, 0.4)',
+                      py: 1.5,
+                      borderBottom: index < notifications.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none',
+                      transition: 'all 0.2s ease',
                       '&:hover': {
-                        bgcolor: 'rgba(255, 255, 255, 0.05)'
+                        bgcolor: 'rgba(45, 45, 60, 0.5)',
+                        transform: 'translateX(2px)',
                       }
                     }}
                   >
-                    <Box sx={{ mr: 2 }}>{icon}</Box>
+                    <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
+                      <Box sx={{ 
+                        background: 'linear-gradient(135deg, #2a2a38, #222230)', 
+                        p: 0.8, 
+                        borderRadius: '10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                      }}>
+                        {React.cloneElement(icon, { sx: { color: '#ffffff' } })}
+                      </Box>
+                    </Box>
                     <ListItemText
                       primary={notification.title}
                       secondary={content}
                       sx={{
-                        '.MuiListItemText-primary': { color: '#fff' },
-                        '.MuiListItemText-secondary': { color: '#9CA3AF' }
+                        '.MuiListItemText-primary': { 
+                          color: '#ffffff', 
+                          fontWeight: notification.isRead ? 400 : 600,
+                          fontSize: '0.95rem',
+                          mb: 0.5,
+                          textShadow: notification.isRead ? 'none' : '0 0 1px rgba(255, 255, 255, 0.3)',
+                        },
+                        '.MuiListItemText-secondary': { 
+                          color: notification.isRead ? '#7f7f95' : '#9a9ab0',
+                          fontSize: '0.85rem',
+                        }
                       }}
                     />
                     <Typography
                       variant="caption"
-                      sx={{ color: '#6B7280', ml: 2, minWidth: 'fit-content' }}
+                      sx={{ 
+                        color: '#6B7280', 
+                        ml: 2, 
+                        minWidth: 'fit-content',
+                        fontSize: '0.7rem',
+                        backgroundColor: notification.isRead ? 'transparent' : 'rgba(255, 255, 255, 0.03)',
+                        padding: notification.isRead ? '0' : '2px 6px',
+                        borderRadius: '8px',
+                      }}
                     >
                       {new Date(notification.createdAt).toLocaleDateString()}
                     </Typography>
                   </ListItem>
-                  {index < notifications.length - 1 && (
-                    <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
-                  )}
                 </React.Fragment>
               );
             })

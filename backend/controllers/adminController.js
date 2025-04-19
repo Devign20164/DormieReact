@@ -1216,11 +1216,10 @@ const updateFormStatus = asyncHandler(async (req, res) => {
     const validTransitions = {
       'Pending': ['Approved', 'Rejected'],
       'Approved': ['Assigned', 'Rejected'],
-      'Rejected': ['Rescheduled'],
+      'Rejected': [],
       'Assigned': ['Rejected'],
       'In Progress': [],  // Admins can't change from In Progress
-      'Completed': [],    // Admins can't change from Completed
-      'Rescheduled': ['Pending']
+      'Completed': []    // Admins can't change from Completed
     };
     
     if (!validTransitions[form.status].includes(status)) {
@@ -1249,11 +1248,6 @@ const updateFormStatus = asyncHandler(async (req, res) => {
     // If changing to Rejected status, record the rejection reason
     if (status === 'Rejected' && notes) {
       form.rejectionReason = notes;
-    }
-    
-    // If changing to Rescheduled, prepare for new scheduling
-    if (status === 'Rescheduled') {
-      form.previousStatus = 'Rejected';
     }
     
     // Save the updated form
@@ -1374,8 +1368,6 @@ const getNotificationContentForStatus = (formType, status) => {
       return `Work on your ${formType} request has started.`;
     case 'Completed':
       return `Your ${formType} request has been completed. Please leave a review.`;
-    case 'Rescheduled':
-      return `Your ${formType} request has been marked for rescheduling. Please update your preferred time.`;
     default:
       return `Your ${formType} request status has been updated to ${status}.`;
   }

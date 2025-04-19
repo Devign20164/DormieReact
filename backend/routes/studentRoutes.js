@@ -28,6 +28,7 @@ const {
   createForm,
   getStudentForms,
   submitFormReview,
+  rescheduleForm,
 } = require('../controllers/studentController');
 const Form = require('../models/FormModel');
 
@@ -63,7 +64,7 @@ router.delete('/notifications/:id', protect, deleteNotification);
 router.delete('/notifications', protect, deleteAllNotifications);
 
 // Form routes
-router.post('/forms', protect, createForm);
+router.post('/forms', protect, upload.array('files'), createForm);
 router.get('/forms', protect, getStudentForms);
 // Route to get a single form by ID
 router.get('/forms/:id', protect, async (req, res) => {
@@ -91,5 +92,6 @@ router.get('/forms/:id', protect, async (req, res) => {
   }
 });
 router.post('/forms/:id/review', protect, submitFormReview);
+router.put('/forms/:id/reschedule', protect, rescheduleForm);
 
 module.exports = router; 

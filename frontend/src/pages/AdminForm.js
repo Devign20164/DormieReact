@@ -66,6 +66,9 @@ import {
   Refresh as RefreshIcon,
   Restore as RestoreIcon,
   Star as StarIcon,
+  AttachFile as AttachFileIcon,
+  InsertDriveFile as InsertDriveFileIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -95,7 +98,6 @@ const statusConfig = {
   Submitted: { color: '#3B82F6', icon: <AssignmentIcon />, bgGradient: 'linear-gradient(145deg, #1E40AF 0%, #3B82F6 100%)' },
   Approved: { color: '#10B981', icon: <CheckCircleIcon />, bgGradient: 'linear-gradient(145deg, #047857 0%, #10B981 100%)' },
   Rejected: { color: '#EF4444', icon: <CancelIcon />, bgGradient: 'linear-gradient(145deg, #B91C1C 0%, #EF4444 100%)' },
-  Rescheduled: { color: '#F59E0B', icon: <ScheduleIcon />, bgGradient: 'linear-gradient(145deg, #B45309 0%, #F59E0B 100%)' },
   Assigned: { color: '#8B5CF6', icon: <PersonIcon />, bgGradient: 'linear-gradient(145deg, #6D28D9 0%, #8B5CF6 100%)' },
   'In Progress': { color: '#EC4899', icon: <PlayArrowIcon />, bgGradient: 'linear-gradient(145deg, #BE185D 0%, #EC4899 100%)' },
   Completed: { color: '#14B8A6', icon: <DoneIcon />, bgGradient: 'linear-gradient(145deg, #0F766E 0%, #14B8A6 100%)' },
@@ -825,20 +827,8 @@ const AdminForm = () => {
             <SearchIcon fontSize="small" />
           </Box>
                 </Box>
+                </Box>
 
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setAssignmentDialogOpen(true)}
-          sx={{
-            bgcolor: '#404040',
-            '&:hover': { bgcolor: '#525252' }
-          }}
-        >
-          Assign Form
-        </Button>
-      </Box>
-      
       {/* Recent Forms List */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h6" sx={{ color: '#fff', mb: 2 }}>
@@ -977,7 +967,7 @@ const AdminForm = () => {
                     </Typography>
                             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                               <LocationIcon sx={{ fontSize: 12 }} />
-                              {typeof form.student?.room?.buildingName === 'string' ? form.student.room.buildingName : 'Building'} {typeof form.student?.room?.roomNumber === 'string' || typeof form.student?.room?.roomNumber === 'number' ? form.student.room.roomNumber : 'Room'}
+                              {typeof form.student?.room?.buildingName === 'string' ? form.student.room.building.name : 'Building'} {typeof form.student?.room?.roomNumber === 'string' || typeof form.student?.room?.roomNumber === 'number' ? form.student.room.roomNumber : 'Room'}
                     </Typography>
                   </Box>
                 </Box>
@@ -1039,26 +1029,9 @@ const AdminForm = () => {
                             </Typography>
                           </Box>
                         ) : (
-                      <Button
-                            variant="outlined" 
-                        size="small"
-                            startIcon={<PersonIcon />}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                              setSelectedForm(form);
-                              setAssignmentDialogOpen(true);
-                        }}
-                        sx={{
-                              borderColor: 'rgba(255,255,255,0.2)',
-                              color: 'rgba(255,255,255,0.7)',
-                              '&:hover': {
-                                borderColor: 'rgba(255,255,255,0.5)',
-                                bgcolor: 'rgba(255,255,255,0.03)'
-                              }
-                            }}
-                          >
-                            Assign
-                      </Button>
+                          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>
+                            No staff assigned
+                          </Typography>
                         )}
                       </TableCell>
                       
@@ -1068,7 +1041,7 @@ const AdminForm = () => {
                           variant="outlined" 
                       size="small"
                           onClick={(e) => e.stopPropagation()}
-                      sx={{
+                        sx={{
                             '& .MuiButton-outlined': {
                               borderColor: 'rgba(255,255,255,0.1)',
                               color: 'rgba(255,255,255,0.7)',
@@ -1080,19 +1053,39 @@ const AdminForm = () => {
                           }}
                         >
                           {form.status === 'Pending' && (
-                            <Button onClick={() => handleStatusChange(form._id, 'Assigned')}>
-                      Assign
+                            <>
+                      <Button
+                        variant="contained"
+                  onClick={() => handleStatusChange(form._id, 'Approved')}
+                        disabled={statusLoading}
+                        startIcon={<CheckCircleIcon />}
+                        sx={{
+                          bgcolor: statusConfig['Approved']?.color || '#10B981',
+                          mr: 1,
+                          '&:hover': {
+                            bgcolor: statusConfig['Approved']?.color ? `${statusConfig['Approved'].color}dd` : '#059669',
+                          }
+                        }}
+                      >
+                        {statusLoading ? <CircularProgress size={24} color="inherit" /> : 'Approve'}
+                      </Button>
+                    <Button
+                      variant="contained"
+                  onClick={() => handleStatusChange(form._id, 'Rejected')}
+                        disabled={statusLoading}
+                        startIcon={<CancelIcon />}
+                      sx={{
+                          bgcolor: statusConfig['Rejected']?.color || '#EF4444',
+                          '&:hover': {
+                            bgcolor: statusConfig['Rejected']?.color ? `${statusConfig['Rejected'].color}dd` : '#DC2626',
+                          }
+                        }}
+                      >
+                        {statusLoading ? <CircularProgress size={24} color="inherit" /> : 'Reject'}
                     </Button>
+                    </>
                   )}
-                          
-                          {/* Admin should not be able to start or complete forms */}
-                          
-                          {form.status !== 'Completed' && form.status !== 'Rejected' && (
-                            <Button onClick={() => handleStatusChange(form._id, 'Rejected')}>
-                              Reject
-                            </Button>
-                          )}
-                        </ButtonGroup>
+                </ButtonGroup>
                       </TableCell>
                     </TableRow>
                   );
@@ -1179,9 +1172,57 @@ const AdminForm = () => {
     }
   };
 
-  return (
-    <Box sx={{ 
-      display: 'flex', 
+  const handleAttachmentClick = (file) => {
+    try {
+      // Create the full URL to the file
+      const fileUrl = file.fileUrl || `/uploads/${file.filename || file.fileName}`;
+      const fullUrl = `${process.env.REACT_APP_API_URL || ''}${fileUrl}`;
+      
+      // Fetch the file with credentials included
+      fetch(fullUrl, {
+        credentials: 'include', // This sends cookies (including the httpOnly jwt cookie)
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        // Create a temporary URL for the blob
+        const url = window.URL.createObjectURL(blob);
+        
+        // Create a link element and trigger download
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Extract filename
+        const fileName = file.originalname || file.fileName || file.filename || 'download';
+        link.download = fileName;
+        
+        // Append to body, click, and clean up
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Release the URL object
+        window.URL.revokeObjectURL(url);
+        
+        toast.success('File download started');
+      })
+      .catch(error => {
+        console.error('Error downloading file:', error);
+        toast.error('Failed to download file. Please try again.');
+      });
+    } catch (error) {
+      console.error('Error in handleAttachmentClick:', error);
+      toast.error('An error occurred while attempting to download the file');
+    }
+  };
+
+    return (
+        <Box sx={{ 
+          display: 'flex', 
       minHeight: '100vh',
       background: 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)',
       color: '#fff',
@@ -1208,10 +1249,10 @@ const AdminForm = () => {
           zIndex: 1,
         }}
       >
-        <Box sx={{ 
-          display: 'flex', 
+          <Box sx={{ 
+            display: 'flex', 
           justifyContent: 'space-between', 
-          alignItems: 'center', 
+            alignItems: 'center', 
           mb: 4,
           pb: 3,
           borderBottom: '1px solid rgba(255,255,255,0.03)',
@@ -1219,7 +1260,7 @@ const AdminForm = () => {
           <Box>
             <Typography variant="h4" sx={{ 
               fontWeight: 600,
-              color: '#fff',
+                color: '#fff',
               textShadow: '0 2px 4px rgba(0,0,0,0.2)',
             }}>
               Form Management
@@ -1262,11 +1303,11 @@ const AdminForm = () => {
           fullWidth
           PaperProps={{
             sx: {
-              bgcolor: '#1E1E1E',
-              backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.03))',
-              color: '#fff',
-              borderRadius: 2,
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+                color: '#fff',
+              borderRadius: '20px',
+              border: '1px solid rgba(255, 255, 255, 0.03)',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
             }
           }}
         >
@@ -1276,8 +1317,8 @@ const AdminForm = () => {
                 p: 3,
                 position: 'relative',
                 height: 'auto',
-                background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
                 borderBottom: '1px solid rgba(255,255,255,0.03)',
+                background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
               }}>
                 <Box sx={{ 
                 display: 'flex',
@@ -1287,16 +1328,20 @@ const AdminForm = () => {
                   <Typography variant="h6" sx={{ 
                     color: '#fff', 
                     fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
                   }}>
+                    <AssignmentIcon sx={{ color: '#3B82F6' }} />
                     Form Details
-                  </Typography>
+            </Typography>
                   
                   <Chip 
                     label={selectedForm.status} 
                     icon={statusConfig[selectedForm.status]?.icon} 
-                    sx={{
+              sx={{ 
                       bgcolor: `${statusConfig[selectedForm.status]?.color}`,
-                      color: '#fff',
+                color: '#fff',
                       borderRadius: '16px',
                       fontWeight: '500',
                       '& .MuiChip-icon': {
@@ -1304,55 +1349,89 @@ const AdminForm = () => {
                       }
                     }}
                   />
-                </Box>
-                
+          </Box>
+
                 <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ 
+                    color: 'rgba(255,255,255,0.6)', 
+                    fontWeight: 500,
+                    mb: 0.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5
+                  }}>
+                    Form Title:
+                  </Typography>
                   <Typography variant="h5" sx={{ 
                     color: '#fff', 
                     fontWeight: 'bold',
                     mb: 1
                   }}>
-                    {selectedForm.title || 'No Title'}
+                    {selectedForm?.title?.substring(0, 40) || 'No Title'}
+                    {selectedForm?.title?.length > 40 ? '...' : ''}
                   </Typography>
                   
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Chip 
-                      label={selectedForm.formType || 'Unknown Type'} 
-                      size="small"
-                      sx={{ 
-                        bgcolor: getFormTypeColor(selectedForm.formType),
-                        color: '#000',
-                      }} 
-                    />
-                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                      ID: {selectedForm._id?.substring(0, 8) || 'Unknown'}
-                    </Typography>
-                        </Box>
-                </Box>
+                  <Typography variant="body2" sx={{ 
+                    color: 'rgba(255,255,255,0.6)', 
+                    fontWeight: 500,
+                    mb: 0.5,
+                    mt: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5
+                  }}>
+                    Form ID:
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#fff', fontWeight: 'medium' }}>
+                    {selectedForm?._id || 'Unknown ID'}
+                  </Typography>
+        </Box>
               </DialogTitle>
               
-              <DialogContent sx={{ p: 3 }}>
+              <DialogContent sx={{ 
+                p: 3,
+          overflowY: 'auto',
+          '&::-webkit-scrollbar': {
+                  width: '8px',
+          },
+          '&::-webkit-scrollbar-track': {
+                  background: 'rgba(0, 0, 0, 0.2)',
+                  borderRadius: '4px',
+                  margin: '8px 0',
+          },
+          '&::-webkit-scrollbar-thumb': {
+                  background: 'rgba(59, 130, 246, 0.6)',
+                  borderRadius: '4px',
+            '&:hover': {
+                    background: 'rgba(59, 130, 246, 0.8)',
+                  },
+          },
+          scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(59, 130, 246, 0.6) rgba(0, 0, 0, 0.2)',
+              }}>
                 <Box sx={{ pb: 3, mb: 3, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                   <Typography variant="subtitle2" sx={{ 
-                    color: '#fff', 
+                    color: '#3B82F6', 
                     mb: 1, 
                     fontWeight: 600, 
                     textTransform: 'uppercase', 
-                    letterSpacing: '0.5px'
+                    letterSpacing: '0.5px',
+                    borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+                    pb: 1,
                   }}>
                     Description
                     </Typography>
                   <Typography variant="body1" sx={{ 
                     color: 'rgba(255,255,255,0.85)',
                     p: 2,
-                    bgcolor: 'rgba(0,0,0,0.2)',
-                    borderRadius: 1,
-                    border: '1px solid rgba(255,255,255,0.05)'
+                    bgcolor: 'rgba(15, 23, 42, 0.3)',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(255, 255, 255, 0.03)'
                   }}>
                     {selectedForm.description || 'No description provided.'}
-                    </Typography>
-                </Box>
-                
+            </Typography>
+          </Box>
+
                 <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
                   {/* Left side - Student & Time Info */}
                   <Box sx={{ 
@@ -1366,9 +1445,24 @@ const AdminForm = () => {
                   }}>
                     {/* Student Info Card */}
                     <Box sx={{ mb: 4 }}>
+                      <Typography variant="subtitle2" sx={{ 
+                        color: '#3B82F6', 
+                        mb: 2, 
+                        fontWeight: 600, 
+                        textTransform: 'uppercase', 
+                        letterSpacing: '0.5px',
+                        borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+                        pb: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                      }}>
+                        <PersonIcon sx={{ fontSize: '1.1rem', opacity: 0.8 }} /> 
+                        Student Information
+                      </Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                         <Avatar 
-                          sx={{ 
+                sx={{ 
                             width: 40, 
                             height: 40, 
                             bgcolor: selectedForm.student?.name ? stringToColor(selectedForm.student.name) : '#424242',
@@ -1380,9 +1474,9 @@ const AdminForm = () => {
                         <Box>
                           <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 500 }}>
                             {typeof selectedForm.student?.name === 'string' ? selectedForm.student.name : 
-                             typeof selectedForm.studentInfo?.name === 'string' ? selectedForm.studentInfo.name : 
-                             'Unknown Student'}
-                      </Typography>
+                            typeof selectedForm.studentInfo?.name === 'string' ? selectedForm.studentInfo.name : 
+                            'Unknown Student'}
+                </Typography>
                           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <LocationIcon sx={{ fontSize: 12 }} />
                             {typeof selectedForm.student?.room?.buildingName === 'string' ? 
@@ -1390,22 +1484,154 @@ const AdminForm = () => {
                               typeof selectedForm.location?.buildingName === 'string' ? 
                               `${selectedForm.location.buildingName}, Room ${selectedForm.location.roomNumber}` : 
                               'Location not specified'}
-                      </Typography>
-                        </Box>
+                </Typography>
+              </Box>
                       </Box>
+
+                      <Grid container spacing={2} mt={1}>
+                        {selectedForm.student?.email && (
+                          <Grid item xs={12}>
+                            <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Email</Typography>
+                            <Typography variant="body1" sx={{ color: '#fff' }}>{selectedForm.student.email}</Typography>
+                          </Grid>
+                        )}
+                        {selectedForm.student?.contactInfo && (
+                          <Grid item xs={12}>
+                            <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Contact</Typography>
+                            <Typography variant="body1" sx={{ color: '#fff' }}>{selectedForm.student.contactInfo}</Typography>
+                          </Grid>
+                        )}
+                      </Grid>
+          </Box>
+
+                    {/* Attachments Section */}
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ 
+                        color: '#3B82F6', 
+                        mb: 2,
+                        borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+                        pb: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                      }}>
+                        <AttachFileIcon sx={{ fontSize: '1.1rem', opacity: 0.8 }} />
+                        Attachments
+                      </Typography>
+                      
+                      {selectedForm?.attachments && selectedForm.attachments.length > 0 ? (
+                        <Box sx={{ mb: 2 }}>
+                          <Paper sx={{ 
+                            bgcolor: 'rgba(15, 23, 42, 0.3)',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(255, 255, 255, 0.03)',
+                            overflow: 'hidden'
+                          }}>
+                            {selectedForm.attachments.map((file, index) => (
+                              <Box 
+                                key={index}
+                sx={{ 
+                                  ...(index !== 0 && {
+                                    borderTop: '1px solid rgba(255,255,255,0.05)'
+                                  })
+                                }}
+                              >
+                                <Box sx={{ 
+                                  p: 2, 
+                                  display: 'flex', 
+                                  alignItems: 'center',
+                                  gap: 2
+                                }}>
+                                  <Avatar sx={{ 
+                                    bgcolor: 'rgba(59, 130, 246, 0.1)', 
+                                    color: '#3B82F6',
+                                    width: 40,
+                                    height: 40
+                                  }}>
+                                    <InsertDriveFileIcon />
+                                  </Avatar>
+                                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                                    <Typography 
+                                      variant="body2" 
+                    sx={{
+                                        color: '#fff', 
+                                        fontWeight: 'medium',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                    >
+                                      {file.originalname || file.fileName || file.filename || 'Attachment'}
+                      </Typography>
+                                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                                      {new Date(file.uploadDate || Date.now()).toLocaleDateString()}
+                      </Typography>
+                                  </Box>
+                                  <Button
+                                    onClick={() => handleAttachmentClick(file)}
+                                    variant="contained"
+                                    size="small"
+                                    startIcon={<DownloadIcon />}
+                          sx={{ 
+                                      bgcolor: 'rgba(59, 130, 246, 0.1)',
+                                      color: '#fff',
+                                      '&:hover': {
+                                        bgcolor: 'rgba(59, 130, 246, 0.2)',
+                                      },
+                                      borderRadius: '8px',
+                                    }}
+                                  >
+                                    Download
+                                  </Button>
+                      </Box>
+              </Box>
+                            ))}
+                          </Paper>
+        </Box>
+                      ) : (
+                        <Box sx={{ 
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 2,
+                          p: 2,
+                          borderRadius: '12px',
+                          bgcolor: 'rgba(15, 23, 42, 0.3)',
+                          border: '1px solid rgba(255, 255, 255, 0.03)'
+                        }}>
+                          <BlockIcon sx={{ color: 'rgba(255,255,255,0.3)' }} />
+                          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                            No attachments provided
+                          </Typography>
+      </Box>
+                      )}
                     </Box>
-                    
+                  </Box>
+
+                  {/* Right side - Schedule & Review */}
+    <Box sx={{ 
+                    flex: 1, 
+                    pl: { xs: 0, md: 3 }, 
+                    ml: { xs: 0, md: 3 },
+                    pb: { xs: 3, md: 0 },
+                    mb: { xs: 3, md: 0 },
+                    borderLeft: { xs: 'none', md: '1px solid rgba(255,255,255,0.1)' },
+                    borderBottom: { xs: '1px solid rgba(255,255,255,0.1)', md: 'none' }
+                  }}>
                     {/* Schedule Info */}
                     <Box>
                       <Typography variant="subtitle2" sx={{ 
-                        color: '#fff', 
+                        color: '#3B82F6', 
                         mb: 2, 
                         fontWeight: 600, 
                         textTransform: 'uppercase', 
                         letterSpacing: '0.5px',
-                        borderBottom: '1px solid rgba(255,255,255,0.1)',
+                        borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
                         pb: 1,
+      display: 'flex', 
+                        alignItems: 'center',
+                        gap: 1,
                       }}>
+                        <AccessTimeIcon sx={{ fontSize: '1.1rem', opacity: 0.8 }} />
                         Schedule
                       </Typography>
                       
@@ -1481,247 +1707,151 @@ const AdminForm = () => {
                         </ListItem>
                       </List>
                     </Box>
-                  </Box>
-                  
-                  {/* Right side - Staff & Attachments */}
-                  <Box sx={{ flex: 1 }}>
-                    {/* Submission Info */}
-                    <Box sx={{ mb: 4 }}>
-                      <Typography variant="subtitle2" sx={{ 
-                        color: '#fff', 
-                        mb: 2, 
-                        fontWeight: 600, 
-                        textTransform: 'uppercase', 
-                        letterSpacing: '0.5px',
-                        borderBottom: '1px solid rgba(255,255,255,0.1)',
-                        pb: 1,
-                      }}>
-                        Submission Details
-                      </Typography>
-                      
-                      <Box sx={{ 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        gap: 1.5,
-                        bgcolor: 'rgba(0,0,0,0.2)', 
-                        borderRadius: 1,
-                        p: 2
-                      }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                            Submitted
-                      </Typography>
-                          <Typography variant="body2" sx={{ color: '#fff' }}>
-                            {selectedForm.createdAt ? format(new Date(selectedForm.createdAt), 'MMM d, yyyy - h:mm a') : 'Unknown'}
-                      </Typography>
-                    </Box>
-                        
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                            Form Type
-                        </Typography>
-                          <Typography variant="body2" sx={{ color: '#fff' }}>
-                            {selectedForm.formType || 'Unknown'}
-                            </Typography>
-                          </Box>
-                        
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                            Form ID
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: '#fff' }}>
-                            {selectedForm._id || 'Unknown'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
                     
-                    {/* Staff Assignment */}
-                    {selectedForm.staff && (
-                      <Box sx={{ mb: 4 }}>
-                        <Typography variant="subtitle2" sx={{ 
-                          color: '#fff', 
-                          mb: 2, 
-                          fontWeight: 600, 
-                          textTransform: 'uppercase', 
-                          letterSpacing: '0.5px',
-                          borderBottom: '1px solid rgba(255,255,255,0.1)',
+                    {/* Status History Section */}
+                    {selectedForm.statusHistory && selectedForm.statusHistory.length > 0 && (
+                      <Box>
+                        <Typography variant="subtitle1" sx={{ 
+                          color: '#3B82F6', 
+                          mb: 2,
+                          borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
                           pb: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
                         }}>
-                          Assigned Staff
+                          <HistoryIcon sx={{ fontSize: '1.1rem', opacity: 0.8 }} />
+                          Status History
+                        </Typography>
+                        <Paper sx={{ 
+                          p: 2.5,
+                          background: 'rgba(15, 23, 42, 0.3)',
+                          borderRadius: '12px',
+                          border: '1px solid rgba(255, 255, 255, 0.03)',
+                          maxHeight: '200px',
+                          overflow: 'auto',
+                          '&::-webkit-scrollbar': {
+                            width: '4px',
+                          },
+                          '&::-webkit-scrollbar-track': {
+                            background: 'rgba(0, 0, 0, 0.1)',
+                          },
+                          '&::-webkit-scrollbar-thumb': {
+                            background: 'rgba(59, 130, 246, 0.5)',
+                            borderRadius: '4px',
+                          },
+                        }}>
+                          {selectedForm.statusHistory.map((history, index) => (
+                            <Box 
+                              key={index} 
+        sx={{ 
+                                mb: 2,
+                                pb: 2,
+                                borderBottom: index !== selectedForm.statusHistory.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+          display: 'flex',
+                                gap: 2,
+        }}
+      >
+        <Box sx={{ 
+                                minWidth: '24px',
+          display: 'flex', 
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                              }}>
+                                <Box sx={{ 
+                                  width: '10px',
+                                  height: '10px',
+                                  borderRadius: '50%',
+                                  bgcolor: statusConfig[history.status]?.color || '#9CA3AF',
+                                }} />
+                                {index !== selectedForm.statusHistory.length - 1 && (
+                                  <Box sx={{ 
+                                    width: '2px',
+                                    height: '100%',
+                                    bgcolor: 'rgba(255,255,255,0.1)',
+                                    mt: 0.5,
+                                  }} />
+                                )}
+                              </Box>
+          <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>
+                                  {history.status}
+            </Typography>
+                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', display: 'block', mb: 0.5 }}>
+                                  {history.changedAt ? format(new Date(history.changedAt), 'MMM d, yyyy - h:mm a') : 'Date unknown'}
+            </Typography>
+                                {history.notes && (
+                                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                                    {history.notes}
+                                  </Typography>
+                                )}
+          </Box>
+                            </Box>
+                          ))}
+                        </Paper>
+                      </Box>
+                    )}
+                    
+                    {/* Student Review Section (if completed) */}
+                    {selectedForm.status === 'Completed' && selectedForm.studentReview && (
+                      <Box sx={{ 
+                        mt: 3, 
+                        p: 2.5,
+                        bgcolor: 'rgba(15, 23, 42, 0.3)',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(59, 130, 246, 0.2)'
+                      }}>
+                        <Typography variant="subtitle1" sx={{ 
+                          color: '#3B82F6', 
+                          mb: 2,
+                          borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+                          pb: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                        }}>
+                          <StarIcon sx={{ fontSize: '1.1rem', opacity: 0.8, color: '#F59E0B' }} />
+                          Student Review
                         </Typography>
                         
-                        <Card sx={{ 
-                          bgcolor: 'rgba(0,0,0,0.2)', 
-                          borderRadius: 1,
-                          p: 2,
-                          border: '1px solid rgba(255,255,255,0.05)'
-                        }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <Avatar sx={{ bgcolor: statusConfig['Assigned']?.color || '#8B5CF6', mr: 2 }}>
-                              <PersonIcon />
-                            </Avatar>
-                            <Box>
-                              <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 'medium' }}>
-                                {selectedForm.staff.name}
-                              </Typography>
-                              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                                {selectedForm.staff.role || selectedForm.staff.typeOfStaff || 'Staff Member'}
-                              </Typography>
-                            </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                          <Typography variant="body2" sx={{ color: '#9CA3AF', mr: 1 }}>
+                            Rating:
+                          </Typography>
+                          <Box sx={{ display: 'flex' }}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <StarIcon 
+                                key={star} 
+              sx={{
+                                  color: star <= selectedForm.studentReview.rating ? '#F59E0B' : 'rgba(255,255,255,0.2)',
+                                  fontSize: '1rem'
+                                }} 
+                              />
+                            ))}
                           </Box>
-                        </Card>
-                      </Box>
-                    )}
-                    
-                    {/* Attachments */}
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ 
-                        color: '#fff', 
-                        mb: 2, 
-                        fontWeight: 600, 
-                        textTransform: 'uppercase', 
-                        letterSpacing: '0.5px',
-                        borderBottom: '1px solid rgba(255,255,255,0.1)',
-                        pb: 1,
-                      }}>
-                        Attachments
-                      </Typography>
-                      
-                      {(selectedForm.attachments && selectedForm.attachments.length > 0) ? (
-                        <Card sx={{ 
-                          bgcolor: 'rgba(0,0,0,0.2)', 
-                          borderRadius: 1,
-                          overflow: 'hidden',
-                          border: '1px solid rgba(255,255,255,0.05)'
-                        }}>
-                          <Box sx={{ p: 2, display: 'flex', alignItems: 'center' }}>
-                            <FolderOpenIcon sx={{ color: 'rgba(255,255,255,0.7)', mr: 2 }} />
-                            <Box sx={{ flexGrow: 1 }}>
-                              <Typography variant="body2" sx={{ color: '#fff', fontWeight: 'medium' }}>
-                                {selectedForm.attachments[0].originalname || 'form-file'}
-                              </Typography>
-                            </Box>
-                          </Box>
-                          <Box sx={{ 
-                            bgcolor: 'rgba(0,0,0,0.3)', 
-                            p: 1.5, 
-                            display: 'flex', 
-                            justifyContent: 'flex-end'
-                          }}>
-                              <Button
-                                onClick={() => {
-                                  const token = document.cookie.split('; ').find(row => row.startsWith('jwt='))?.split('=')[1];
-                                  const fileUrl = `${process.env.REACT_APP_API_URL}/uploads/forms/${selectedForm.attachments[0].filename}`;
-                                  
-                                  fetch(fileUrl, {
-                                    headers: {
-                                      'Authorization': `Bearer ${token}`
-                                    }
-                                  })
-                                  .then(response => response.blob())
-                                  .then(blob => {
-                                    const link = document.createElement('a');
-                                    const url = window.URL.createObjectURL(blob);
-                                    link.href = url;
-                                    link.download = selectedForm.attachments[0].originalname || 'form-file';
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                    window.URL.revokeObjectURL(url);
-                                    toast.success('File download started');
-                                  })
-                                  .catch(error => {
-                                    console.error('Error downloading file:', error);
-                                    toast.error('Error downloading file. Please try again.');
-                                  });
-                                }}
-                              variant="contained"
-                                startIcon={<DownloadIcon />}
-                              size="small"
-                                sx={{
-                                bgcolor: 'rgba(255,255,255,0.1)',
-                                    color: '#fff',
-                                '&:hover': {
-                                  bgcolor: 'rgba(255,255,255,0.2)',
-                                  }
-                                }}
-                              >
-                              Download
-                              </Button>
-                          </Box>
-                        </Card>
-                      ) : (
-                        <Card sx={{ 
-                          bgcolor: 'rgba(0,0,0,0.2)', 
-                          borderRadius: 1,
-                          p: 2, 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: 2,
-                          color: 'rgba(255,255,255,0.5)',
-                          border: '1px solid rgba(255,255,255,0.05)'
-                        }}>
-                          <BlockIcon />
-                          <Typography variant="body2">
-                            No attachments provided
-                              </Typography>
-                        </Card>
-                            )}
-                          </Box>
-                        </Box>
-                      </Box>
+        </Box>
 
-                {/* Add this after other form details, just before the dialog actions */}
-                {selectedForm.status === 'Completed' && selectedForm.studentReview && (
-                  <Box sx={{ 
-                    mt: 2, 
-                    p: 2, 
-                    bgcolor: 'rgba(16, 185, 129, 0.1)', 
-                    borderRadius: '8px',
-                    border: '1px solid rgba(16, 185, 129, 0.3)'
-                  }}>
-                    <Typography variant="subtitle1" sx={{ color: '#fff', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <StarIcon sx={{ color: '#F59E0B' }} /> 
-                      Student Review
-                    </Typography>
-                    
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <Typography variant="body2" sx={{ color: '#9CA3AF', mr: 1 }}>
-                        Rating:
-                      </Typography>
-                      <Box sx={{ display: 'flex' }}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <StarIcon 
-                            key={star} 
-                            sx={{ 
-                              color: star <= selectedForm.studentReview.rating ? '#F59E0B' : 'rgba(255,255,255,0.2)',
-                              fontSize: '1rem'
-                            }} 
-                          />
-                        ))}
-                      </Box>
-                    </Box>
-                    
-                    {selectedForm.studentReview.comment && (
-                      <>
-                        <Typography variant="body2" sx={{ color: '#9CA3AF', mb: 0.5 }}>
-                          Comment:
+                        {selectedForm.studentReview.comment && (
+                          <>
+                            <Typography variant="body2" sx={{ color: '#9CA3AF', mb: 0.5 }}>
+                              Comment:
+                            </Typography>
+                            <Typography variant="body1" sx={{ color: '#fff', fontStyle: 'italic' }}>
+                              "{selectedForm.studentReview.comment}"
+                            </Typography>
+                          </>
+                        )}
+                        
+                        <Typography variant="caption" sx={{ color: '#9CA3AF', display: 'block', mt: 1 }}>
+                          Reviewed on {format(new Date(selectedForm.studentReview.reviewDate), 'MMM d, yyyy')}
                         </Typography>
-                        <Typography variant="body1" sx={{ color: '#fff', fontStyle: 'italic' }}>
-                          "{selectedForm.studentReview.comment}"
-                        </Typography>
-                      </>
+          </Box>
                     )}
-                    
-                    <Typography variant="caption" sx={{ color: '#9CA3AF', display: 'block', mt: 1 }}>
-                      Reviewed on {format(new Date(selectedForm.studentReview.reviewDate), 'MMM d, yyyy')}
-                    </Typography>
                   </Box>
-                )}
+                </Box>
               </DialogContent>
               
-              <DialogActions sx={{ p: 3, borderTop: '1px solid rgba(255,255,255,0.1)', justifyContent: 'space-between' }}>
+              <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.03)', justifyContent: 'space-between' }}>
                 <Button 
                   onClick={handleCloseDialog}
                   sx={{ 
@@ -1737,35 +1867,39 @@ const AdminForm = () => {
                 <Box>
                   {selectedForm.status === 'Pending' && (
                     <>
-                <Button
-                  variant="contained"
-                  onClick={() => handleStatusChange(selectedForm._id, 'Approved')}
+                      <Button
+                        variant="contained"
+                        onClick={() => handleStatusChange(selectedForm._id, 'Approved')}
                         disabled={statusLoading}
                         startIcon={<CheckCircleIcon />}
-                  sx={{
-                          bgcolor: statusConfig['Approved']?.color || '#10B981',
+                        sx={{
+                          bgcolor: 'rgba(16, 185, 129, 0.1)',
+                          color: '#10B981',
+                          borderColor: 'rgba(16, 185, 129, 0.5)',
                           mr: 1,
                           '&:hover': {
-                            bgcolor: statusConfig['Approved']?.color ? `${statusConfig['Approved'].color}dd` : '#059669',
+                            bgcolor: 'rgba(16, 185, 129, 0.2)',
                           }
                         }}
                       >
                         {statusLoading ? <CircularProgress size={24} color="inherit" /> : 'Approve'}
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={() => handleStatusChange(selectedForm._id, 'Rejected')}
+                      </Button>
+                      <Button
+                        variant="contained"
+                        onClick={() => handleStatusChange(selectedForm._id, 'Rejected')}
                         disabled={statusLoading}
                         startIcon={<CancelIcon />}
-                  sx={{
-                          bgcolor: statusConfig['Rejected']?.color || '#EF4444',
+                        sx={{
+                          bgcolor: 'rgba(239, 68, 68, 0.1)',
+                          color: '#EF4444',
+                          borderColor: 'rgba(239, 68, 68, 0.5)',
                           '&:hover': {
-                            bgcolor: statusConfig['Rejected']?.color ? `${statusConfig['Rejected'].color}dd` : '#DC2626',
+                            bgcolor: 'rgba(239, 68, 68, 0.2)',
                           }
                         }}
                       >
                         {statusLoading ? <CircularProgress size={24} color="inherit" /> : 'Reject'}
-                </Button>
+                      </Button>
                     </>
                   )}
                   
@@ -1776,47 +1910,15 @@ const AdminForm = () => {
                       disabled={statusLoading}
                       startIcon={<PersonIcon />}
                       sx={{
-                        bgcolor: statusConfig['Assigned']?.color || '#8B5CF6',
+                        bgcolor: 'rgba(139, 92, 246, 0.1)',
+                        color: '#8B5CF6',
+                        borderColor: 'rgba(139, 92, 246, 0.5)',
                         '&:hover': {
-                          bgcolor: statusConfig['Assigned']?.color ? `${statusConfig['Assigned'].color}dd` : '#7C3AED',
+                          bgcolor: 'rgba(139, 92, 246, 0.2)',
                         }
                       }}
                     >
                       {statusLoading ? <CircularProgress size={24} color="inherit" /> : 'Assign Staff'}
-                    </Button>
-                  )}
-                  
-                  {selectedForm.status === 'Rejected' && (
-                    <Button
-                      variant="contained"
-                      onClick={() => handleStatusChange(selectedForm._id, 'Rescheduled')}
-                      disabled={statusLoading}
-                      startIcon={<ScheduleIcon />}
-                      sx={{
-                        bgcolor: statusConfig['Rescheduled']?.color || '#F59E0B',
-                        '&:hover': {
-                          bgcolor: statusConfig['Rescheduled']?.color ? `${statusConfig['Rescheduled'].color}dd` : '#D97706',
-                        }
-                      }}
-                    >
-                      {statusLoading ? <CircularProgress size={24} color="inherit" /> : 'Reschedule'}
-                    </Button>
-                  )}
-                  
-                  {selectedForm.status === 'Rescheduled' && (
-                    <Button
-                      variant="contained"
-                      onClick={() => handleStatusChange(selectedForm._id, 'Pending')}
-                      disabled={statusLoading}
-                      startIcon={<RestoreIcon />}
-                      sx={{
-                        bgcolor: statusConfig['Pending']?.color || '#3B82F6',
-                        '&:hover': {
-                          bgcolor: statusConfig['Pending']?.color ? `${statusConfig['Pending'].color}dd` : '#2563EB',
-                        }
-                      }}
-                    >
-                      {statusLoading ? <CircularProgress size={24} color="inherit" /> : 'Mark as Pending'}
                     </Button>
                   )}
                 </Box>
@@ -1831,74 +1933,250 @@ const AdminForm = () => {
           onClose={() => setAssignmentDialogOpen(false)}
           maxWidth="sm"
           fullWidth
-          sx={{
-            '& .MuiDialog-paper': {
-              bgcolor: '#1F2937',
-              color: 'white',
-              borderRadius: 2,
+          PaperProps={{
+            sx: {
+              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+              color: '#fff',
+              borderRadius: '20px',
+              border: '1px solid rgba(255, 255, 255, 0.03)',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
             }
           }}
         >
-          <DialogTitle sx={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-            Assign Staff to {selectedForm?.formType} Request
-          </DialogTitle>
-          <DialogContent sx={{ pt: 2, mt: 2 }}>
-            {filteredStaff.length === 0 ? (
-              <Typography color="error" align="center" sx={{ py: 3 }}>
-                No available staff members found for this type of request.
+              <DialogTitle sx={{ 
+            p: 3,
+            position: 'relative',
+            height: 'auto',
+                borderBottom: '1px solid rgba(255,255,255,0.03)',
+            background: 'linear-gradient(90deg, rgba(139, 92, 246, 0.1) 0%, transparent 100%)',
+          }}>
+            <Box sx={{ 
+                display: 'flex',
+                justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <Typography variant="h6" sx={{ 
+                color: '#fff', 
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+              }}>
+                <PersonIcon sx={{ color: '#8B5CF6' }} />
+                Assign Staff
               </Typography>
-            ) : (
-              <List>
-                {filteredStaff.map((staff) => (
-                  <ListItem
-                    key={staff._id}
-                    button
-                    onClick={() => {
-                      assignStaffToForm(selectedForm._id, staff._id);
-                    }}
+              
+              <Chip 
+                label={selectedForm?.formType || 'Form'} 
+                size="small"
                     sx={{
-                      mb: 1,
-                      borderRadius: 1,
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      '&:hover': {
-                        bgcolor: 'rgba(255,255,255,0.05)',
-                      }
-                    }}
-                  >
-                    <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: staff.status === 'Available' ? '#10B981' : '#F59E0B' }}>
-                        <PersonIcon />
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={staff.name}
-                      secondary={
-                        <Typography variant="body2" color="rgba(255,255,255,0.7)">
-                          {staff.typeOfStaff} • {staff.status}
+                  bgcolor: getFormTypeColor(selectedForm?.formType),
+                  color: '#000',
+                }} 
+              />
+                        </Box>
+            
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body2" sx={{ 
+                color: 'rgba(255,255,255,0.6)', 
+                fontWeight: 500,
+                mb: 0.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5
+              }}>
+                Form Title:
+                    </Typography>
+              <Typography variant="h5" sx={{ 
+                color: '#fff', 
+                fontWeight: 'bold',
+                mb: 1
+              }}>
+                {selectedForm?.title?.substring(0, 40) || 'No Title'}
+                {selectedForm?.title?.length > 40 ? '...' : ''}
+                    </Typography>
+              
+              <Typography variant="body2" sx={{ 
+                color: 'rgba(255,255,255,0.6)', 
+                fontWeight: 500,
+                mb: 0.5,
+                mt: 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5
+              }}>
+                Form ID:
+                      </Typography>
+              <Typography variant="body2" sx={{ color: '#fff', fontWeight: 'medium' }}>
+                {selectedForm?._id || 'Unknown ID'}
+                      </Typography>
+                    </Box>
+          </DialogTitle>
+
+          <DialogContent sx={{ 
+            p: 3,
+            overflowY: 'auto',
+            '&::-webkit-scrollbar': {
+              width: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'rgba(0, 0, 0, 0.2)',
+              borderRadius: '4px',
+              margin: '8px 0',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: 'rgba(139, 92, 246, 0.6)',
+              borderRadius: '4px',
+              '&:hover': {
+                background: 'rgba(139, 92, 246, 0.8)',
+              },
+            },
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(139, 92, 246, 0.6) rgba(0, 0, 0, 0.2)',
+          }}>
+            {filteredStaff.length === 0 ? (
+              <Box sx={{ 
+                py: 5, 
+                textAlign: 'center',
+                bgcolor: 'rgba(15, 23, 42, 0.3)',
+                borderRadius: '12px',
+                border: '1px dashed rgba(255,255,255,0.1)',
+                px: 3
+              }}>
+                <WarningIcon sx={{ fontSize: 48, color: '#EF4444', mb: 2, opacity: 0.8 }} />
+                <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.8)', mb: 1 }}>
+                  No Staff Available
+                      </Typography>
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                  There are no available staff members matching the required skills for this type of request.
+                      </Typography>
+                    </Box>
+            ) : (
+              <>
+                <Typography variant="subtitle2" sx={{ 
+                  color: '#8B5CF6', 
+                  mb: 2, 
+                  fontWeight: 600, 
+                  textTransform: 'uppercase', 
+                  letterSpacing: '0.5px',
+                  borderBottom: '1px solid rgba(139, 92, 246, 0.2)',
+                  pb: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}>
+                  <PersonIcon sx={{ fontSize: '1.1rem', opacity: 0.8 }} />
+                  Available Staff Members
                         </Typography>
-                      }
-                    />
-                    <Chip 
-                      label={`${staff.assignedTasks?.length || 0} tasks`}
-                      size="small"
-                      sx={{ 
-                        bgcolor: 'rgba(255,255,255,0.1)', 
-                        color: 'white' 
-                      }}
-                    />
-                  </ListItem>
-                ))}
-              </List>
+                
+                <Box sx={{ maxHeight: '50vh', overflow: 'auto', 
+                  '&::-webkit-scrollbar': {
+                    width: '6px',
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    background: 'rgba(0, 0, 0, 0.1)',
+                    borderRadius: '4px',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    background: 'rgba(139, 92, 246, 0.5)',
+                    borderRadius: '4px',
+                  },
+                }}>
+                  <List disablePadding>
+                    {filteredStaff.map((staff) => (
+                      <Paper
+                        key={staff._id}
+                                sx={{
+                          mb: 2,
+                          bgcolor: 'rgba(15, 23, 42, 0.3)',
+                          border: '1px solid rgba(255,255,255,0.05)',
+                          borderRadius: '12px',
+                          overflow: 'hidden',
+                          transition: 'all 0.2s ease',
+                                  '&:hover': {
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 6px 16px rgba(0,0,0,0.3)',
+                            borderColor: 'rgba(139, 92, 246, 0.3)',
+                          },
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => assignStaffToForm(selectedForm._id, staff._id)}
+                      >
+                        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Avatar 
+                            sx={{ 
+                              bgcolor: staff.status === 'Available' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                              color: staff.status === 'Available' ? '#10B981' : '#F59E0B',
+                              width: 50,
+                              height: 50
+                            }}
+                          >
+                            <PersonIcon sx={{ fontSize: 28 }} />
+                          </Avatar>
+                          <Box sx={{ flexGrow: 1 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5, color: '#fff' }}>
+                              {staff.name}
+                              </Typography>
+                            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                              {staff.typeOfStaff || 'Staff Member'} • {staff.status || 'Available'}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ textAlign: 'right' }}>
+                            <Chip 
+                              label={`${staff.assignedTasks?.length || 0} tasks`}
+                              size="small"
+                              sx={{ 
+                                bgcolor: (() => {
+                                  const count = staff.assignedTasks?.length || 0;
+                                  if (count < 3) return 'rgba(16, 185, 129, 0.2)';
+                                  if (count < 6) return 'rgba(245, 158, 11, 0.2)';
+                                  return 'rgba(239, 68, 68, 0.2)';
+                                })(),
+                                color: (() => {
+                                  const count = staff.assignedTasks?.length || 0;
+                                  if (count < 3) return '#10B981';
+                                  if (count < 6) return '#F59E0B';
+                                  return '#EF4444';
+                                })(),
+                                borderRadius: '12px',
+                                mb: 1
+                              }}
+                            />
+                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', display: 'block' }}>
+                              Click to assign
+                            </Typography>
+                        </Box>
+                      </Box>
+                      </Paper>
+                    ))}
+                  </List>
+                </Box>
+              </>
             )}
-          </DialogContent>
-          <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-            <Button 
+              </DialogContent>
+
+          <DialogActions sx={{ 
+            p: 3, 
+            borderTop: '1px solid rgba(255,255,255,0.05)', 
+            justifyContent: 'flex-end',
+            bgcolor: 'rgba(0,0,0,0.1)'
+          }}>
+                <Button 
               onClick={() => setAssignmentDialogOpen(false)}
-              sx={{ color: 'white' }}
+              variant="outlined"
+              startIcon={<CancelIcon />}
+                  sx={{ 
+                borderColor: 'rgba(255,255,255,0.1)',
+                color: 'rgba(255,255,255,0.7)',
+                '&:hover': {
+                  borderColor: 'rgba(255,255,255,0.3)',
+                  bgcolor: 'rgba(255,255,255,0.05)'
+                }
+              }}
             >
               Cancel
-            </Button>
-          </DialogActions>
+                </Button>
+              </DialogActions>
         </Dialog>
       </Box>
     </Box>

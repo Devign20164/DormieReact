@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -35,6 +35,9 @@ import {
   FormHelperText,
   InputAdornment,
   Rating,
+  Alert,
+  AlertTitle,
+  EventIcon,
 } from '@mui/material';
 import {
   Assignment as AssignmentIcon,
@@ -77,6 +80,9 @@ import {
   Handyman as HandymanIcon,
   Title as TitleIcon,
   Star as StarIcon,
+  Restore as RestoreIcon,
+  Close as CloseIcon,
+  Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -309,6 +315,23 @@ const StudentForm = () => {
     roomNumber: mockStudentProfile.roomNumber,
   });
 
+  // Add new state variables near the beginning of the component
+  const [rescheduleDialog, setRescheduleDialog] = useState(false);
+  const [rescheduleData, setRescheduleData] = useState({
+    startDate: '',
+    startTime: '',
+    endDate: '',
+    endTime: '',
+    description: ''
+  });
+  const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
+  const [confirmDialogAction, setConfirmDialogAction] = useState(null);
+
+  // Add file handling state
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [fileUploadLoading, setFileUploadLoading] = useState(false);
+  const fileInputRef = useRef(null);
+
   // Fetch student profile data
   useEffect(() => {
     const fetchStudentProfile = async () => {
@@ -455,6 +478,60 @@ const StudentForm = () => {
       roomNumber: '',
     });
     setClickedTimeSlot(null);
+    // Clear uploaded files
+    setUploadedFiles([]);
+  };
+
+  // Add function to handle file selection
+  const handleFileSelect = async (event) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    
+    setFileUploadLoading(true);
+    
+    try {
+      // In a real implementation, you would upload these files to your server or cloud storage
+      // and get back URLs. For this example, we'll create mock file objects.
+      const newFiles = Array.from(files).map(file => {
+        // Create a temporary URL for preview
+        const fileUrl = URL.createObjectURL(file);
+        
+        return {
+          fileName: file.name,
+          fileType: file.type,
+          fileUrl: fileUrl,
+          // In a real implementation, you would include the actual URL from your server
+          file: file // Keep the original file for upload
+        };
+      });
+      
+      setUploadedFiles(prev => [...prev, ...newFiles]);
+      
+      // Reset the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      
+      toast.success(`${files.length} file(s) added`);
+    } catch (error) {
+      console.error('Error handling files:', error);
+      toast.error('Failed to process files');
+    } finally {
+      setFileUploadLoading(false);
+    }
+  };
+
+  // Add function to remove a file
+  const handleRemoveFile = (index) => {
+    setUploadedFiles(prev => {
+      const newFiles = [...prev];
+      // If there's a temporary URL, revoke it to prevent memory leaks
+      if (newFiles[index].fileUrl && newFiles[index].fileUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(newFiles[index].fileUrl);
+      }
+      newFiles.splice(index, 1);
+      return newFiles;
+    });
   };
 
   const handleSubmitForm = async () => {
@@ -468,18 +545,31 @@ const StudentForm = () => {
         duration = diffMs / (1000 * 60 * 60); // Duration in hours
       }
       
-      // Create form data to send to the API
-      const formData = {
-        title: newForm.title,
-        description: newForm.description,
-        formType: newForm.formType,
-        preferredStartTime: newForm.preferredStartTime,
-        endTime: newForm.preferredEndTime,
-        attachments: [] // In a real implementation, you'd upload files first and include their URLs here
-      };
+      // Create FormData for file upload
+      const formData = new FormData();
+      
+      // Add form fields to FormData
+      formData.append('title', newForm.title);
+      formData.append('description', newForm.description);
+      formData.append('formType', newForm.formType);
+      formData.append('preferredStartTime', newForm.preferredStartTime.toISOString());
+      formData.append('endTime', newForm.preferredEndTime.toISOString());
+      
+      // Add files to FormData
+      if (uploadedFiles.length > 0) {
+        uploadedFiles.forEach((fileObj, index) => {
+          if (fileObj.file) {
+            formData.append('files', fileObj.file);
+          }
+        });
+      }
 
-      // Submit form to backend API
-      const response = await axios.post('/api/students/forms', formData);
+      // Submit form with files to backend API
+      const response = await axios.post('/api/students/forms', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
       
       // Get the form with ID from server response
       const newFormData = response.data;
@@ -911,6 +1001,69 @@ const StudentForm = () => {
     }
   };
 
+  // Add a function to get the appropriate icon based on file type
+  const getFileIcon = (fileType) => {
+    if (!fileType) return <InsertDriveFileIcon />;
+    
+    if (fileType.startsWith('image/')) {
+      return <ImageIcon />;
+    } else if (fileType === 'application/pdf') {
+      return <PictureAsPdfIcon />;
+    } else if (fileType.includes('word') || fileType.includes('document')) {
+      return <DescriptionIcon />;
+    } else {
+      return <InsertDriveFileIcon />;
+    }
+  };
+
+  // Add function to handle attachment click
+  const handleAttachmentClick = (fileUrl) => {
+    try {
+      // Create the full URL to the file
+      const fullUrl = `${process.env.REACT_APP_API_URL || ''}${fileUrl}`;
+      
+      // Fetch the file with credentials included
+      fetch(fullUrl, {
+        credentials: 'include', // This sends cookies (including the httpOnly jwt cookie)
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        // Create a temporary URL for the blob
+        const url = window.URL.createObjectURL(blob);
+        
+        // Create a link element and trigger download
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Extract filename from fileUrl
+        const fileName = fileUrl.split('/').pop();
+        link.download = fileName || 'download';
+        
+        // Append to body, click, and clean up
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Release the URL object
+        window.URL.revokeObjectURL(url);
+        
+        toast.success('File download started');
+      })
+      .catch(error => {
+        console.error('Error downloading file:', error);
+        toast.error('Failed to download file. Please try again.');
+      });
+    } catch (error) {
+      console.error('Error in handleAttachmentClick:', error);
+      toast.error('An error occurred while attempting to download the file');
+    }
+  };
+
   const renderFormDetailsDialog = () => {
     if (!selectedForm) return null;
     
@@ -1048,21 +1201,78 @@ const StudentForm = () => {
                       <Typography variant="body2" sx={{ color: '#9CA3AF', mb: 1, fontWeight: 500 }}>
                         Attachments
                       </Typography>
-                      <List dense sx={{ bgcolor: 'rgba(0,0,0,0.2)', borderRadius: '8px', mb: 3 }}>
+                      <Box sx={{ 
+                        bgcolor: 'rgba(0,0,0,0.2)', 
+                        borderRadius: '12px', 
+                        mb: 3, 
+                        p: 1,
+                        border: '1px solid rgba(255,255,255,0.05)'
+                      }}>
                         {selectedForm.attachments.map((file, index) => (
-                          <ListItem key={index}>
-                            <ListItemAvatar>
-                              <Avatar sx={{ bgcolor: 'rgba(59, 130, 246, 0.1)', color: '#3B82F6' }}>
-                                <FolderOpenIcon />
-                              </Avatar>
-                            </ListItemAvatar>
-                            <ListItemText 
-                              primary={<Typography noWrap variant="body2" sx={{ color: '#fff' }}>{file.fileName}</Typography>}
-                              secondary={<Typography variant="caption" sx={{ color: '#6B7280' }}>{file.fileType}</Typography>}
-                            />
-                          </ListItem>
+                          <Button
+                            key={index}
+                            variant="text"
+                            startIcon={getFileIcon(file.fileType)}
+                            onClick={() => handleAttachmentClick(file.fileUrl)}
+                            sx={{
+                              width: '100%',
+                              justifyContent: 'flex-start',
+                              p: 1.5,
+                              borderRadius: '8px',
+                              color: '#fff',
+                              textAlign: 'left',
+                              transition: 'all 0.2s',
+                              '&:hover': {
+                                bgcolor: 'rgba(255,255,255,0.05)',
+                                transform: 'translateY(-1px)'
+                              },
+                              mb: index < selectedForm.attachments.length - 1 ? 1 : 0,
+                              border: '1px solid rgba(255,255,255,0.05)',
+                              background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.2) 0%, rgba(15, 23, 42, 0.2) 100%)',
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', ml: 1, overflow: 'hidden', width: '100%' }}>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: '#fff',
+                                  fontWeight: 500,
+                                  mb: 0.5,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  width: '100%'
+                                }}
+                              >
+                                {file.fileName}
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+                                <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
+                                  {file.fileType || 'Unknown type'}
+                                </Typography>
+                                <Chip 
+                                  icon={<DownloadIcon sx={{ fontSize: '0.875rem !important' }} />}
+                                  label="Download"
+                                  size="small"
+                                  sx={{ 
+                                    height: 24, 
+                                    bgcolor: 'rgba(59, 130, 246, 0.1)', 
+                                    color: '#3B82F6',
+                                    '& .MuiChip-label': {
+                                      px: 1,
+                                      fontSize: '0.6875rem'
+                                    },
+                                    '& .MuiChip-icon': {
+                                      color: '#3B82F6',
+                                      ml: 0.5
+                                    }
+                                  }}
+                                />
+                              </Box>
+                            </Box>
+                          </Button>
                         ))}
-                      </List>
+                      </Box>
                     </>
                   )}
                   
@@ -1440,6 +1650,22 @@ const StudentForm = () => {
             Close
           </Button>
           
+          {selectedForm.status === 'Rejected' && (
+            <Button
+              variant="contained"
+              startIcon={<RestoreIcon />}
+              onClick={handleOpenRescheduleDialog}
+              sx={{
+                background: 'linear-gradient(145deg, #F59E0B 0%, #D97706 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(145deg, #D97706 0%, #B45309 100%)',
+                },
+              }}
+            >
+              Reschedule
+            </Button>
+          )}
+          
           {selectedForm.status === 'Completed' && (
             selectedForm.studentReview && selectedForm.studentReview.rating > 0 ? (
               // Show the review data directly in the form details
@@ -1803,15 +2029,25 @@ const StudentForm = () => {
     const recentForms = sortedForms.slice(0, 5);
     
     return (
-      <Box sx={{ mt: 4 }}>
+      <Box sx={{ p: 3 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h5" sx={{ color: '#fff' }}>
+          <Typography variant="h5" sx={{ 
+            color: '#fff',
+            fontWeight: 600,
+            textShadow: '0 2px 4px rgba(0,0,0,0.2)'
+          }}>
             Recent Submissions
           </Typography>
           <Button
             variant="text"
             endIcon={<KeyboardArrowDownIcon />}
-            sx={{ color: '#3B82F6' }}
+            sx={{ 
+              color: '#3B82F6',
+              '&:hover': {
+                background: 'rgba(59, 130, 246, 0.1)'
+              },
+              transition: 'all 0.2s ease',
+            }}
             onClick={() => setView('list')}
           >
             View All
@@ -1820,7 +2056,7 @@ const StudentForm = () => {
         
         <Box
           sx={{
-            background: 'rgba(255, 255, 255, 0.03)',
+            background: 'linear-gradient(145deg, rgba(26, 26, 26, 0.6) 0%, rgba(20, 20, 20, 0.6) 100%)',
             borderRadius: '16px',
             overflow: 'hidden',
             boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15)',
@@ -1835,7 +2071,7 @@ const StudentForm = () => {
               gap: 2,
               p: 2,
               borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-              background: 'rgba(0, 0, 0, 0.2)',
+              background: 'linear-gradient(90deg, rgba(26, 26, 26, 0.8) 0%, rgba(20, 20, 20, 0.8) 100%)',
             }}
           >
             <Typography variant="subtitle2" sx={{ color: '#9CA3AF', fontWeight: 600 }}>
@@ -1894,7 +2130,9 @@ const StudentForm = () => {
                 borderBottom: index < recentForms.length - 1 ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
                 transition: 'all 0.2s ease',
                 '&:hover': {
-                  background: 'rgba(255, 255, 255, 0.05)',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  transform: 'translateY(-1px)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
                 },
                 cursor: 'pointer',
               }}
@@ -1902,13 +2140,13 @@ const StudentForm = () => {
             >
               {/* Request Details */}
               <Box>
-                <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500, mb: 0.5 }}>
+                <Typography variant="body1" sx={{ color: '#fff', fontWeight: 600, mb: 0.5 }}>
                   {form.title}
                 </Typography>
                 <Typography 
                   variant="body2" 
                   sx={{ 
-                    color: '#6B7280', 
+                    color: '#9CA3AF', 
                     display: '-webkit-box',
                     WebkitLineClamp: 2,
                     WebkitBoxOrient: 'vertical',
@@ -1929,17 +2167,18 @@ const StudentForm = () => {
                   sx={{
                     background: statusConfig[form.status]?.bgGradient,
                     color: '#fff',
-                    fontWeight: 500,
+                    fontWeight: 600,
                     '& .MuiChip-icon': {
                       color: '#fff',
                     },
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
                   }}
                 />
               </Box>
 
               {/* Type */}
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Typography variant="body2" sx={{ color: '#9CA3AF' }}>
+                <Typography variant="body2" sx={{ color: '#9CA3AF', fontWeight: 500 }}>
                   {form.formType}
                 </Typography>
               </Box>
@@ -1970,14 +2209,15 @@ const StudentForm = () => {
                       width: 24, 
                       height: 24, 
                       fontSize: '0.75rem',
-                      bgcolor: 'rgba(59, 130, 246, 0.2)',
-                      color: '#3B82F6',
+                      background: 'linear-gradient(145deg, #1E40AF 0%, #3B82F6 100%)',
+                      color: '#fff',
+                      boxShadow: '0 2px 8px rgba(59, 130, 246, 0.2)',
                     }}
                   >
                     {form.staff?.name ? form.staff.name.charAt(0) : 'S'}
                   </Avatar>
                   <Typography variant="body2" sx={{ color: '#9CA3AF' }}>
-                    Assigned to: <span style={{ color: '#fff' }}>{form.staff?.name || 'Staff Member'}</span> ({form.staff?.role || 'Maintenance Staff'})
+                    Assigned to: <span style={{ color: '#fff', fontWeight: 500 }}>{form.staff?.name || 'Staff Member'}</span> ({form.staff?.role || 'Maintenance Staff'})
                   </Typography>
                 </Box>
               )}
@@ -1986,8 +2226,12 @@ const StudentForm = () => {
 
           {/* Empty State */}
           {!loading && !error && recentForms.length === 0 && (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-              <Typography variant="body1" sx={{ color: '#6B7280' }}>
+            <Box sx={{ 
+              p: 4, 
+              textAlign: 'center',
+              background: 'linear-gradient(145deg, rgba(20, 20, 20, 0.4) 0%, rgba(10, 10, 10, 0.4) 100%)',
+            }}>
+              <Typography variant="body1" sx={{ color: '#6B7280', mb: 2 }}>
                 No forms submitted yet
               </Typography>
               <Button
@@ -1995,16 +2239,15 @@ const StudentForm = () => {
                 startIcon={<AddIcon />}
                 onClick={() => handleOpenNewFormDialog()}
                 sx={{ 
-                  mt: 2,
                   borderColor: 'rgba(59, 130, 246, 0.5)',
                   color: '#3B82F6',
                   '&:hover': {
                     borderColor: '#3B82F6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    background: 'rgba(59, 130, 246, 0.1)',
                   },
                 }}
               >
-                Submit New Form
+                Create New Request
               </Button>
             </Box>
           )}
@@ -2014,20 +2257,34 @@ const StudentForm = () => {
   };
 
   const renderViewToggle = () => (
-    <ButtonGroup sx={{ mb: 3 }}>
+    <ButtonGroup 
+      sx={{ 
+        m: 3, 
+        borderRadius: '12px',
+        background: 'rgba(0, 0, 0, 0.2)',
+        p: 0.5,
+        border: '1px solid rgba(255, 255, 255, 0.03)'
+      }}
+    >
       <Button
         startIcon={<ListAltIcon />}
         onClick={() => setView('list')}
-        variant={view === 'list' ? 'contained' : 'outlined'}
+        variant={view === 'list' ? 'contained' : 'text'}
         sx={{
           background: view === 'list' 
             ? 'linear-gradient(145deg, #1E40AF 0%, #3B82F6 100%)' 
             : 'transparent',
-          borderColor: 'rgba(255, 255, 255, 0.1)',
           color: view === 'list' ? '#fff' : '#6B7280',
+          borderRadius: '10px',
           '&:hover': {
-            borderColor: 'rgba(255, 255, 255, 0.2)',
+            background: view === 'list'
+              ? 'linear-gradient(145deg, #1E40AF 0%, #3B82F6 100%)'
+              : 'rgba(255, 255, 255, 0.05)',
           },
+          transition: 'all 0.2s ease',
+          px: 3,
+          py: 1,
+          boxShadow: view === 'list' ? '0 4px 12px rgba(59, 130, 246, 0.3)' : 'none',
         }}
       >
         List View
@@ -2035,16 +2292,22 @@ const StudentForm = () => {
       <Button
         startIcon={<CalendarMonthIcon />}
         onClick={() => setView('calendar')}
-        variant={view === 'calendar' ? 'contained' : 'outlined'}
+        variant={view === 'calendar' ? 'contained' : 'text'}
         sx={{
           background: view === 'calendar' 
             ? 'linear-gradient(145deg, #1E40AF 0%, #3B82F6 100%)' 
             : 'transparent',
-          borderColor: 'rgba(255, 255, 255, 0.1)',
           color: view === 'calendar' ? '#fff' : '#6B7280',
+          borderRadius: '10px',
           '&:hover': {
-            borderColor: 'rgba(255, 255, 255, 0.2)',
+            background: view === 'calendar'
+              ? 'linear-gradient(145deg, #1E40AF 0%, #3B82F6 100%)'
+              : 'rgba(255, 255, 255, 0.05)',
           },
+          transition: 'all 0.2s ease',
+          px: 3,
+          py: 1,
+          boxShadow: view === 'calendar' ? '0 4px 12px rgba(59, 130, 246, 0.3)' : 'none',
         }}
       >
         Calendar View
@@ -2792,118 +3055,107 @@ const StudentForm = () => {
               </Grid>
             </Paper>
 
-            {/* File Attachments Section */}
-            <Paper sx={{ 
-              p: 3, 
-              bgcolor: 'rgba(255, 255, 255, 0.03)',
-              borderRadius: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.05)',
-              backdropFilter: 'blur(8px)',
-            }}>
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                mb: 3,
-                gap: 1.5
+            {/* Add file upload section */}
+            <Box sx={{ p: 3, pt: 0 }}>
+              <Typography variant="subtitle1" sx={{ 
+                color: '#fff', 
+                fontWeight: 600, 
+                mb: 2,
+                mt: 3,
+                borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                pt: 3
               }}>
-                <AttachFileIcon sx={{ color: '#3B82F6' }} />
-                <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 600 }}>
-                  Attachments
-                </Typography>
-              </Box>
+                Attachments
+              </Typography>
               
-              {/* File drop zone */}
-              <Box sx={{ 
-                border: '2px dashed rgba(59, 130, 246, 0.3)', 
+              <Paper sx={{ 
+                p: 3, 
+                bgcolor: 'rgba(255, 255, 255, 0.03)',
                 borderRadius: '12px',
-                p: 4,
-                textAlign: 'center',
-                bgcolor: 'rgba(59, 130, 246, 0.05)',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  borderColor: 'rgba(59, 130, 246, 0.5)',
-                  bgcolor: 'rgba(59, 130, 246, 0.08)',
-                }
+                display: 'flex',
+                flexDirection: 'column',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
               }}>
                 <input
+                  ref={fileInputRef}
                   type="file"
-                  id="file-upload"
                   multiple
-                  hidden
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files);
-                    setNewForm({ ...newForm, attachments: files });
-                  }}
+                  onChange={handleFileSelect}
+                  style={{ display: 'none' }}
+                  accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 />
-                <label htmlFor="file-upload">
-                  <Box sx={{ cursor: 'pointer' }}>
-                    <CloudUploadIcon sx={{ color: '#3B82F6', fontSize: 48, mb: 2 }} />
-                    <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500, mb: 1 }}>
-                      Upload Files
+                
+                {/* File list */}
+                {uploadedFiles.length > 0 && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" sx={{ color: '#9CA3AF', mb: 1 }}>
+                      {uploadedFiles.length} file(s) attached
                     </Typography>
-                    <Typography variant="caption" sx={{ display: 'block', color: '#6B7280' }}>
-                      Drag and drop files here or click to browse
-                    </Typography>
-                    <Typography variant="caption" sx={{ display: 'block', color: '#6B7280', mt: 0.5 }}>
-                      Supported formats: JPG, PNG, PDF (Max 10MB)
-                    </Typography>
-                  </Box>
-                </label>
-              </Box>
-              
-              {/* File list */}
-              {newForm.attachments.length > 0 && (
-                <Box sx={{ mt: 3 }}>
-                  <Typography variant="body2" sx={{ color: '#9CA3AF', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <FolderOpenIcon sx={{ fontSize: 20 }} />
-                    {newForm.attachments.length} file(s) selected
-                  </Typography>
-                  <List 
-                    dense 
-                    sx={{ 
-                      bgcolor: 'rgba(0,0,0,0.2)', 
-                      borderRadius: '8px',
-                      border: '1px solid rgba(255,255,255,0.05)',
-                    }}
-                  >
-                    {newForm.attachments.map((file, index) => (
-                      <ListItem 
-                        key={index}
-                        secondaryAction={
+                    
+                    <Box sx={{ maxHeight: '200px', overflowY: 'auto', pr: 1 }}>
+                      {uploadedFiles.map((file, index) => (
+                        <Box 
+                          key={index}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            p: 1.5,
+                            mb: 1,
+                            borderRadius: '8px',
+                            bgcolor: 'rgba(0, 0, 0, 0.2)',
+                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, overflow: 'hidden' }}>
+                            <Avatar sx={{ bgcolor: 'rgba(59, 130, 246, 0.1)', color: '#3B82F6', mr: 1 }}>
+                              {getFileIcon(file.fileType)}
+                            </Avatar>
+                            <Box sx={{ overflow: 'hidden' }}>
+                              <Typography variant="body2" sx={{ color: '#fff', fontWeight: 500, noWrap: true }}>
+                                {file.fileName}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#6B7280' }}>
+                                {file.fileType || 'Unknown type'}
+                              </Typography>
+                            </Box>
+                          </Box>
                           <IconButton 
-                            edge="end" 
-                            sx={{ color: '#6B7280' }}
-                            onClick={() => {
-                              const updatedAttachments = [...newForm.attachments];
-                              updatedAttachments.splice(index, 1);
-                              setNewForm({ ...newForm, attachments: updatedAttachments });
-                            }}
+                            size="small"
+                            onClick={() => handleRemoveFile(index)}
+                            sx={{ color: '#EF4444' }}
                           >
                             <CancelIcon fontSize="small" />
                           </IconButton>
-                        }
-                      >
-                        <ListItemAvatar>
-                          <Avatar sx={{ bgcolor: 'rgba(59, 130, 246, 0.1)', color: '#3B82F6' }}>
-                            <FolderOpenIcon />
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText 
-                          primary={<Typography noWrap variant="body2" sx={{ color: '#fff' }}>{file.name}</Typography>}
-                          secondary={
-                            <Typography variant="caption" sx={{ color: '#6B7280' }}>
-                              {file.size < 1024 * 1024 
-                                ? `${(file.size / 1024).toFixed(1)} KB` 
-                                : `${(file.size / (1024 * 1024)).toFixed(1)} MB`}
-                            </Typography>
-                          }
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                </Box>
-              )}
-            </Paper>
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+                
+                {/* Upload button */}
+                <Button
+                  variant="outlined"
+                  startIcon={fileUploadLoading ? <CircularProgress size={20} /> : <CloudUploadIcon />}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={fileUploadLoading}
+                  sx={{
+                    color: '#3B82F6',
+                    borderColor: 'rgba(59, 130, 246, 0.3)',
+                    '&:hover': {
+                      borderColor: '#3B82F6',
+                      bgcolor: 'rgba(59, 130, 246, 0.1)',
+                    },
+                    mt: uploadedFiles.length > 0 ? 1 : 0,
+                  }}
+                >
+                  {fileUploadLoading ? 'Uploading...' : 'Attach Files'}
+                </Button>
+                
+                <Typography variant="caption" sx={{ color: '#6B7280', mt: 1, textAlign: 'center' }}>
+                  Supported formats: Images, PDF, Word documents
+                </Typography>
+              </Paper>
+            </Box>
           </Stack>
         </Box>
       </DialogContent>
@@ -3110,12 +3362,477 @@ const StudentForm = () => {
     );
   };
 
+  // Add a new function to handle opening the reschedule dialog
+  const handleOpenRescheduleDialog = () => {
+    // Initialize reschedule data with current form data if available
+    if (selectedForm) {
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      // Format date for input: YYYY-MM-DD
+      const formattedDate = tomorrow.toISOString().split('T')[0];
+      
+      setRescheduleData({
+        startDate: formattedDate,
+        startTime: '09:00',
+        endDate: formattedDate,
+        endTime: '10:00',
+        description: selectedForm.description || ''
+      });
+    }
+    
+    setRescheduleDialog(true);
+  };
+
+  // Add a function to handle closing the reschedule dialog
+  const handleCloseRescheduleDialog = () => {
+    setRescheduleDialog(false);
+  };
+
+  // Add a function to handle reschedule input changes
+  const handleRescheduleChange = (field, value) => {
+    setRescheduleData({
+      ...rescheduleData,
+      [field]: value
+    });
+  };
+
+  // Add a function to submit the reschedule request
+  const submitReschedule = async () => {
+    try {
+      setLoading(true);
+      
+      if (!selectedForm || !selectedForm._id) {
+        toast.error('Cannot identify the form to reschedule');
+        setLoading(false);
+        return;
+      }
+      
+      // Validate the dates and times
+      if (!rescheduleData.startDate || !rescheduleData.startTime || 
+          !rescheduleData.endDate || !rescheduleData.endTime) {
+        toast.error('Please fill in all date and time fields');
+        setLoading(false);
+        return;
+      }
+      
+      // Create datetime objects
+      const newStartTime = new Date(`${rescheduleData.startDate}T${rescheduleData.startTime}`);
+      const newEndTime = new Date(`${rescheduleData.endDate}T${rescheduleData.endTime}`);
+      
+      // Validate that start time is before end time
+      if (newStartTime >= newEndTime) {
+        toast.error('Start time must be before end time');
+        setLoading(false);
+        return;
+      }
+      
+      // Validate that the times are in the future
+      if (newStartTime <= new Date()) {
+        toast.error('Start time must be in the future');
+        setLoading(false);
+        return;
+      }
+      
+      // Show confirmation dialog
+      setConfirmDialogAction(() => async () => {
+        try {
+          // Use the dedicated reschedule endpoint
+          const response = await axios.put(`/api/students/forms/${selectedForm._id}/reschedule`, {
+            preferredStartTime: newStartTime.toISOString(),
+            endTime: newEndTime.toISOString(),
+            description: rescheduleData.description || selectedForm.description
+          }, {
+            withCredentials: true
+          });
+          
+          if (response.data) {
+            toast.success('Form rescheduled successfully! Original form has been removed.');
+            handleCloseRescheduleDialog();
+            handleCloseFormDetails();
+            
+            // Refresh forms to show the new one and remove the old one
+            await refreshForms();
+          }
+        } catch (err) {
+          console.error('Error rescheduling form:', err);
+          
+          if (err.response) {
+            if (err.response.data && err.response.data.message) {
+              toast.error(`Error: ${err.response.data.message}`);
+            } else {
+              toast.error('Failed to reschedule form. Please try again.');
+            }
+          } else {
+            toast.error('Network error. Please check your connection and try again.');
+          }
+        } finally {
+          setLoading(false);
+          setOpenConfirmDialog(false);
+        }
+      });
+      
+      setOpenConfirmDialog(true);
+    } catch (err) {
+      console.error('Error preparing to reschedule form:', err);
+      toast.error('An unexpected error occurred. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const renderRescheduleDialog = () => {
+    return (
+      <Dialog 
+        open={rescheduleDialog} 
+        onClose={handleCloseRescheduleDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: '#1E293B',
+            color: '#fff',
+            borderRadius: '12px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          borderBottom: '1px solid rgba(255, 255, 255, 0.05)', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          py: 3,
+          px: 3.5
+        }}>
+          <Box>
+            <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
+              Reschedule Request
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+              Select a new date and time for your request
+            </Typography>
+          </Box>
+          <IconButton
+            edge="end"
+            color="inherit"
+            onClick={handleCloseRescheduleDialog}
+            aria-label="close"
+            sx={{ color: 'rgba(255, 255, 255, 0.6)' }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        
+        <DialogContent sx={{ pt: 3, pb: 1, px: 3.5 }}>
+          {selectedForm && selectedForm.rejectionReason && (
+            <Alert 
+              severity="info" 
+              icon={<InfoIcon />}
+              sx={{ 
+                mb: 3, 
+                borderRadius: '8px',
+                bgcolor: 'rgba(255, 255, 255, 0.05)',
+                color: 'rgba(255, 255, 255, 0.8)',
+                border: '1px solid rgba(255, 255, 255, 0.08)'
+              }}
+            >
+              <AlertTitle sx={{ color: '#fff', fontWeight: 600 }}>Rejection Reason</AlertTitle>
+              {selectedForm.rejectionReason}
+            </Alert>
+          )}
+          
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="subtitle2" sx={{ mb: 1, color: 'rgba(255, 255, 255, 0.8)' }}>
+                Start Date
+              </Typography>
+              <TextField 
+                type="date"
+                fullWidth
+                value={rescheduleData.startDate}
+                onChange={(e) => handleRescheduleChange('startDate', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  sx: { 
+                    bgcolor: 'rgba(0, 0, 0, 0.2)',
+                    borderRadius: '8px',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#7C3AED',
+                    },
+                    color: '#fff'
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="subtitle2" sx={{ mb: 1, color: 'rgba(255, 255, 255, 0.8)' }}>
+                Start Time
+              </Typography>
+              <TextField 
+                type="time"
+                fullWidth
+                value={rescheduleData.startTime}
+                onChange={(e) => handleRescheduleChange('startTime', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  sx: { 
+                    bgcolor: 'rgba(0, 0, 0, 0.2)',
+                    borderRadius: '8px',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#7C3AED',
+                    },
+                    color: '#fff'
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="subtitle2" sx={{ mb: 1, color: 'rgba(255, 255, 255, 0.8)' }}>
+                End Date
+              </Typography>
+              <TextField 
+                type="date"
+                fullWidth
+                value={rescheduleData.endDate}
+                onChange={(e) => handleRescheduleChange('endDate', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  sx: { 
+                    bgcolor: 'rgba(0, 0, 0, 0.2)',
+                    borderRadius: '8px',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#7C3AED',
+                    },
+                    color: '#fff'
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="subtitle2" sx={{ mb: 1, color: 'rgba(255, 255, 255, 0.8)' }}>
+                End Time
+              </Typography>
+              <TextField 
+                type="time"
+                fullWidth
+                value={rescheduleData.endTime}
+                onChange={(e) => handleRescheduleChange('endTime', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  sx: { 
+                    bgcolor: 'rgba(0, 0, 0, 0.2)',
+                    borderRadius: '8px',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#7C3AED',
+                    },
+                    color: '#fff'
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" sx={{ mb: 1, color: 'rgba(255, 255, 255, 0.8)' }}>
+                Updated Description (Optional)
+              </Typography>
+              <TextField 
+                multiline
+                rows={4}
+                fullWidth
+                placeholder="Provide any additional details or updates to your request"
+                value={rescheduleData.description || ''}
+                onChange={(e) => handleRescheduleChange('description', e.target.value)}
+                InputProps={{
+                  sx: { 
+                    bgcolor: 'rgba(0, 0, 0, 0.2)',
+                    borderRadius: '8px',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#7C3AED',
+                    },
+                    color: '#fff'
+                  }
+                }}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        
+        <DialogActions sx={{ px: 3.5, py: 2.5, borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
+          <Button 
+            onClick={handleCloseRescheduleDialog}
+            sx={{ 
+              color: 'rgba(255, 255, 255, 0.7)',
+              '&:hover': {
+                color: '#fff',
+                bgcolor: 'rgba(255, 255, 255, 0.05)'
+              }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained"
+            onClick={submitReschedule}
+            disabled={loading}
+            sx={{
+              bgcolor: '#7C3AED',
+              '&:hover': {
+                bgcolor: '#6D28D9'
+              },
+              '&.Mui-disabled': {
+                bgcolor: 'rgba(124, 58, 237, 0.5)',
+                color: 'rgba(255, 255, 255, 0.5)'
+              }
+            }}
+          >
+            {loading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Reschedule'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  };
+
+  // Add confirmation dialog render function
+  const renderConfirmationDialog = () => {
+    return (
+      <Dialog
+        open={openConfirmDialog}
+        onClose={() => {
+          setOpenConfirmDialog(false);
+          setLoading(false);
+        }}
+        PaperProps={{
+          sx: {
+            bgcolor: '#1E293B',
+            color: '#fff',
+            borderRadius: '12px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          borderBottom: '1px solid rgba(255, 255, 255, 0.05)', 
+          py: 2.5,
+          px: 3
+        }}>
+          Confirm Rescheduling
+        </DialogTitle>
+        <DialogContent sx={{ py: 3, px: 3 }}>
+          <Typography variant="body1">
+            This will create a new form with your updated schedule and REMOVE the original form. Continue?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
+          <Button 
+            onClick={() => {
+              setOpenConfirmDialog(false);
+              setLoading(false);
+            }}
+            sx={{ 
+              color: 'rgba(255, 255, 255, 0.7)',
+              '&:hover': {
+                color: '#fff',
+                bgcolor: 'rgba(255, 255, 255, 0.05)'
+              }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained"
+            onClick={() => {
+              if (confirmDialogAction) {
+                confirmDialogAction();
+              }
+            }}
+            sx={{
+              bgcolor: '#7C3AED',
+              '&:hover': {
+                bgcolor: '#6D28D9'
+              }
+            }}
+          >
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  };
+
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#0E0E0E' }}>
+    <Box sx={{ 
+      display: 'flex', 
+      minHeight: '100vh',
+      background: 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)',
+      color: '#fff',
+      position: 'relative',
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'radial-gradient(circle at top right, rgba(255,255,255,0.03) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      },
+    }}>
       <StudentSidebar />
-      <Box sx={{ flexGrow: 1, p: 3, width: 'calc(100% - 240px)' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-          <Typography variant="h4" sx={{ color: '#fff', fontWeight: 700 }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 4,
+          position: 'relative',
+          zIndex: 1,
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          overflow: 'hidden',
+          color: '#fff'
+        }}
+      >
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          mb: 4,
+          pb: 3,
+          borderBottom: '1px solid rgba(255,255,255,0.03)',
+        }}>
+          <Typography variant="h4" sx={{ 
+            fontWeight: 600, 
+            color: '#fff',
+            textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+          }}>
             Maintenance Forms
           </Typography>
           <NotificationBell />
@@ -3123,11 +3840,13 @@ const StudentForm = () => {
         
         {/* Main content */}
         <Card sx={{ 
-          bgcolor: '#1A1A1A', 
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-          borderRadius: '16px',
-          mb: 3,
-          overflow: 'hidden'
+          background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+          borderRadius: '20px',
+          p: 0,
+          border: '1px solid rgba(255, 255, 255, 0.03)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+          overflow: 'hidden',
+          mb: 3
         }}>
           {/* View toggle buttons */}
           {renderViewToggle()}
@@ -3140,6 +3859,10 @@ const StudentForm = () => {
         {renderNewFormDialog()}
         {selectedForm && renderFormDetailsDialog()}
         {renderReviewDialog()}
+        {renderRescheduleDialog()}
+        
+        {/* Add the confirmation dialog */}
+        {renderConfirmationDialog()}
       </Box>
     </Box>
   );

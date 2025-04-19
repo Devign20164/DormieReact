@@ -820,7 +820,7 @@ const markNotificationRead = async (req, res) => {
   try {
     const notification = await Notification.findOneAndUpdate(
       {
-        _id: req.params.notificationId,
+        _id: req.params.id,
         'recipient.id': req.user._id,
         'recipient.model': 'User'
       },
@@ -834,23 +834,34 @@ const markNotificationRead = async (req, res) => {
 
     // If socket.io is available, emit the updated notification status
     if (req.app.get('io')) {
-      const userSocketId = req.app.get('connectedUsers').get(req.user._id.toString());
-      
-      // Emit to the user's socket to update their UI
-      if (userSocketId) {
-        req.app.get('io').to(userSocketId).emit('notificationRead', {
+      try {
+        const connectedUsers = req.app.get('connectedUsers');
+        let userSocketId = null;
+        
+        // Safely get socket ID if connectedUsers exists and has a valid get method
+        if (connectedUsers && typeof connectedUsers.get === 'function') {
+          userSocketId = connectedUsers.get(req.user._id.toString());
+        }
+        
+        // Emit to the user's socket to update their UI
+        if (userSocketId) {
+          req.app.get('io').to(userSocketId).emit('notificationRead', {
+            notificationId: notification._id,
+            updatedAt: new Date().toISOString()
+          });
+        }
+        
+        // Also broadcast to all admin sockets for their dashboard updates
+        req.app.get('io').emit('notificationUpdate', {
+          type: 'read',
           notificationId: notification._id,
+          userId: req.user._id,
           updatedAt: new Date().toISOString()
         });
+      } catch (socketError) {
+        // Log but don't fail if socket emission has an error
+        console.error('Error emitting socket events:', socketError);
       }
-      
-      // Also broadcast to all admin sockets for their dashboard updates
-      req.app.get('io').emit('notificationUpdate', {
-        type: 'read',
-        notificationId: notification._id,
-        userId: req.user._id,
-        updatedAt: new Date().toISOString()
-      });
     }
 
     res.json(notification);
@@ -884,24 +895,35 @@ const markAllNotificationsRead = async (req, res) => {
 
     // If socket.io is available, emit the mass read status update
     if (req.app.get('io') && unreadIds.length > 0) {
-      const userSocketId = req.app.get('connectedUsers').get(req.user._id.toString());
-      
-      // Emit to the user's socket
-      if (userSocketId) {
-        req.app.get('io').to(userSocketId).emit('allNotificationsRead', {
+      try {
+        const connectedUsers = req.app.get('connectedUsers');
+        let userSocketId = null;
+        
+        // Safely get socket ID if connectedUsers exists and has a valid get method
+        if (connectedUsers && typeof connectedUsers.get === 'function') {
+          userSocketId = connectedUsers.get(req.user._id.toString());
+        }
+        
+        // Emit to the user's socket
+        if (userSocketId) {
+          req.app.get('io').to(userSocketId).emit('allNotificationsRead', {
+            userId: req.user._id,
+            count: unreadIds.length,
+            updatedAt: new Date().toISOString()
+          });
+        }
+        
+        // Also broadcast to all clients for dashboard updates
+        req.app.get('io').emit('notificationBulkUpdate', {
+          type: 'readAll',
           userId: req.user._id,
-          count: unreadIds.length,
+          notificationIds: unreadIds,
           updatedAt: new Date().toISOString()
         });
+      } catch (socketError) {
+        // Log but don't fail if socket emission has an error
+        console.error('Error emitting socket events:', socketError);
       }
-      
-      // Also broadcast to all clients for dashboard updates
-      req.app.get('io').emit('notificationBulkUpdate', {
-        type: 'readAll',
-        userId: req.user._id,
-        notificationIds: unreadIds,
-        updatedAt: new Date().toISOString()
-      });
     }
 
     res.json({ 
@@ -934,7 +956,7 @@ const getUnreadNotificationCount = async (req, res) => {
 const deleteNotification = async (req, res) => {
   try {
     const notification = await Notification.findOneAndDelete({
-      _id: req.params.notificationId,
+      _id: req.params.id,
       'recipient.id': req.user._id,
       'recipient.model': 'User'
     });
@@ -945,23 +967,34 @@ const deleteNotification = async (req, res) => {
 
     // If socket.io is available, emit the deleted notification status
     if (req.app.get('io')) {
-      const userSocketId = req.app.get('connectedUsers').get(req.user._id.toString());
-      
-      // Emit to the user's socket to update their UI
-      if (userSocketId) {
-        req.app.get('io').to(userSocketId).emit('notificationDeleted', {
+      try {
+        const connectedUsers = req.app.get('connectedUsers');
+        let userSocketId = null;
+        
+        // Safely get socket ID if connectedUsers exists and has a valid get method
+        if (connectedUsers && typeof connectedUsers.get === 'function') {
+          userSocketId = connectedUsers.get(req.user._id.toString());
+        }
+        
+        // Emit to the user's socket to update their UI
+        if (userSocketId) {
+          req.app.get('io').to(userSocketId).emit('notificationDeleted', {
+            notificationId: notification._id,
+            deletedAt: new Date().toISOString()
+          });
+        }
+        
+        // Also broadcast to all clients for dashboard updates
+        req.app.get('io').emit('notificationUpdate', {
+          type: 'delete',
           notificationId: notification._id,
+          userId: req.user._id,
           deletedAt: new Date().toISOString()
         });
+      } catch (socketError) {
+        // Log but don't fail if socket emission has an error
+        console.error('Error emitting socket events:', socketError);
       }
-      
-      // Also broadcast to all clients for dashboard updates
-      req.app.get('io').emit('notificationUpdate', {
-        type: 'delete',
-        notificationId: notification._id,
-        userId: req.user._id,
-        deletedAt: new Date().toISOString()
-      });
     }
 
     res.json({ message: 'Notification deleted successfully' });
@@ -994,24 +1027,35 @@ const deleteAllNotifications = async (req, res) => {
 
     // If socket.io is available, emit the mass deletion event
     if (req.app.get('io') && deletedIds.length > 0) {
-      const userSocketId = req.app.get('connectedUsers').get(req.user._id.toString());
-      
-      // Emit to the user's socket to update their UI
-      if (userSocketId) {
-        req.app.get('io').to(userSocketId).emit('allNotificationsDeleted', {
+      try {
+        const connectedUsers = req.app.get('connectedUsers');
+        let userSocketId = null;
+        
+        // Safely get socket ID if connectedUsers exists and has a valid get method
+        if (connectedUsers && typeof connectedUsers.get === 'function') {
+          userSocketId = connectedUsers.get(req.user._id.toString());
+        }
+        
+        // Emit to the user's socket to update their UI
+        if (userSocketId) {
+          req.app.get('io').to(userSocketId).emit('allNotificationsDeleted', {
+            userId: req.user._id,
+            count: deletedIds.length,
+            deletedAt: new Date().toISOString()
+          });
+        }
+        
+        // Also broadcast to all clients for dashboard updates
+        req.app.get('io').emit('notificationBulkUpdate', {
+          type: 'deleteAll',
           userId: req.user._id,
-          count: deletedIds.length,
+          notificationIds: deletedIds,
           deletedAt: new Date().toISOString()
         });
+      } catch (socketError) {
+        // Log but don't fail if socket emission has an error
+        console.error('Error emitting socket events:', socketError);
       }
-      
-      // Also broadcast to all clients for dashboard updates
-      req.app.get('io').emit('notificationBulkUpdate', {
-        type: 'deleteAll',
-        userId: req.user._id,
-        notificationIds: deletedIds,
-        deletedAt: new Date().toISOString()
-      });
     }
 
     res.json({ 
@@ -1037,14 +1081,26 @@ const createForm = asyncHandler(async (req, res) => {
       description,
       formType,
       preferredStartTime,
-      endTime,
-      attachments = []
+      endTime
     } = req.body;
 
     // Get the student details from the authenticated user
     const student = await Student.findById(req.user.id);
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Process uploaded files if any
+    const fileAttachments = [];
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        fileAttachments.push({
+          fileName: file.originalname,
+          fileType: file.mimetype,
+          fileUrl: `/uploads/${file.filename}`,
+          uploadDate: new Date()
+        });
+      });
     }
 
     // Create the form
@@ -1057,12 +1113,7 @@ const createForm = asyncHandler(async (req, res) => {
       endTime,
       student: student._id,
       status: 'Pending',
-      attachments: attachments.map(attachment => ({
-        fileName: attachment.fileName,
-        fileUrl: attachment.fileUrl,
-        fileType: attachment.fileType,
-        uploadDate: new Date()
-      }))
+      attachments: fileAttachments
     });
 
     // Get the admin users to notify
@@ -1359,6 +1410,180 @@ const submitFormReview = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Reschedule a form
+// @route   PUT /api/students/forms/:id/reschedule
+// @access  Private/Student
+const rescheduleForm = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { preferredStartTime, endTime, description } = req.body;
+    
+    // Validate required fields
+    if (!preferredStartTime || !endTime) {
+      return res.status(400).json({ message: 'Start time and end time are required for rescheduling' });
+    }
+    
+    // Parse dates
+    const startDate = new Date(preferredStartTime);
+    const endDate = new Date(endTime);
+    
+    // Validate dates
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return res.status(400).json({ message: 'Invalid date format' });
+    }
+    
+    // Validate that start time is before end time
+    if (startDate >= endDate) {
+      return res.status(400).json({ message: 'Start time must be before end time' });
+    }
+    
+    // Validate that start time is in the future
+    if (startDate <= new Date()) {
+      return res.status(400).json({ message: 'Start time must be in the future' });
+    }
+    
+    // Find the original form
+    const Form = require('../models/FormModel');
+    const originalForm = await Form.findById(id);
+    
+    // Verify form exists
+    if (!originalForm) {
+      return res.status(404).json({ message: 'Form not found' });
+    }
+    
+    // Get user ID
+    const userId = req.user.id || req.user._id.toString();
+    
+    // Verify the form belongs to this student
+    if (originalForm.student.toString() !== userId) {
+      return res.status(403).json({ message: 'You can only reschedule your own forms' });
+    }
+    
+    // Create a new form with the updated scheduling information
+    const newForm = await Form.create({
+      title: originalForm.title,
+      description: description || originalForm.description,
+      formType: originalForm.formType,
+      preferredStartTime: startDate,
+      endTime: endDate,
+      student: userId,
+      status: 'Pending',
+      previousStatus: originalForm.status,
+      attachments: originalForm.attachments
+    });
+    
+    // Add status history entry
+    newForm.statusHistory.push({
+      status: 'Pending',
+      changedBy: userId,
+      changedAt: new Date(),
+      notes: `Rescheduled from previous form (${originalForm._id})`
+    });
+    
+    await newForm.save();
+    
+    // Delete the original form after creating the new one
+    await Form.findByIdAndDelete(id);
+    
+    // Get admin users to notify
+    const adminUsers = await Admin.find({}).select('_id');
+    
+    // Create notifications for admins
+    const student = await Student.findById(userId);
+    const formattedStudentName = student.name || 'Unknown Student';
+    
+    // Create admin notifications (one per admin)
+    for (const admin of adminUsers) {
+      const adminNotification = await Notification.create({
+        recipient: {
+          id: admin._id,
+          model: 'Admin'
+        },
+        type: 'FORM_SUBMITTED',
+        title: 'Form Rescheduled',
+        content: `${formattedStudentName} has rescheduled a ${newForm.formType} request`,
+        relatedTo: {
+          model: 'Form',
+          id: newForm._id
+        },
+        metadata: {
+          formType: newForm.formType,
+          studentId: userId,
+          preferredStartTime: startDate,
+          studentName: formattedStudentName,
+          isRescheduled: true,
+          originalFormId: originalForm._id.toString()
+        }
+      });
+      
+      // Emit socket event to notify admins in real-time
+      const io = req.app.get('io');
+      if (io) {
+        io.to(admin._id.toString()).emit('newNotification', adminNotification);
+      }
+    }
+    
+    // Create a notification for the student (confirmation)
+    const studentNotification = await Notification.create({
+      recipient: {
+        id: userId,
+        model: 'User'
+      },
+      type: 'FORM_SUBMITTED',
+      title: 'Form Rescheduled Successfully',
+      content: `Your ${newForm.formType} request has been rescheduled and is pending review.`,
+      relatedTo: {
+        model: 'Form',
+        id: newForm._id
+      },
+      metadata: {
+        formType: newForm.formType,
+        status: 'Pending',
+        preferredStartTime: startDate,
+        isRescheduled: true,
+        originalFormId: originalForm._id.toString()
+      }
+    });
+    
+    // Emit socket event to notify the student in real-time
+    const io = req.app.get('io');
+    if (io) {
+      io.to(userId.toString()).emit('newNotification', studentNotification);
+      
+      // Also broadcast to admins that a form has been rescheduled
+      io.to('admins').emit('formRescheduled', {
+        _id: newForm._id,
+        title: newForm.title,
+        formType: newForm.formType,
+        studentName: formattedStudentName,
+        status: newForm.status,
+        submittedAt: newForm.createdAt,
+        isRescheduled: true,
+        originalFormWasDeleted: true
+      });
+    }
+    
+    // Return the created form
+    res.status(201).json({
+      _id: newForm._id,
+      title: newForm.title,
+      description: newForm.description,
+      formType: newForm.formType,
+      preferredStartTime: newForm.preferredStartTime,
+      endTime: newForm.endTime,
+      status: newForm.status,
+      createdAt: newForm.createdAt,
+      message: 'Form rescheduled successfully. Original form has been removed.'
+    });
+  } catch (error) {
+    console.error('Error rescheduling form:', error);
+    res.status(500).json({
+      message: 'Error rescheduling form',
+      error: error.message
+    });
+  }
+});
+
 // Export all controllers
 module.exports = {
   loginStudent,
@@ -1385,5 +1610,6 @@ module.exports = {
   deleteAllNotifications,
   createForm,
   getStudentForms,
-  submitFormReview
+  submitFormReview,
+  rescheduleForm,
 }; 
