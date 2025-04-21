@@ -35,10 +35,16 @@ const {
   getAllForms,
   getFormById,
   updateFormStatus,
-  assignStaffToForm
+  assignStaffToForm,
+  createBill,
+  getAllBills,
+  getBillById,
+  updateBillStatus,
+  deleteBill
 } = require('../controllers/adminController');
 
-const { protect} = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const upload = require('../middleware/uploadMiddleware');
 
 // Auth routes
 router.post('/login', loginAdmin);
@@ -90,5 +96,12 @@ router.get('/forms', protect, getAllForms);
 router.get('/forms/:id', protect, getFormById);
 router.put('/forms/:id/status', protect, updateFormStatus);
 router.put('/forms/:id/assign', protect, assignStaffToForm);
+
+// Bill routes
+router.post('/bills', protect, upload.single('billFile'), createBill);
+router.get('/bills', protect, getAllBills);
+router.get('/bills/:id', protect, getBillById);
+router.put('/bills/:id/status', protect, updateBillStatus);
+router.delete('/bills/:id', protect, deleteBill);
 
 module.exports = router; 

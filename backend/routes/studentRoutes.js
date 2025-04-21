@@ -33,7 +33,8 @@ const {
 const Form = require('../models/FormModel');
 
 // Auth routes
-router.post('/login', loginStudent);
+router.post('/login',  loginStudent);
+router.post('/logout', logoutStudent);
 router.get('/profile', protect, getStudentProfile);
 
 // Student management routes

@@ -6,6 +6,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminStudent from './pages/AdminStudent';
 import AdminBuilding from './pages/AdminBuilding';
 import AdminStaff from './pages/AdminStaff';
+import AdminBill from './pages/AdminBill';
 import StaffDashboard from './pages/StaffDashboard';
 import StaffTenantLog from './pages/StaffTenantLog';
 import StaffAssignment from './pages/StaffAssignment';
@@ -143,6 +144,15 @@ function App() {
             element={
               <ProtectedRoute allowedRole="admin">
                 <AdminForm />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/admin/bills" 
+            element={
+              <ProtectedRoute allowedRole="admin">
+                <AdminBill />
               </ProtectedRoute>
             } 
           />

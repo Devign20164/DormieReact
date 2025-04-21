@@ -197,5 +197,54 @@ notificationSchema.statics.createFormReviewNotification = async function(form) {
   });
 };
 
+// Static method to create notification when a form is reviewed
+notificationSchema.statics.createFormReviewedNotification = async function(form, rating) {
+  // Create notification for staff
+  const notifications = [];
+  
+  // Notify staff if assigned
+  if (form.staff) {
+    notifications.push({
+      recipient: {
+        id: form.staff,
+        model: 'Staff'
+      },
+      type: 'FORM_REVIEWED',
+      title: 'New Review Received',
+      content: `A student has left a ${rating}-star review for your service.`,
+      relatedTo: {
+        model: 'Form',
+        id: form._id
+      },
+      metadata: {
+        formType: form.formType,
+        rating,
+        formId: form._id
+      }
+    });
+  }
+  
+  // Notify admin
+  notifications.push({
+    recipient: {
+      model: 'Admin'
+    },
+    type: 'FORM_REVIEWED',
+    title: 'New Form Review',
+    content: `A student has left a ${rating}-star review for a ${form.formType} request.`,
+    relatedTo: {
+      model: 'Form',
+      id: form._id
+    },
+    metadata: {
+      formType: form.formType,
+      rating,
+      formId: form._id
+    }
+  });
+  
+  return this.create(notifications);
+};
+
 const Notification = mongoose.model('Notification', notificationSchema);
 module.exports = Notification;

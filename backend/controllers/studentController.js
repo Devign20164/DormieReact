@@ -142,7 +142,6 @@ const getStudentProfile = asyncHandler(async (req, res) => {
     throw new Error('Student not found');
   }
 });
-
 // Add these new controller functions
 const checkEmailExists = async (req, res) => {
   try {

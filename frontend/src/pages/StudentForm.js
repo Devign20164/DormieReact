@@ -37,7 +37,11 @@ import {
   Rating,
   Alert,
   AlertTitle,
-  EventIcon,
+  ListItemButton,
+  ListItemIcon,
+  FormGroup,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import {
   Assignment as AssignmentIcon,
@@ -83,6 +87,15 @@ import {
   Restore as RestoreIcon,
   Close as CloseIcon,
   Description as DescriptionIcon,
+  CalendarToday as CalendarTodayIcon,
+  Edit as EditIcon,
+  Check as CheckCircleSmallIcon,
+  Email as EmailIcon,
+  Home as HomeIcon,
+  Apartment as ApartmentIcon,
+  MeetingRoom as MeetingRoomIcon,
+  Category as CategoryIcon,
+  Lightbulb as LightbulbIcon,
 } from '@mui/icons-material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -276,61 +289,259 @@ const mockStudentProfile = {
 };
 
 const StudentForm = () => {
-  const [forms, setForms] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [selectedForm, setSelectedForm] = useState(null);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [newFormDialog, setNewFormDialog] = useState(false);
-  const [view, setView] = useState('list');
+  const [view, setView] = useState('calendar');
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedStatus, setSelectedStatus] = useState('All');
-  const [page, setPage] = useState(1);
-  const formsPerPage = 6;
-  const [calendarView, setCalendarView] = useState('week');
+  const [openNewFormDialog, setOpenNewFormDialog] = useState(false);
+  const [openFormDetailsDialog, setOpenFormDetailsDialog] = useState(false);
+  const [openReviewDialog, setOpenReviewDialog] = useState(false);
+  const [openRescheduleDialog, setOpenRescheduleDialog] = useState(false);
+  const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
+  const [newForm, setNewForm] = useState({
+    title: '',
+    description: '',
+    formType: 'Select Form Type',
+    preferredStartTime: null,
+    preferredEndTime: null,
+  });
+  const [selectedForm, setSelectedForm] = useState(null);
+  const [forms, setForms] = useState([]);
   const [calendarForms, setCalendarForms] = useState([]);
-  const [clickedTimeSlot, setClickedTimeSlot] = useState(null);
   const [studentProfile, setStudentProfile] = useState(mockStudentProfile);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState(null);
-  const { socket, isConnected } = useSocket();
-  const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-  const [formDetailsDialog, setFormDetailsDialog] = useState(false);
-  const [reviewDialog, setReviewDialog] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [fileUploadLoading, setFileUploadLoading] = useState(false);
   const [reviewData, setReviewData] = useState({
     rating: 5,
     comment: ''
   });
-
-  // New form state
-  const [newForm, setNewForm] = useState({
-    title: '',
-    description: '',
-    formType: '',
+  const [rescheduleData, setRescheduleData] = useState({
     preferredStartTime: null,
     preferredEndTime: null,
-    attachments: [],
-    studentName: mockStudentProfile.name,
-    buildingName: mockStudentProfile.buildingName,
-    roomNumber: mockStudentProfile.roomNumber,
+    reason: '',
   });
+  const [activeSection, setActiveSection] = useState('schedule');
+  const { socket, isConnected } = useSocket();
+  const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+  const [page, setPage] = useState(1);
+  const formsPerPage = 6;
+  const [calendarView, setCalendarView] = useState('week');
+  const [clickedTimeSlot, setClickedTimeSlot] = useState(null);
+  const fileInputRef = useRef(null);
+  const [loading, setLoading] = useState(false); // Added loading state
+  const [error, setError] = useState(null); // Added error state
+  const [formDetailsDialog, setFormDetailsDialog] = useState(false); // Added for dialog control
+  const [reviewDialog, setReviewDialog] = useState(false); // Added for review dialog control
 
   // Add new state variables near the beginning of the component
   const [rescheduleDialog, setRescheduleDialog] = useState(false);
-  const [rescheduleData, setRescheduleData] = useState({
-    startDate: '',
-    startTime: '',
-    endDate: '',
-    endTime: '',
-    description: ''
-  });
   const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
   const [confirmDialogAction, setConfirmDialogAction] = useState(null);
 
-  // Add file handling state
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [fileUploadLoading, setFileUploadLoading] = useState(false);
-  const fileInputRef = useRef(null);
+  // Add global styles for placeholder text
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      /* Limit styles to only the student form by using a unique ID */
+      #student-form-container .MuiInputBase-input::placeholder,
+      #student-form-container .MuiOutlinedInput-input::placeholder,
+      #student-form-container .MuiInputBase-input::-webkit-input-placeholder,
+      #student-form-container .MuiOutlinedInput-input::-webkit-input-placeholder,
+      #student-form-container .MuiInputBase-input::-moz-placeholder,
+      #student-form-container .MuiOutlinedInput-input::-moz-placeholder,
+      #student-form-container .MuiInputBase-input:-ms-input-placeholder,
+      #student-form-container .MuiOutlinedInput-input:-ms-input-placeholder,
+      #student-form-container input::placeholder,
+      #student-form-container input::-webkit-input-placeholder,
+      #student-form-container input::-moz-placeholder,
+      #student-form-container input:-ms-input-placeholder {
+        color: #aaaaaa !important;
+        -webkit-text-fill-color: #aaaaaa !important;
+        opacity: 1 !important;
+      }
+      
+      /* Force override for Material UI inputs in student form */
+      #student-form-container .MuiOutlinedInput-root input::placeholder {
+        color: #aaaaaa !important;
+        -webkit-text-fill-color: #aaaaaa !important;
+      }
+      
+      /* DateTimePicker specific overrides - only in student form */
+      #student-form-container .MuiPickersPopper-root .MuiInputBase-input {
+        color: white !important;
+        -webkit-text-fill-color: white !important;
+      }
+      
+      /* Direct styling for date value display - only in student form */
+      #student-form-container .MuiInputBase-input {
+        color: white !important;
+        -webkit-text-fill-color: white !important;
+      }
+      
+      /* Extra selector for @mui/x-date-pickers - only in student form */
+      #student-form-container .MuiInputBase-root .MuiInputBase-input {
+        color: white !important;
+        -webkit-text-fill-color: white !important;
+      }
+      
+      /* Target the actual date value display - only in student form */
+      #student-form-container .MuiPickersDay-root,
+      #student-form-container .MuiDateTimePickerToolbar-title,
+      #student-form-container .MuiClockPicker-root {
+        color: white !important;
+        -webkit-text-fill-color: white !important;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  // Add direct placeholder fix with different contrast for schedule section
+  useEffect(() => {
+    // Direct DOM manipulation for placeholders
+    setTimeout(() => {
+      // Target specifically the date time picker inputs within this component
+      const dateTimeInputs = document.querySelectorAll('#student-form-container .MuiOutlinedInput-input[placeholder="MM/DD/YYYY hh:mm (a|p)m"]');
+      dateTimeInputs.forEach(input => {
+        // Apply direct styles to fix placeholder visibility
+        if (input && input.style) {
+          input.style.color = 'white';
+          input.style.backgroundColor = 'rgba(0, 0, 0, 0.4)';
+          
+          // Get the parent outline element and force the border to be visible
+          const outlineParent = input.closest('.MuiOutlinedInput-root');
+          if (outlineParent) {
+            const outlineElement = outlineParent.querySelector('.MuiOutlinedInput-notchedOutline');
+            if (outlineElement) {
+              outlineElement.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+              outlineElement.style.borderWidth = '1px';
+            }
+            
+            // Find and style the calendar icon (SVG inside InputAdornment)
+            const calendarIcon = outlineParent.querySelector('.MuiInputAdornment-root .MuiSvgIcon-root');
+            if (calendarIcon) {
+              calendarIcon.style.color = 'white';
+              calendarIcon.style.fill = 'white';
+            }
+          }
+          
+          // Style the label (find the parent TextField and then the label)
+          const textFieldParent = input.closest('.MuiTextField-root');
+          if (textFieldParent) {
+            const label = textFieldParent.querySelector('.MuiInputLabel-root');
+            if (label) {
+              label.style.color = 'rgba(255, 255, 255, 0.7)';
+            }
+          }
+        }
+      });
+      
+      // Create a style specifically for date picker placeholders
+      const datePickerStyle = document.createElement('style');
+      datePickerStyle.innerHTML = `
+        /* Target date picker placeholders - only in student form */
+        #student-form-container .MuiOutlinedInput-input[placeholder="MM/DD/YYYY hh:mm (a|p)m"]::placeholder,
+        #student-form-container .MuiOutlinedInput-input[placeholder="MM/DD/YYYY hh:mm (a|p)m"]::-webkit-input-placeholder,
+        #student-form-container .MuiOutlinedInput-input[placeholder="MM/DD/YYYY hh:mm (a|p)m"]::-moz-placeholder {
+          color: rgba(170, 170, 170, 0.9) !important;
+          -webkit-text-fill-color: rgba(170, 170, 170, 0.9) !important;
+          opacity: 1 !important;
+        }
+        
+        /* Make borders more visible - only in student form */
+        #student-form-container .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
+          border-color: rgba(255, 255, 255, 0.4) !important;
+          border-width: 1px !important;
+        }
+        
+        /* DateTimePicker focused style - only in student form */
+        #student-form-container .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+          border-color: #fff !important;
+          border-width: 2px !important;
+        }
+        
+        /* Calendar icon color */
+        #student-form-container .MuiInputAdornment-root .MuiSvgIcon-root {
+          color: white !important;
+          fill: white !important;
+        }
+        
+        /* Label color */
+        #student-form-container .MuiInputLabel-root {
+          color: rgba(255, 255, 255, 0.7) !important;
+        }
+        
+        /* Focused label color */
+        #student-form-container .MuiInputLabel-root.Mui-focused {
+          color: white !important;
+        }
+        
+        /* Input text color when value exists */
+        #student-form-container .MuiOutlinedInput-input {
+          color: white !important;
+        }
+      `;
+      document.head.appendChild(datePickerStyle);
+      
+      return () => {
+        document.head.removeChild(datePickerStyle);
+      };
+    }, 200); // Slightly longer timeout to ensure elements are in the DOM
+  }, [newForm.preferredStartTime, newForm.preferredEndTime, activeSection]);
+
+  // Add direct style for DateTimePicker value display
+  useEffect(() => {
+    // Handle DateTimePicker value display color
+    setTimeout(() => {
+      // Target the specific input elements that display the date value
+      const dateTimeInputs = document.querySelectorAll('.MuiOutlinedInput-input[placeholder="Select date and time"]');
+      dateTimeInputs.forEach(input => {
+        // Force color directly on the element
+        input.style.color = 'white';
+        input.style.caretColor = 'white';
+        input.style.webkitTextFillColor = 'white';
+      });
+      
+      // Also target any displayed date value (the actual date string)
+      const displayedDates = document.querySelectorAll('.MuiInputBase-input');
+      displayedDates.forEach(input => {
+        if (input.value && (input.value.includes('/') || input.value.includes('-'))) {
+          input.style.color = 'white';
+          input.style.webkitTextFillColor = 'white';
+        }
+      });
+      
+      // Create a style that specifically targets the value text
+      const valueStyle = document.createElement('style');
+      valueStyle.innerHTML = `
+        .MuiOutlinedInput-input {
+          color: white !important;
+          -webkit-text-fill-color: white !important;
+        }
+        
+        /* Target the specific input when it has a value */
+        .MuiInputBase-input[value]:not([value=""]) {
+          color: white !important;
+          -webkit-text-fill-color: white !important;
+        }
+        
+        /* Target any displayed date values */
+        input[value*="/"]:not([value=""]),
+        input[value*="-"]:not([value=""]) {
+          color: white !important; 
+          -webkit-text-fill-color: white !important;
+        }
+      `;
+      document.head.appendChild(valueStyle);
+      
+      return () => {
+        document.head.removeChild(valueStyle);
+      };
+    }, 100);
+  }, [newForm.preferredStartTime, newForm.preferredEndTime]);
 
   // Fetch student profile data
   useEffect(() => {
@@ -461,11 +672,11 @@ const StudentForm = () => {
         roomNumber: studentProfile.roomNumber,
       });
     }
-    setNewFormDialog(true);
+    setOpenNewFormDialog(true);
   };
 
   const handleCloseNewFormDialog = () => {
-    setNewFormDialog(false);
+    setOpenNewFormDialog(false);
     setNewForm({
       title: '',
       description: '',
@@ -833,7 +1044,7 @@ const StudentForm = () => {
   const submitReview = async () => {
     try {
       setLoading(true);
-      
+
       if (!selectedForm || !selectedForm._id) {
         toast.error('Cannot identify the form to review');
         setLoading(false);
@@ -1117,7 +1328,7 @@ const StudentForm = () => {
                     background: statusInfo.bgGradient,
                     color: '#fff',
                     fontWeight: 500,
-                    fontSize: '0.75rem',
+                    fontSize: '0.75rem'
                   }}
                 />
                 <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
@@ -1160,7 +1371,7 @@ const StudentForm = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                       <AccessTimeIcon sx={{ color: '#6B7280', fontSize: 20 }} />
                       <Box>
-                        <Typography variant="body2" sx={{ color: '#9CA3AF' }}>
+                        <Typography variant="body2" sx={{ color: '#ffff' }}>
                           Start Time
                         </Typography>
                         <Typography variant="body1" sx={{ color: '#fff' }}>
@@ -1634,69 +1845,25 @@ const StudentForm = () => {
           </Box>
         </DialogContent>
         
-        <DialogActions sx={{ p: 3, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <DialogActions sx={{ 
+          px: 3, 
+          py: 2,
+          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+          bgcolor: 'rgba(0, 0, 0, 0.3)',
+          justifyContent: 'flex-end'
+        }}>
           <Button 
-            onClick={handleCloseFormDetails}
-            variant="outlined"
-            sx={{
-              color: '#6B7280',
-              borderColor: 'rgba(107, 114, 128, 0.3)',
-              '&:hover': {
-                borderColor: 'rgba(107, 114, 128, 0.5)',
-                backgroundColor: 'rgba(107, 114, 128, 0.05)',
-              },
-            }}
-          >
-            Close
-          </Button>
-          
-          {selectedForm.status === 'Rejected' && (
-            <Button
-              variant="contained"
-              startIcon={<RestoreIcon />}
-              onClick={handleOpenRescheduleDialog}
-              sx={{
-                background: 'linear-gradient(145deg, #F59E0B 0%, #D97706 100%)',
+              onClick={handleCloseFormDetails}
+              sx={{ 
+                color: '#aaa',
                 '&:hover': {
-                  background: 'linear-gradient(145deg, #D97706 0%, #B45309 100%)',
-                },
+                  bgcolor: 'rgba(255, 255, 255, 0.05)',
+                  color: '#fff'
+                }
               }}
             >
-              Reschedule
+              Close
             </Button>
-          )}
-          
-          {selectedForm.status === 'Completed' && (
-            selectedForm.studentReview && selectedForm.studentReview.rating > 0 ? (
-              // Show the review data directly in the form details
-              <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
-                <Typography variant="body2" sx={{ color: '#9CA3AF', mr: 1 }}>
-                  Your Review:
-                </Typography>
-                <Rating 
-                  value={selectedForm.studentReview.rating} 
-                  readOnly 
-                  size="small"
-                  sx={{ color: '#F59E0B' }}
-                />
-              </Box>
-            ) : (
-              // If no review exists, show the "Leave Review" button
-              <Button
-                variant="contained"
-                startIcon={<StarIcon />}
-                onClick={handleOpenReviewDialog}
-                sx={{
-                  background: 'linear-gradient(145deg, #10B981 0%, #059669 100%)',
-                  '&:hover': {
-                    background: 'linear-gradient(145deg, #059669 0%, #047857 100%)',
-                  },
-                }}
-              >
-                Leave Review
-              </Button>
-            )
-          )}
         </DialogActions>
       </Dialog>
     );
@@ -1813,10 +1980,10 @@ const StudentForm = () => {
           scrollBehavior: 'smooth',
           '&::-webkit-scrollbar': {
             width: '12px',
-            backgroundColor: 'rgba(0,0,0,0.2)',
+            backgroundColor: 'rgba(0, 0, 0, 0.2)',
           },
           '&::-webkit-scrollbar-track': {
-            backgroundColor: 'rgba(0,0,0,0.1)',
+            backgroundColor: 'rgba(0, 0, 0, 0.1)',
             borderRadius: '6px',
           },
           '&::-webkit-scrollbar-thumb': {
@@ -1962,10 +2129,7 @@ const StudentForm = () => {
                             {statusConfig[form.status]?.icon}
                           </Box>
                         )}
-                        <Typography variant="caption" sx={{ 
-                          color: statusConfig[form.status]?.color,
-                          display: 'block',
-                        }}>
+                        <Typography variant="caption" sx={{ color: statusConfig[form.status]?.color, display: 'block' }}>
                           {format(formDate, 'h:mm a')} - {format(new Date(formDate.getTime() + duration * 60 * 60 * 1000), 'h:mm a')}
                         </Typography>
                       </Stack>
@@ -2317,892 +2481,802 @@ const StudentForm = () => {
 
   const renderNewFormDialog = () => (
     <Dialog 
-      open={newFormDialog} 
+      open={openNewFormDialog}
       onClose={handleCloseNewFormDialog}
-      maxWidth="md"
+      maxWidth="lg"
       fullWidth
       PaperProps={{
         sx: {
-          background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-          border: '1px solid rgba(255, 255, 255, 0.03)',
-          borderRadius: '20px',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
+          background: 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)',
+          borderRadius: '16px',
           overflow: 'hidden',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.5)',
+          border: '1px solid rgba(99, 102, 241, 0.1)',
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'radial-gradient(circle at top right, rgba(255,255,255,0.03) 0%, transparent 70%)',
+            pointerEvents: 'none',
+          },
         }
       }}
     >
-      {/* Decorative top header */}
-      <Box sx={{ 
-        background: 'linear-gradient(90deg, #1E40AF, #3B82F6)',
-        height: '8px',
-        width: '100%',
-      }} />
-
-      {/* Dialog Title with enhanced styling */}
+      {/* Dialog title section */}
       <DialogTitle sx={{ 
-        color: '#fff', 
-        borderBottom: '1px solid rgba(255,255,255,0.05)', 
-        p: 3,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
+        p: 3, 
+        borderBottom: '1px solid rgba(99, 102, 241, 0.15)',
+        background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Avatar sx={{ 
-            bgcolor: 'rgba(255,255,255,0.1)', 
-            color: '#3B82F6',
-          }}>
-            <AssignmentIcon />
-          </Avatar>
-          <Box>
-            <Typography variant="h6" sx={{ color: '#fff', fontWeight: 600 }}>
-              Submit Maintenance Request
+        <Typography variant="h6" sx={{ 
+          color: '#fff', 
+          fontWeight: 600,
+          fontSize: '1.1rem'
+        }}>
+          {clickedTimeSlot ? `New Form - ${format(clickedTimeSlot, 'MMM d, yyyy h:mm a')}` : 'New Form Request'}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 0.5 }}>
-              Fill out the form below to submit your request
-            </Typography>
-          </Box>
-        </Box>
         <IconButton 
+          aria-label="close"
           onClick={handleCloseNewFormDialog}
           sx={{ 
-            color: '#6B7280',
+            position: 'absolute',
+            right: 16,
+            top: 16,
+            color: '#8B5CF6',
             '&:hover': {
               color: '#fff',
-              backgroundColor: 'rgba(255,255,255,0.05)'
+              bgcolor: 'rgba(139, 92, 246, 0.15)'
             }
           }}
         >
-          <CancelIcon />
+          <CloseIcon />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ p: 0 }}>
-        <Box sx={{ p: 3 }}>
-          {/* Progress indicator */}
-          <Box sx={{ mb: 4, px: 2 }}>
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              position: 'relative',
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                top: '50%',
-                left: '10%',
-                right: '10%',
-                height: '2px',
-                backgroundColor: 'rgba(59, 130, 246, 0.3)',
-                transform: 'translateY(-50%)',
-                zIndex: 0
-              }
-            }}>
+      {/* Dialog content section */}
+      <DialogContent sx={{ 
+        p: 0,
+        '&:first-of-type': {
+          pt: 0
+        }
+      }}>
+        <Box sx={{ display: 'flex', height: '100%' }}>
+          {/* Left sidebar */}
               <Box sx={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center',
-                position: 'relative',
-                zIndex: 1
-              }}>
-                <Avatar sx={{ 
-                  bgcolor: '#3B82F6',
+            width: 300,
+            bgcolor: 'rgba(0, 0, 0, 0.3)',
+            borderRight: '1px solid rgba(255, 255, 255, 0.05)',
+            py: 3,
+            px: 2,
+            display: { xs: 'none', md: 'block' }
+          }}>
+            <Typography variant="h6" sx={{ 
                   color: '#fff',
-                  width: 36,
-                  height: 36,
-                  mb: 1,
-                  fontWeight: 'bold'
-                }}>
-                  1
-                </Avatar>
-                <Typography variant="caption" sx={{ color: '#fff' }}>Details</Typography>
-              </Box>
-              
-              <Box sx={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center',
-                position: 'relative',
-                zIndex: 1
-              }}>
-                <Avatar sx={{ 
-                  bgcolor: 'rgba(59, 130, 246, 0.2)',
-                  color: '#9CA3AF',
-                  width: 36,
-                  height: 36,
-                  mb: 1,
-                  fontWeight: 'bold'
-                }}>
-                  2
-                </Avatar>
-                <Typography variant="caption" sx={{ color: '#9CA3AF' }}>Review</Typography>
-              </Box>
-
-              <Box sx={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center',
-                position: 'relative',
-                zIndex: 1
-              }}>
-                <Avatar sx={{ 
-                  bgcolor: 'rgba(59, 130, 246, 0.2)',
-                  color: '#9CA3AF',
-                  width: 36,
-                  height: 36,
-                  mb: 1,
-                  fontWeight: 'bold'
-                }}>
-                  3
-                </Avatar>
-                <Typography variant="caption" sx={{ color: '#9CA3AF' }}>Submit</Typography>
-              </Box>
-            </Box>
-          </Box>
-          
-          <Stack spacing={4}>
-            {/* Student Profile Information */}
-            <Paper sx={{ 
-              p: 3, 
-              bgcolor: 'rgba(255, 255, 255, 0.03)',
-              borderRadius: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.05)',
-              backdropFilter: 'blur(8px)',
+              fontWeight: 500,
+              fontSize: '1rem',
+              mb: 3,
+              pl: 2
             }}>
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                mb: 2,
-                gap: 1.5
-              }}>
-                <PersonIcon sx={{ color: '#3B82F6' }} />
-                <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 600 }}>
-                  Student Information
+              Form Sections
                 </Typography>
-              </Box>
-              
-              {profileLoading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                  <CircularProgress size={24} sx={{ color: '#3B82F6' }} />
-                </Box>
-              ) : profileError ? (
-                <Typography color="error" variant="body2">{profileError}</Typography>
-              ) : (
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={4}>
-                    <Stack spacing={1}>
-                      <Typography variant="caption" sx={{ color: '#6B7280' }}>
-                        Name
-                      </Typography>
-                      <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 1.5,
-                        p: 1.5,
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: '8px',
-                        bgcolor: 'rgba(0,0,0,0.2)'
-                      }}>
-                        <Avatar 
+            
+            <List sx={{ mt: 2 }}>
+              {[
+                { id: 'student', name: 'Student Information', icon: <PersonIcon /> },
+                { id: 'schedule', name: 'Schedule Information', icon: <CalendarMonthIcon /> },
+                { id: 'details', name: 'Additional Details', icon: <DescriptionIcon /> },
+                { id: 'attachments', name: 'Attachments', icon: <AttachFileIcon /> }
+              ].map((item) => (
+                <ListItem 
+                  key={item.id} 
+                  disablePadding 
                           sx={{ 
-                            width: 32, 
-                            height: 32, 
-                            bgcolor: 'rgba(59, 130, 246, 0.2)',
-                            color: '#3B82F6',
-                            fontSize: '0.8rem',
-                            fontWeight: 'bold'
-                          }}
-                        >
-                          {studentProfile.name.charAt(0)}
-                        </Avatar>
-                        <Typography variant="body2" sx={{ color: '#fff', fontWeight: 500 }}>
-                          {studentProfile.name}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </Grid>
-                  
-                  <Grid item xs={12} md={4}>
-                    <Stack spacing={1}>
-                      <Typography variant="caption" sx={{ color: '#6B7280' }}>
-                        Building
-                      </Typography>
-                      <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 1.5,
-                        p: 1.5,
-                        border: '1px solid rgba(255,255,255,0.08)',
+                    mb: 1,
                         borderRadius: '8px',
-                        bgcolor: 'rgba(0,0,0,0.2)'
-                      }}>
-                        <LocationIcon sx={{ color: '#10B981', fontSize: 20 }} />
-                        <Typography variant="body2" sx={{ color: '#fff', fontWeight: 500 }}>
-                          {studentProfile.buildingName}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </Grid>
-                  
-                  <Grid item xs={12} md={4}>
-                    <Stack spacing={1}>
-                      <Typography variant="caption" sx={{ color: '#6B7280' }}>
-                        Room Number
-                      </Typography>
-                      <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 1.5,
-                        p: 1.5,
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: '8px',
-                        bgcolor: 'rgba(0,0,0,0.2)'
-                      }}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M19 9H5V5H19V9Z" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          <path d="M5 9V19H19V9" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          <path d="M12 12V16" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                        <Typography variant="body2" sx={{ color: '#fff', fontWeight: 500 }}>
-                          {studentProfile.roomNumber}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </Grid>
-                </Grid>
-              )}
-            </Paper>
-
-            {/* Form Details Section */}
-            <Paper sx={{ 
-              p: 3, 
-              bgcolor: 'rgba(255, 255, 255, 0.03)',
-              borderRadius: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.05)',
-              backdropFilter: 'blur(8px)',
-            }}>
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                mb: 3,
-                gap: 1.5
-              }}>
-                <AssignmentIcon sx={{ color: '#3B82F6' }} />
-                <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 600 }}>
-                  Request Details
-                </Typography>
-              </Box>
-
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={12}>
-                  <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 1, ml: 1 }}>
-                    Request Title*
-                  </Typography>
-                  <TextField
-                    placeholder="e.g., Bathroom Sink Leak"
-                    value={newForm.title}
-                    onChange={(e) => setNewForm({ ...newForm, title: e.target.value })}
-                    fullWidth
-                    variant="outlined"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <TitleIcon sx={{ color: '#6B7280', fontSize: 20 }} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{ 
-                      '& .MuiOutlinedInput-root': {
-                        color: '#fff',
-                        bgcolor: 'rgba(0,0,0,0.2)',
-                        '& fieldset': {
-                          borderColor: 'rgba(255,255,255,0.1)',
-                          borderRadius: '10px',
-                        },
-                        '&:hover fieldset': {
-                          borderColor: 'rgba(255,255,255,0.2)',
-                        },
-                        '&.Mui-focused fieldset': {
-                          borderColor: '#3B82F6',
-                        },
-                      },
-                    }}
-                  />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 1, ml: 1 }}>
-                    Description*
-                  </Typography>
-                  <TextField
-                    placeholder="Please provide details about your maintenance request..."
-                    value={newForm.description}
-                    onChange={(e) => setNewForm({ ...newForm, description: e.target.value })}
-                    multiline
-                    rows={4}
-                    fullWidth
-                    variant="outlined"
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        color: '#fff',
-                        bgcolor: 'rgba(0,0,0,0.2)',
-                        '& fieldset': {
-                          borderColor: 'rgba(255,255,255,0.1)',
-                          borderRadius: '10px',
-                        },
-                        '&:hover fieldset': {
-                          borderColor: 'rgba(255,255,255,0.2)',
-                        },
-                        '&.Mui-focused fieldset': {
-                          borderColor: '#3B82F6',
-                        },
-                      },
-                    }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={12}>
-                  <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 1, ml: 1 }}>
-                    Request Type*
-                  </Typography>
-                  <FormControl fullWidth variant="outlined">
-                    <Select
-                      value={newForm.formType}
-                      onChange={(e) => setNewForm({ ...newForm, formType: e.target.value })}
-                      displayEmpty
-                      IconComponent={props => (
-                        <ArrowDropDownIcon {...props} sx={{ color: '#6B7280' }} />
-                      )}
-                      renderValue={(selected) => {
-                        if (!selected) {
-                          return <Typography sx={{ color: '#6B7280' }}>Select request type</Typography>;
-                        }
-                        return selected;
-                      }}
-                      sx={{ 
-                        color: '#fff',
-                        bgcolor: 'rgba(0,0,0,0.2)',
-                        '& .MuiOutlinedInput-notchedOutline': {
-                          borderColor: 'rgba(255,255,255,0.1)',
-                          borderRadius: '10px',
-                        },
-                        '&:hover .MuiOutlinedInput-notchedOutline': {
-                          borderColor: 'rgba(255,255,255,0.2)',
-                        },
-                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                          borderColor: '#3B82F6',
-                        },
-                      }}
-                      MenuProps={{
-                        PaperProps: {
-                          sx: {
-                            bgcolor: '#1F2937',
-                            color: '#fff',
-                            '& .MuiMenuItem-root': {
-                              '&:hover': {
-                                bgcolor: 'rgba(59, 130, 246, 0.1)',
-                              },
-                              '&.Mui-selected': {
-                                bgcolor: 'rgba(59, 130, 246, 0.2)',
-                                '&:hover': {
-                                  bgcolor: 'rgba(59, 130, 246, 0.3)',
-                                },
-                              },
-                            },
-                          },
-                        },
-                      }}
-                    >
-                      <MenuItem value="Cleaning">
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <CleaningServicesIcon sx={{ color: '#10B981', fontSize: 20 }} />
-                          <Typography>Cleaning</Typography>
-                        </Box>
-                      </MenuItem>
-                      <MenuItem value="Maintenance">
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <BuildIcon sx={{ color: '#F59E0B', fontSize: 20 }} />
-                          <Typography>Maintenance</Typography>
-                        </Box>
-                      </MenuItem>
-                      <MenuItem value="Repair">
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <HandymanIcon sx={{ color: '#EF4444', fontSize: 20 }} />
-                          <Typography>Repair</Typography>
-                        </Box>
-                      </MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </Grid>
-            </Paper>
-
-            {/* Time Range Selection */}
-            <Paper sx={{ 
-              p: 3, 
-              bgcolor: 'rgba(255, 255, 255, 0.03)',
-              borderRadius: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.05)',
-              backdropFilter: 'blur(8px)',
-            }}>
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                mb: 3,
-                gap: 1.5
-              }}>
-                <CalendarMonthIcon sx={{ color: '#3B82F6' }} />
-                <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 600 }}>
-                  Schedule Information
-                </Typography>
-              </Box>
-              
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 1, ml: 1 }}>
-                    Start Time*
-                  </Typography>
-                  <LocalizationProvider dateAdapter={AdapterDateFns}>
-                    <DateTimePicker
-                      label=""
-                      value={newForm.preferredStartTime}
-                      onChange={(date) => {
-                        // When start time changes, update end time to be 1 hour later if it's not set
-                        const endTime = newForm.preferredEndTime || new Date(date);
-                        if (!newForm.preferredEndTime) {
-                          endTime.setHours(endTime.getHours() + 1);
-                        }
-                        setNewForm({ 
-                          ...newForm, 
-                          preferredStartTime: date,
-                          preferredEndTime: endTime
-                        });
-                      }}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          fullWidth
-                          placeholder="Select date and time"
-                          InputProps={{
-                            ...params.InputProps,
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <AccessTimeIcon sx={{ color: '#ffffff', fontSize: 20 }} />
-                              </InputAdornment>
-                            ),
-                            sx: {
-                              color: 'white',
-                              '& .MuiInputAdornment-root': {
-                                color: '#6B7280',
-                              },
-                              '& .MuiTypography-root': {
-                                color: '#FFFFFF',
-                              },
-                              '& input': {
-                                color: '#FFFFFF',
-                              },
-                              '& svg': {
-                                color: '#6B7280',
-                              },
-                            }
-                          }}
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              color: '#FFFFFF',
-                              bgcolor: 'rgba(0,0,0,0.2)',
-                              '& fieldset': {
-                                borderColor: 'rgba(255,255,255,0.1)',
-                                borderRadius: '10px',
-                              },
-                              '&:hover fieldset': {
-                                borderColor: 'rgba(255,255,255,0.2)',
-                              },
-                              '&.Mui-focused fieldset': {
-                                borderColor: '#3B82F6',
-                              },
-                              '& input': {
-                                color: '#FFFFFF',
-                              },
-                              '& .MuiInputAdornment-root .MuiTypography-root': {
-                                color: '#FFFFFF',
-                              },
-                              '& svg': {
-                                color: '#6B7280',
-                              },
-                            },
-                            '& .MuiInputLabel-root': {
-                              color: '#6B7280',
-                            },
-                            '& input.MuiInputBase-input': {
-                              color: '#FFFFFF',
-                            },
-                            '& input::placeholder': {
-                              color: 'rgba(255, 255, 255, 0.5)',
-                              opacity: 1,
-                            },
-                            '& .MuiFormLabel-root': {
-                              color: '#FFFFFF',
-                            },
-                          }}
-                          inputProps={{
-                            ...params.inputProps,
-                            style: { color: '#FFFFFF' }
-                          }}
-                        />
-                      )}
-                      components={{
-                        OpenPickerIcon: (props) => <AccessTimeIcon {...props} sx={{ color: '#6B7280' }} />
-                      }}
-                      PopperProps={{
-                        sx: {
-                          '& .MuiPaper-root': {
-                            bgcolor: '#1F2937',
-                            color: '#fff',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            '& .MuiTypography-root': {
-                              color: '#fff',
-                            },
-                            '& .MuiPickersDay-root': {
-                              color: '#fff',
-                              '&.Mui-selected': {
-                                bgcolor: '#3B82F6',
-                              },
-                              '&:hover': {
-                                bgcolor: 'rgba(59, 130, 246, 0.2)',
-                              },
-                            },
-                            '& .MuiClockPicker-root': {
-                              '& .MuiClockNumber-root': {
-                                color: '#fff',
-                              },
-                              '& .MuiClock-pin': {
-                                bgcolor: '#3B82F6',
-                              },
-                              '& .MuiClockPointer-root': {
-                                bgcolor: '#3B82F6',
-                                '& .MuiClockPointer-thumb': {
-                                  bgcolor: '#3B82F6',
-                                  border: '16px solid #3B82F6',
-                                },
-                              },
-                            },
-                            '& .MuiButtonBase-root': {
-                              color: '#fff',
-                              '&.Mui-selected': {
-                                color: '#fff',
-                              },
-                            },
-                            '& .MuiIconButton-root': {
-                              color: '#9CA3AF',
-                            },
-                          },
-                        },
-                      }}
-                    />
-                  </LocalizationProvider>
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: 1, ml: 1 }}>
-                    End Time*
-                  </Typography>
-                  <LocalizationProvider dateAdapter={AdapterDateFns}>
-                    <DateTimePicker
-                      label=""
-                      value={newForm.preferredEndTime}
-                      onChange={(date) => setNewForm({ ...newForm, preferredEndTime: date })}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          fullWidth
-                          placeholder="Select date and time"
-                          InputProps={{
-                            ...params.InputProps,
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <AccessTimeIcon sx={{ color: '#6B7280', fontSize: 20 }} />
-                              </InputAdornment>
-                            ),
-                            sx: {
-                              color: '#FFFFFF',
-                              '& .MuiInputAdornment-root': {
-                                color: '#6B7280',
-                              },
-                              '& .MuiTypography-root': {
-                                color: '#FFFFFF',
-                              },
-                              '& input': {
-                                color: '#FFFFFF',
-                              },
-                              '& svg': {
-                                color: '#6B7280',
-                              },
-                            }
-                          }}
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              color: '#FFFFFF',
-                              bgcolor: 'rgba(0,0,0,0.2)',
-                              '& fieldset': {
-                                borderColor: 'rgba(255,255,255,0.1)',
-                                borderRadius: '10px',
-                              },
-                              '&:hover fieldset': {
-                                borderColor: 'rgba(255,255,255,0.2)',
-                              },
-                              '&.Mui-focused fieldset': {
-                                borderColor: '#3B82F6',
-                              },
-                              '& input': {
-                                color: '#FFFFFF',
-                              },
-                              '& .MuiInputAdornment-root .MuiTypography-root': {
-                                color: '#FFFFFF',
-                              },
-                              '& svg': {
-                                color: '#6B7280',
-                              },
-                            },
-                            '& .MuiInputLabel-root': {
-                              color: '#6B7280',
-                            },
-                            '& input.MuiInputBase-input': {
-                              color: '#FFFFFF',
-                            },
-                            '& input::placeholder': {
-                              color: 'rgba(255, 255, 255, 0.5)',
-                              opacity: 1,
-                            },
-                            '& .MuiFormLabel-root': {
-                              color: '#FFFFFF',
-                            },
-                          }}
-                          inputProps={{
-                            ...params.inputProps,
-                            style: { color: '#FFFFFF' }
-                          }}
-                        />
-                      )}
-                      components={{
-                        OpenPickerIcon: (props) => <AccessTimeIcon {...props} sx={{ color: '#6B7280' }} />
-                      }}
-                      PopperProps={{
-                        sx: {
-                          '& .MuiPaper-root': {
-                            bgcolor: '#1F2937',
-                            color: '#fff',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            '& .MuiTypography-root': {
-                              color: '#fff',
-                            },
-                            '& .MuiPickersDay-root': {
-                              color: '#fff',
-                              '&.Mui-selected': {
-                                bgcolor: '#3B82F6',
-                              },
-                              '&:hover': {
-                                bgcolor: 'rgba(59, 130, 246, 0.2)',
-                              },
-                            },
-                            '& .MuiClockPicker-root': {
-                              '& .MuiClockNumber-root': {
-                                color: '#fff',
-                              },
-                              '& .MuiClock-pin': {
-                                bgcolor: '#3B82F6',
-                              },
-                              '& .MuiClockPointer-root': {
-                                bgcolor: '#3B82F6',
-                                '& .MuiClockPointer-thumb': {
-                                  bgcolor: '#3B82F6',
-                                  border: '16px solid #3B82F6',
-                                },
-                              },
-                            },
-                            '& .MuiButtonBase-root': {
-                              color: '#fff',
-                              '&.Mui-selected': {
-                                color: '#fff',
-                              },
-                            },
-                            '& .MuiIconButton-root': {
-                              color: '#9CA3AF',
-                            },
-                          },
-                        },
-                      }}
-                    />
-                  </LocalizationProvider>
-                </Grid>
-                
-                {/* Duration display */}
-                {newForm.preferredStartTime && newForm.preferredEndTime && (
-                  <Grid item xs={12}>
-                    <Box sx={{ 
-                      p: 2, 
-                      bgcolor: 'rgba(59, 130, 246, 0.1)', 
-                      borderRadius: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1.5
-                    }}>
-                      <InfoIcon sx={{ color: '#3B82F6' }} />
-                      <Typography variant="body2" sx={{ color: '#9CA3AF' }}>
-                        Duration: {((newForm.preferredEndTime - newForm.preferredStartTime) / (1000 * 60 * 60)).toFixed(1)} hours
-                      </Typography>
-                    </Box>
-                  </Grid>
-                )}
-              </Grid>
-            </Paper>
-
-            {/* Add file upload section */}
-            <Box sx={{ p: 3, pt: 0 }}>
-              <Typography variant="subtitle1" sx={{ 
-                color: '#fff', 
-                fontWeight: 600, 
-                mb: 2,
-                mt: 3,
-                borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-                pt: 3
-              }}>
-                Attachments
-              </Typography>
-              
-              <Paper sx={{ 
-                p: 3, 
-                bgcolor: 'rgba(255, 255, 255, 0.03)',
-                borderRadius: '12px',
-                display: 'flex',
-                flexDirection: 'column',
-                border: '1px solid rgba(255, 255, 255, 0.05)',
-              }}>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  onChange={handleFileSelect}
-                  style={{ display: 'none' }}
-                  accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                />
-                
-                {/* File list */}
-                {uploadedFiles.length > 0 && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ color: '#9CA3AF', mb: 1 }}>
-                      {uploadedFiles.length} file(s) attached
-                    </Typography>
-                    
-                    <Box sx={{ maxHeight: '200px', overflowY: 'auto', pr: 1 }}>
-                      {uploadedFiles.map((file, index) => (
-                        <Box 
-                          key={index}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            p: 1.5,
-                            mb: 1,
-                            borderRadius: '8px',
-                            bgcolor: 'rgba(0, 0, 0, 0.2)',
-                            border: '1px solid rgba(255, 255, 255, 0.05)',
-                          }}
-                        >
-                          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, overflow: 'hidden' }}>
-                            <Avatar sx={{ bgcolor: 'rgba(59, 130, 246, 0.1)', color: '#3B82F6', mr: 1 }}>
-                              {getFileIcon(file.fileType)}
-                            </Avatar>
-                            <Box sx={{ overflow: 'hidden' }}>
-                              <Typography variant="body2" sx={{ color: '#fff', fontWeight: 500, noWrap: true }}>
-                                {file.fileName}
-                              </Typography>
-                              <Typography variant="caption" sx={{ color: '#6B7280' }}>
-                                {file.fileType || 'Unknown type'}
-                              </Typography>
-                            </Box>
-                          </Box>
-                          <IconButton 
-                            size="small"
-                            onClick={() => handleRemoveFile(index)}
-                            sx={{ color: '#EF4444' }}
-                          >
-                            <CancelIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      ))}
-                    </Box>
-                  </Box>
-                )}
-                
-                {/* Upload button */}
-                <Button
-                  variant="outlined"
-                  startIcon={fileUploadLoading ? <CircularProgress size={20} /> : <CloudUploadIcon />}
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={fileUploadLoading}
-                  sx={{
-                    color: '#3B82F6',
-                    borderColor: 'rgba(59, 130, 246, 0.3)',
-                    '&:hover': {
-                      borderColor: '#3B82F6',
-                      bgcolor: 'rgba(59, 130, 246, 0.1)',
-                    },
-                    mt: uploadedFiles.length > 0 ? 1 : 0,
+                    bgcolor: activeSection === item.id ? 'rgba(34, 197, 94, 0.1)' : 'transparent',
+                    border: activeSection === item.id ? '1px solid rgba(34, 197, 94, 0.2)' : 'none',
                   }}
                 >
-                  {fileUploadLoading ? 'Uploading...' : 'Attach Files'}
-                </Button>
+                  <ListItemButton 
+                    sx={{ 
+                      borderRadius: '8px',
+                      py: 1.5,
+                              '&:hover': {
+                        bgcolor: 'rgba(255, 255, 255, 0.05)'
+                      }
+                    }}
+                    onClick={() => setActiveSection(item.id)}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      {React.cloneElement(item.icon, { 
+                        color: activeSection === item.id ? 'inherit' : 'disabled',
+                        sx: { color: activeSection === item.id ? '#22C55E' : '#aaa' } 
+                      })}
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary={item.name} 
+                          sx={{
+                        '& .MuiListItemText-primary': { 
+                          color: activeSection === item.id ? '#22C55E' : '#fff',
+                          fontWeight: activeSection === item.id ? 600 : 400,
+                        } 
+                      }} 
+                    />
+                    {activeSection === item.id && (
+                      <CheckCircleSmallIcon sx={{ color: '#22C55E', fontSize: 20 }} />
+                    )}
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+                    </Box>
+          
+          {/* Main content area */}
+          <Box sx={{ 
+            flex: 1, 
+            p: 3,
+            overflowY: 'auto',
+            maxHeight: '70vh'
+          }}>
+            {/* Student Information Section */}
+            {activeSection === 'student' && (
+              <Box sx={{ p: 2 }}>
+                <Box sx={{ 
+                  mb: 4, 
+                  p: 2, 
+                  borderLeft: '4px solid #3b82f6',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(59, 130, 246, 0.08)'
+                }}>
+                  <Typography variant="h6" sx={{ color: '#fff', fontWeight: 600, mb: 1 }}>
+                    Student Information
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#aaa' }}>
+                    This information is pulled from your student profile
+                  </Typography>
+                </Box>
                 
-                <Typography variant="caption" sx={{ color: '#6B7280', mt: 1, textAlign: 'center' }}>
-                  Supported formats: Images, PDF, Word documents
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Student Name"
+                      value={newForm.studentName || ''}
+                      InputProps={{
+                        readOnly: true,
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <PersonIcon sx={{ color: 'rgba(255, 255, 255, 0.5)' }} />
+                          </InputAdornment>
+                        ),
+                        sx: {
+                          color: '#fff',
+                          backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(255, 255, 255, 0.2)',
+                          },
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(255, 255, 255, 0.3)',
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderColor: '#22C55E',
+                          },
+                          '& input::placeholder': {
+                            color: '#aaaaaa',
+                            opacity: 1,
+                          },
+                          '& .MuiInputLabel-root': {
+                            color: '#aaa',
+                          },
+                        }
+                      }}
+                      InputLabelProps={{
+                        sx: { color: '#aaa' },
+                        shrink: true
+                      }}
+                      sx={{ mb: 3 }}
+                      placeholder="Student Name"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Building Name"
+                      value={newForm.buildingName || ''}
+                      InputProps={{
+                        readOnly: true,
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <ApartmentIcon sx={{ color: 'rgba(255, 255, 255, 0.5)' }} />
+                          </InputAdornment>
+                        ),
+                        sx: {
+                          color: '#fff',
+                          backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(255, 255, 255, 0.2)',
+                          },
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(255, 255, 255, 0.3)',
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderColor: '#22C55E',
+                          },
+                          '& input::placeholder': {
+                            color: '#aaaaaa',
+                            opacity: 1,
+                          },
+                          '& .MuiInputLabel-root': {
+                            color: '#aaa',
+                          },
+                        }
+                      }}
+                      InputLabelProps={{
+                        sx: { color: '#aaa' },
+                        shrink: true
+                      }}
+                      sx={{ mb: 3 }}
+                      placeholder="Building Name"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Room Number"
+                      value={newForm.roomNumber || ''}
+                      InputProps={{
+                        readOnly: true,
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <MeetingRoomIcon sx={{ color: 'rgba(255, 255, 255, 0.5)' }} />
+                          </InputAdornment>
+                        ),
+                        sx: {
+                          color: '#fff',
+                          backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(255, 255, 255, 0.2)',
+                          },
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(255, 255, 255, 0.3)',
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderColor: '#22C55E',
+                          },
+                          '& input::placeholder': {
+                            color: '#aaaaaa',
+                            opacity: 1,
+                          },
+                          '& .MuiInputLabel-root': {
+                            color: '#aaa',
+                          },
+                        }
+                      }}
+                      InputLabelProps={{
+                        sx: { color: '#aaa' },
+                        shrink: true
+                      }}
+                      sx={{ mb: 3 }}
+                      placeholder="Room Number"
+                    />
+                  </Grid>
+                </Grid>
+                
+                <Box sx={{ 
+                  mt: 2, 
+                  p: 2, 
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}>
+                  <InfoIcon sx={{ color: 'rgba(255, 255, 255, 0.6)', mr: 2 }} />
+                  <Typography variant="body2" sx={{ color: '#aaa' }}>
+                    If any of your personal information is incorrect, please update your profile in the account settings.
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+
+            {/* Schedule Information Section */}
+            {activeSection === 'schedule' && (
+              <Box sx={{ p: 2 }}>
+                <Box sx={{ 
+                  mb: 4, 
+                  p: 2, 
+                  borderLeft: '4px solid #f59e0b',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(245, 158, 11, 0.08)'
+                }}>
+                  <Typography variant="h6" sx={{ color: '#fff', fontWeight: 600, mb: 1 }}>
+                    Schedule Information
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#aaa' }}>
+                    Select your preferred date and time for this maintenance request
+                  </Typography>
+                </Box>
+
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="body2" sx={{ 
+                      color: '#fff', 
+                      mb: 1,
+                      fontWeight: 500 
+                    }}>
+                      Preferred Start Time
+                    </Typography>
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DateTimePicker
+                        value={newForm.preferredStartTime}
+                        onChange={(newValue) => setNewForm({ ...newForm, preferredStartTime: newValue })}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            fullWidth
+                            sx={{ mb: 3 }}
+                            InputProps={{
+                              ...params.InputProps,
+                              sx: {
+                                color: '#fff',
+                                backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                                '.MuiInputBase-input': {
+                                  color: '#fff !important',
+                                },
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                                },
+                                '&:hover .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                                },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: '#22C55E',
+                                },
+                                '& input::placeholder': {
+                                  color: '#aaaaaa',
+                                  opacity: 1,
+                                },
+                                '& .MuiSvgIcon-root': {
+                                  color: '#ffffff',
+                                },
+                              }
+                            }}
+                            InputLabelProps={{
+                              sx: { color: '#aaa' },
+                              shrink: true
+                            }}
+                            placeholder="Select Start Time"
+                          />
+                        )}
+                      />
+                    </LocalizationProvider>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="body2" sx={{ 
+                      color: '#fff', 
+                      mb: 1,
+                      fontWeight: 500 
+                    }}>
+                      Preferred End Time
+                    </Typography>
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                      <DateTimePicker
+                        value={newForm.preferredEndTime}
+                        onChange={(newValue) => setNewForm({ ...newForm, preferredEndTime: newValue })}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            fullWidth
+                            sx={{ mb: 3 }}
+                            InputProps={{
+                              ...params.InputProps,
+                              sx: {
+                                color: '#fff',
+                                backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                                '.MuiInputBase-input': {
+                                  color: '#fff !important',
+                                },
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                                },
+                                '&:hover .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                                },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: '#22C55E',
+                                },
+                                '& input::placeholder': {
+                                  color: '#aaaaaa',
+                                  opacity: 1,
+                                },
+                                '& .MuiSvgIcon-root': {
+                                  color: '#ffffff',
+                                },
+                              }
+                            }}
+                            InputLabelProps={{
+                              sx: { color: '#aaa' },
+                              shrink: true
+                            }}
+                            placeholder="Select End Time"
+                          />
+                        )}
+                      />
+                    </LocalizationProvider>
+                  </Grid>
+                </Grid>
+              </Box>
+            )}
+
+            {/* Form Details Section */}
+            {activeSection === 'details' && (
+              <Box sx={{ p: 2 }}>
+                <Box sx={{ 
+                  mb: 4, 
+                  p: 2, 
+                  borderLeft: '4px solid #10b981',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.08)'
+                }}>
+                  <Typography variant="h6" sx={{ color: '#fff', fontWeight: 600, mb: 1 }}>
+                    Form Details
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#aaa' }}>
+                    Provide detailed information about your maintenance request
+                  </Typography>
+                </Box>
+                
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Title"
+                      value={newForm.title}
+                      onChange={(e) => setNewForm({ ...newForm, title: e.target.value })}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <TitleIcon sx={{ color: 'rgba(255, 255, 255, 0.5)' }} />
+                          </InputAdornment>
+                        ),
+                        sx: {
+                          color: '#fff',
+                          backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(255, 255, 255, 0.2)',
+                          },
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(255, 255, 255, 0.3)',
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderColor: '#10b981',
+                          },
+                          '& input::placeholder': {
+                            color: '#aaaaaa',
+                            opacity: 1,
+                          },
+                          '& .MuiInputLabel-root': {
+                            color: '#aaa',
+                          },
+                        }
+                      }}
+                      InputLabelProps={{
+                        sx: { color: '#aaa' },
+                        shrink: true
+                      }}
+                      sx={{ mb: 3 }}
+                      placeholder="Enter form title"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth sx={{ mb: 3 }}>
+                      <InputLabel sx={{ color: '#aaa' }}>Form Type</InputLabel>
+                      <Select
+                        value={newForm.formType}
+                        onChange={(e) => setNewForm({ ...newForm, formType: e.target.value })}
+                        label="Form Type"
+                        sx={{
+                          color: '#fff',
+                          backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(255, 255, 255, 0.2)',
+                          },
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(255, 255, 255, 0.3)',
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderColor: '#10b981',
+                          },
+                          '.MuiSvgIcon-root': {
+                            color: '#ffffff',
+                          }
+                        }}
+                        MenuProps={{
+                          PaperProps: {
+                            sx: {
+                              bgcolor: '#111',
+                              '& .MuiMenuItem-root': {
+                                color: '#fff'
+                              }
+                            }
+                          }
+                        }}
+                        startAdornment={
+                          <InputAdornment position="start">
+                            <CategoryIcon sx={{ color: 'rgba(255, 255, 255, 0.5)' }} />
+                          </InputAdornment>
+                        }
+                      >
+                        <MenuItem value="Select Form Type" sx={{ display: 'flex', alignItems: 'center' }}>
+                          Select Form Type
+                        </MenuItem>
+                        <MenuItem value="Cleaning" sx={{ display: 'flex', alignItems: 'center' }}>
+                          <CleaningServicesIcon fontSize="small" sx={{ color: '#10b981', mr: 1 }} />
+                          Cleaning
+                        </MenuItem>
+                        <MenuItem value="Repair" sx={{ display: 'flex', alignItems: 'center' }}>
+                          <BuildIcon fontSize="small" sx={{ color: '#f59e0b', mr: 1 }} />
+                          Repair
+                        </MenuItem>
+                        <MenuItem value="Maintenance" sx={{ display: 'flex', alignItems: 'center' }}>
+                          <HandymanIcon fontSize="small" sx={{ color: '#3b82f6', mr: 1 }} />
+                          Maintenance
+                        </MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Box sx={{ position: 'relative' }}>
+                      <TextField
+                        fullWidth
+                        label="Description"
+                        value={newForm.description}
+                        onChange={(e) => setNewForm({ ...newForm, description: e.target.value })}
+                        multiline
+                        rows={5}
+                        InputProps={{
+                          sx: {
+                            color: '#fff',
+                            backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                            '& .MuiOutlinedInput-notchedOutline': {
+                              borderColor: 'rgba(255, 255, 255, 0.2)',
+                            },
+                            '&:hover .MuiOutlinedInput-notchedOutline': {
+                              borderColor: 'rgba(255, 255, 255, 0.3)',
+                            },
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                              borderColor: '#10b981',
+                            },
+                            '& input::placeholder': {
+                              color: '#aaaaaa',
+                              opacity: 1,
+                            },
+                            '& .MuiInputLabel-root': {
+                              color: '#aaa',
+                            },
+                          }
+                        }}
+                        InputLabelProps={{
+                          sx: { color: '#aaa' },
+                          shrink: true
+                        }}
+                        sx={{ mb: 3 }}
+                        placeholder="Describe your request in detail"
+                      />
+                      <Box sx={{
+                        position: 'absolute',
+                        bottom: 32,
+                        right: 16,
+                        bgcolor: 'rgba(16, 185, 129, 0.1)',
+                        p: 0.5,
+                        px: 1,
+                        borderRadius: 1,
+                        border: '1px solid rgba(16, 185, 129, 0.2)'
+                      }}>
+                        <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 500 }}>
+                          {newForm.description?.length || 0} / 500
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                </Grid>
+                
+                <Box sx={{ 
+                  mt: 3,
+                  p: 2,
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                  display: 'flex',
+                  alignItems: 'flex-start'
+                }}>
+                  <LightbulbIcon sx={{ color: '#10b981', mt: 0.5, mr: 2 }} />
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 600, mb: 0.5 }}>
+                      Tips for faster processing:
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#aaa', mb: 1 }}>
+                      • Include specific details about the issue location
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#aaa', mb: 1 }}>
+                      • Describe when the problem started occurring
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#aaa' }}>
+                      • Mention any previous attempts to fix the issue
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+            )}
+
+            {/* Attachments Section */}
+            {activeSection === 'attachments' && (
+              <Box>
+                <Typography variant="h6" sx={{ color: '#fff', mb: 3 }}>
+                  Attachments
                 </Typography>
-              </Paper>
-            </Box>
-          </Stack>
+                <Box
+                  sx={{
+                    border: '2px dashed rgba(255, 255, 255, 0.2)',
+                    borderRadius: 2,
+                    p: 3,
+                    mb: 3,
+                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                      borderColor: 'rgba(255, 255, 255, 0.3)',
+                    }
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    type="file"
+                    hidden
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    multiple
+                  />
+                  <CloudUploadIcon sx={{ fontSize: 48, color: '#aaa', mb: 2 }} />
+                  <Typography variant="body1" sx={{ color: '#fff', mb: 1 }}>
+                    Drag files here or click to browse
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#aaa' }}>
+                    Supported formats: JPG, PNG, PDF, DOC, DOCX
+                  </Typography>
+                </Box>
+                
+                {uploadedFiles.length > 0 && (
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ color: '#fff', mb: 2 }}>
+                      Uploaded Files ({uploadedFiles.length})
+                    </Typography>
+                    <List sx={{ bgcolor: 'rgba(0, 0, 0, 0.2)', borderRadius: 1 }}>
+                      {uploadedFiles.map((file, index) => (
+                        <ListItem
+                          key={index}
+                          sx={{
+                            borderBottom: index !== uploadedFiles.length - 1 ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
+                          }}
+                        >
+                          <ListItemIcon>
+                            {getFileIcon(file.fileType)}
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={file.fileName}
+                            primaryTypographyProps={{ sx: { color: '#fff' } }}
+                            secondary={`${file.fileType.split('/')[1]?.toUpperCase() || 'File'}`}
+                            secondaryTypographyProps={{ sx: { color: '#aaa' } }}
+                          />
+                          <IconButton
+                            edge="end"
+                            onClick={() => handleRemoveFile(index)}
+                            sx={{ color: '#ff4d4f' }}
+                          >
+                            <CloseIcon />
+                          </IconButton>
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Box>
+                )}
+              </Box>
+            )}
+                            </Box>
         </Box>
       </DialogContent>
 
+      {/* Dialog actions section */}
       <DialogActions sx={{ 
-        p: 3, 
-        borderTop: '1px solid rgba(255,255,255,0.05)',
+        px: 3, 
+        py: 2,
+        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+        bgcolor: 'rgba(0, 0, 0, 0.3)',
         justifyContent: 'space-between'
       }}>
-        <Button
-          onClick={handleCloseNewFormDialog}
-          variant="outlined"
-          sx={{
-            color: '#6B7280',
-            borderColor: 'rgba(107, 114, 128, 0.3)',
-            '&:hover': {
-              borderColor: 'rgba(107, 114, 128, 0.5)',
-              backgroundColor: 'rgba(107, 114, 128, 0.05)',
-            },
-          }}
-        >
-          Cancel
-        </Button>
-
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="contained"
-            endIcon={<SendIcon />}
-            onClick={handleSubmitForm}
-            disabled={!newForm.title || !newForm.formType || !newForm.preferredStartTime || !newForm.preferredEndTime}
-            sx={{
-              background: 'linear-gradient(145deg, #1E40AF 0%, #3B82F6 100%)',
-              color: '#fff',
-              px: 3,
-              py: 1,
-              borderRadius: '8px',
+        <Box>
+        <Button 
+            onClick={handleCloseNewFormDialog}
+            sx={{ 
+              color: '#aaa',
               '&:hover': {
-                background: 'linear-gradient(145deg, #1E3A8A 0%, #2563EB 100%)',
-                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-              },
-              '&.Mui-disabled': {
-                background: 'rgba(59, 130, 246, 0.2)',
-                color: 'rgba(255, 255, 255, 0.3)',
+                color: '#fff',
+                bgcolor: 'rgba(255, 255, 255, 0.05)'
               }
             }}
           >
-            Submit Request
+              Cancel
+            </Button>
+        </Box>
+        
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          {/* Navigation buttons between form sections */}
+          {activeSection !== 'student' && (
+            <Button
+              onClick={() => {
+                const sections = ['student', 'schedule', 'details', 'attachments'];
+                const currentIndex = sections.indexOf(activeSection);
+                if (currentIndex > 0) {
+                  setActiveSection(sections[currentIndex - 1]);
+                }
+              }}
+              startIcon={<ArrowBackIcon />}
+              sx={{
+                color: '#fff',
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.1)'
+                }
+              }}
+            >
+              Previous
+            </Button>
+          )}
+          
+          {activeSection !== 'attachments' && (
+            <Button
+              onClick={() => {
+                const sections = ['student', 'schedule', 'details', 'attachments'];
+                const currentIndex = sections.indexOf(activeSection);
+                if (currentIndex < sections.length - 1) {
+                  setActiveSection(sections[currentIndex + 1]);
+                }
+              }}
+              endIcon={<ChevronRightIcon />}
+              sx={{
+                color: '#fff',
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.1)'
+                }
+              }}
+            >
+              Next
+            </Button>
+          )}
+          
+          <Button
+            onClick={handleSubmitForm}
+            disabled={loading || !newForm.title || !newForm.formType || !newForm.description || !newForm.preferredStartTime}
+            startIcon={loading ? <CircularProgress size={20} /> : <SendIcon />}
+            variant="contained"
+            sx={{
+              bgcolor: '#22C55E',
+              '&:hover': {
+                bgcolor: '#16A34A'
+              },
+              '&.Mui-disabled': {
+                bgcolor: 'rgba(34, 197, 94, 0.3)',
+                color: 'rgba(255, 255, 255, 0.5)'
+              }
+            }}
+          >
+            Submit Form
           </Button>
         </Box>
       </DialogActions>
@@ -3257,9 +3331,9 @@ const StudentForm = () => {
         }}
       >
         <DialogTitle sx={{ 
-          p: 3,
-          display: 'flex',
-          alignItems: 'center',
+          p: 3, 
+          display: 'flex', 
+          alignItems: 'center', 
           gap: 2,
           borderBottom: '1px solid rgba(255,255,255,0.05)'
         }}>
@@ -3325,7 +3399,14 @@ const StudentForm = () => {
                   '&.Mui-focused fieldset': {
                     borderColor: '#3B82F6',
                   },
-                },
+                  '& input::placeholder': {
+                    color: '#aaaaaa',
+                    opacity: 1,
+                  },
+                  '& .MuiInputLabel-root': {
+                    color: '#aaa',
+                  },
+                }
               }}
             />
           </Box>
@@ -3337,7 +3418,8 @@ const StudentForm = () => {
             sx={{ 
               color: '#9CA3AF',
               '&:hover': {
-                background: 'rgba(255,255,255,0.05)',
+                color: '#fff',
+                bgcolor: 'rgba(255,255,255,0.05)',
               },
             }}
           >
@@ -3402,7 +3484,7 @@ const StudentForm = () => {
   const submitReschedule = async () => {
     try {
       setLoading(true);
-      
+
       if (!selectedForm || !selectedForm._id) {
         toast.error('Cannot identify the form to reschedule');
         setLoading(false);
@@ -3499,11 +3581,8 @@ const StudentForm = () => {
       >
         <DialogTitle sx={{ 
           borderBottom: '1px solid rgba(255, 255, 255, 0.05)', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'space-between',
-          py: 3,
-          px: 3.5
+          py: 2.5,
+          px: 3
         }}>
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
@@ -3555,18 +3634,25 @@ const StudentForm = () => {
                 InputLabelProps={{ shrink: true }}
                 InputProps={{
                   sx: { 
-                    bgcolor: 'rgba(0, 0, 0, 0.2)',
+                    bgcolor: 'rgba(255, 0, 0, 0.2)',
                     borderRadius: '8px',
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                      borderColor: 'rgba(255, 255, 255, 0.1)'
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                      borderColor: 'rgba(255, 255, 255, 0.2)'
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#7C3AED',
+                      borderColor: '#7C3AED'
                     },
-                    color: '#fff'
+                    color: '#fff',
+                    '& input::placeholder': {
+                      color: '#aaaaaa',
+                      opacity: 1,
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#aaa',
+                    },
                   }
                 }}
               />
@@ -3586,15 +3672,22 @@ const StudentForm = () => {
                     bgcolor: 'rgba(0, 0, 0, 0.2)',
                     borderRadius: '8px',
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                      borderColor: 'rgba(255, 255, 255, 0.1)'
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                      borderColor: 'rgba(255, 255, 255, 0.2)'
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#7C3AED',
+                      borderColor: '#7C3AED'
                     },
-                    color: '#fff'
+                    color: '#fff',
+                    '& input::placeholder': {
+                      color: '#aaaaaa',
+                      opacity: 1,
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#aaa',
+                    },
                   }
                 }}
               />
@@ -3614,15 +3707,22 @@ const StudentForm = () => {
                     bgcolor: 'rgba(0, 0, 0, 0.2)',
                     borderRadius: '8px',
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                      borderColor: 'rgba(255, 255, 255, 0.1)'
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                      borderColor: 'rgba(255, 255, 255, 0.2)'
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#7C3AED',
+                      borderColor: '#7C3AED'
                     },
-                    color: '#fff'
+                    color: '#fff',
+                    '& input::placeholder': {
+                      color: '#aaaaaa',
+                      opacity: 1,
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#aaa',
+                    },
                   }
                 }}
               />
@@ -3642,15 +3742,22 @@ const StudentForm = () => {
                     bgcolor: 'rgba(0, 0, 0, 0.2)',
                     borderRadius: '8px',
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                      borderColor: 'rgba(255, 255, 255, 0.1)'
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                      borderColor: 'rgba(255, 255, 255, 0.2)'
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#7C3AED',
+                      borderColor: '#7C3AED'
                     },
-                    color: '#fff'
+                    color: '#fff',
+                    '& input::placeholder': {
+                      color: '#aaaaaa',
+                      opacity: 1,
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#aaa',
+                    },
                   }
                 }}
               />
@@ -3671,15 +3778,22 @@ const StudentForm = () => {
                     bgcolor: 'rgba(0, 0, 0, 0.2)',
                     borderRadius: '8px',
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                      borderColor: 'rgba(255, 255, 255, 0.1)'
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                      borderColor: 'rgba(255, 255, 255, 0.2)'
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#7C3AED',
+                      borderColor: '#7C3AED'
                     },
-                    color: '#fff'
+                    color: '#fff',
+                    '& input::placeholder': {
+                      color: '#aaaaaa',
+                      opacity: 1,
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#aaa',
+                    },
                   }
                 }}
               />
@@ -3791,7 +3905,7 @@ const StudentForm = () => {
 
   return (
     <Box sx={{ 
-      display: 'flex', 
+      display: 'flex',
       minHeight: '100vh',
       background: 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)',
       color: '#fff',
@@ -3806,7 +3920,9 @@ const StudentForm = () => {
         background: 'radial-gradient(circle at top right, rgba(255,255,255,0.03) 0%, transparent 70%)',
         pointerEvents: 'none',
       },
-    }}>
+    }}
+    id="student-form-container"
+    >
       <StudentSidebar />
       <Box
         component="main"

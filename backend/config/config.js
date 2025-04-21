@@ -10,7 +10,9 @@ const connectDB = async () => {
         console.log(`MongoDB Connected: ${conn.connection.host}`);
         return conn;
     } catch (error) {
-        console.error(`Error: ${error.message}`);
+        console.error(`MongoDB Connection Error: ${error.message}`);
+        console.error(`Stack trace: ${error.stack}`);
+        console.error(`Please check your MongoDB URI in .env file`);
         process.exit(1);
     }
 };

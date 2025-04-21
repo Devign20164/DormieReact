@@ -12,6 +12,7 @@ const Room = require('../models/roomModel');
 const Offense = require('../models/offenseModel');
 const Staff = require('../models/staffModel');
 const Form = require('../models/FormModel');
+const Bill = require('../models/billModel');
 
 // @desc    Auth admin & get token
 // @route   POST /api/admin/login
@@ -1538,6 +1539,214 @@ const assignStaffToForm = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Create a new bill
+// @route   POST /api/admin/bills
+// @access  Private/Admin
+const createBill = asyncHandler(async (req, res) => {
+  try {
+    // Get file path if a file was uploaded
+    const billFilePath = req.file ? req.file.path : '';
+    
+    // Parse other fees from string to object if it comes from form-data
+    let parsedOtherFees = req.body.otherFees;
+    if (typeof parsedOtherFees === 'string') {
+      try {
+        parsedOtherFees = JSON.parse(parsedOtherFees);
+      } catch (error) {
+        console.error('Error parsing otherFees:', error);
+        parsedOtherFees = [];
+      }
+    }
+
+    const {
+      student,
+      room,
+      roomNumber,
+      rentalFee,
+      waterFee,
+      electricityFee,
+      billingPeriodStart,
+      billingPeriodEnd,
+      dueDate,
+      notes
+    } = req.body;
+
+    // Validate student exists
+    const studentExists = await User.findById(student);
+    if (!studentExists) {
+      return res.status(400).json({ message: 'Student not found' });
+    }
+
+    // Calculate billingPeriodEnd if not provided
+    let calculatedBillingPeriodEnd = billingPeriodEnd;
+    if (!calculatedBillingPeriodEnd && billingPeriodStart) {
+      // Default to 1 month after start date
+      const startDate = new Date(billingPeriodStart);
+      calculatedBillingPeriodEnd = new Date(startDate);
+      calculatedBillingPeriodEnd.setMonth(startDate.getMonth() + 1);
+      calculatedBillingPeriodEnd.setDate(startDate.getDate() - 1); // End on day before next month's same date
+    }
+
+    // Create the bill - always set status to pending
+    const bill = await Bill.create({
+      student,
+      room,
+      roomNumber,
+      rentalFee,
+      waterFee,
+      electricityFee,
+      billingPeriodStart,
+      billingPeriodEnd: calculatedBillingPeriodEnd,
+      dueDate,
+      notes,
+      otherFees: parsedOtherFees,
+      status: 'pending', // Always set status to pending for new bills
+      billFile: billFilePath
+    });
+
+    // Calculate total amount for notification
+    let totalAmount = parseFloat(rentalFee || 0) + parseFloat(waterFee || 0) + parseFloat(electricityFee || 0);
+    if (parsedOtherFees && parsedOtherFees.length > 0) {
+      parsedOtherFees.forEach(fee => {
+        totalAmount += parseFloat(fee.amount || 0);
+      });
+    }
+
+    // Format the due date for notification
+    const formattedDueDate = new Date(dueDate).toLocaleDateString();
+
+    // Create notification for the student
+    await Notification.create({
+      recipient: {
+        id: student,
+        model: 'User'
+      },
+      type: 'SYSTEM',
+      title: 'New Bill Received',
+      content: `You have received a new bill of $${totalAmount.toFixed(2)} due on ${formattedDueDate}`,
+      relatedTo: {
+        model: 'Form',
+        id: bill._id
+      },
+      metadata: {
+        billId: bill._id,
+        amount: totalAmount,
+        dueDate: dueDate,
+        hasAttachment: !!billFilePath
+      }
+    });
+
+    res.status(201).json(bill);
+  } catch (error) {
+    console.error('Error creating bill:', error);
+    res.status(500).json({ message: 'Error creating bill', error: error.message });
+  }
+});
+
+// @desc    Get all bills
+// @route   GET /api/admin/bills
+// @access  Private/Admin
+const getAllBills = asyncHandler(async (req, res) => {
+  try {
+    const bills = await Bill.find({})
+      .populate('student', 'name email studentDormNumber')
+      .populate('room', 'roomNumber building')
+      .sort({ createdAt: -1 });
+    res.json(bills);
+  } catch (error) {
+    console.error('Error fetching bills:', error);
+    res.status(500).json({ message: 'Error fetching bills', error: error.message });
+  }
+});
+
+// @desc    Get bill by ID
+// @route   GET /api/admin/bills/:id
+// @access  Private/Admin
+const getBillById = asyncHandler(async (req, res) => {
+  try {
+    const bill = await Bill.findById(req.params.id)
+      .populate('student', 'name email studentDormNumber')
+      .populate('room', 'roomNumber building');
+    
+    if (!bill) {
+      return res.status(404).json({ message: 'Bill not found' });
+    }
+    
+    res.json(bill);
+  } catch (error) {
+    console.error('Error fetching bill:', error);
+    res.status(500).json({ message: 'Error fetching bill details', error: error.message });
+  }
+});
+
+// @desc    Update bill status
+// @route   PUT /api/admin/bills/:id/status
+// @access  Private/Admin
+const updateBillStatus = asyncHandler(async (req, res) => {
+  try {
+    const { status, paidAmount, paidDate } = req.body;
+    
+    const bill = await Bill.findById(req.params.id);
+    if (!bill) {
+      return res.status(404).json({ message: 'Bill not found' });
+    }
+    
+    bill.status = status;
+    
+    if (status === 'paid') {
+      bill.paidAmount = paidAmount || bill.totalAmount;
+      bill.paidDate = paidDate || new Date();
+    }
+    
+    await bill.save();
+    
+    // Create notification for the student
+    await Notification.create({
+      recipient: {
+        id: bill.student,
+        model: 'User'
+      },
+      type: 'SYSTEM',
+      title: 'Bill Status Updated',
+      content: `Your bill status has been updated to ${status}`,
+      relatedTo: {
+        model: 'Form',
+        id: bill._id
+      },
+      metadata: {
+        billId: bill._id,
+        status: status,
+        updatedAt: new Date()
+      }
+    });
+    
+    res.json(bill);
+  } catch (error) {
+    console.error('Error updating bill status:', error);
+    res.status(500).json({ message: 'Error updating bill status', error: error.message });
+  }
+});
+
+// @desc    Delete bill
+// @route   DELETE /api/admin/bills/:id
+// @access  Private/Admin
+const deleteBill = asyncHandler(async (req, res) => {
+  try {
+    const bill = await Bill.findById(req.params.id);
+    
+    if (!bill) {
+      return res.status(404).json({ message: 'Bill not found' });
+    }
+    
+    await bill.deleteOne();
+    
+    res.json({ message: 'Bill deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting bill:', error);
+    res.status(500).json({ message: 'Error deleting bill', error: error.message });
+  }
+});
+
 module.exports = {
   loginAdmin,
   logoutAdmin,
@@ -1573,5 +1782,10 @@ module.exports = {
   getAllForms,
   getFormById,
   updateFormStatus,
-  assignStaffToForm
+  assignStaffToForm,
+  createBill,
+  getAllBills,
+  getBillById,
+  updateBillStatus,
+  deleteBill
 }; 
