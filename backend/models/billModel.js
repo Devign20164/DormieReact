@@ -58,7 +58,7 @@ const billSchema = new mongoose.Schema({
   // Payment status
   paymentStatus: {
     type: String,
-    enum: ['Unpaid', 'Partially Paid', 'Paid', 'Overdue'],
+    enum: ['Unpaid', 'Partially Paid','Incomplete Payment', 'Paid', 'Overdue'],
     default: 'Unpaid'
   },
   

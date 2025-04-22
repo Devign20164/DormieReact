@@ -15,6 +15,7 @@ import AdminMessaging from './pages/AdminMessaging';
 import StudentMessaging from './pages/StudentMessaging';
 import StudentForm from './pages/StudentForm';
 import AdminForm from './pages/AdminForm';
+import StudentBill from './pages/StudentBill';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -207,6 +208,15 @@ function App() {
             element={
               <ProtectedRoute allowedRole="student">
                 <StudentForm />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/student/bills" 
+            element={
+              <ProtectedRoute allowedRole="student">
+                <StudentBill />
               </ProtectedRoute>
             } 
           />

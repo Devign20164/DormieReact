@@ -40,7 +40,9 @@ const {
   getAllBills,
   getBillById,
   updateBillStatus,
-  deleteBill
+  deleteBill,
+  returnBillToStudent,
+  downloadFile
 } = require('../controllers/adminController');
 
 const { protect } = require('../middleware/auth');
@@ -102,6 +104,10 @@ router.post('/bills', protect, upload.single('billFile'), createBill);
 router.get('/bills', protect, getAllBills);
 router.get('/bills/:id', protect, getBillById);
 router.put('/bills/:id/status', protect, updateBillStatus);
+router.post('/bills/:id/return', protect, returnBillToStudent);
 router.delete('/bills/:id', protect, deleteBill);
+
+// File download route
+router.get('/files/download/:filename', protect, downloadFile);
 
 module.exports = router; 

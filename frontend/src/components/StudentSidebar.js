@@ -20,6 +20,7 @@ import {
   MenuBook as MenuBookIcon,
   Message as MessageIcon,
   Description as RequestIcon,
+  Receipt as ReceiptIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -29,6 +30,7 @@ const menuItems = [
   { text: 'Service Requests', icon: <RequestIcon />, path: '/student/forms' },
   { text: 'Courses', icon: <MenuBookIcon />, path: '/student/courses' },
   { text: 'Messages', icon: <MessageIcon />, path: '/student/messages' },
+  { text: 'Bills', icon: <ReceiptIcon />, path: '/student/bills' },
   { text: 'Notifications', icon: <NotificationsIcon />, path: '/student/notifications' },
   { text: 'Settings', icon: <SettingsIcon />, path: '/student/settings' },
 ];

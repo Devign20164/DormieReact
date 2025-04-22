@@ -9,6 +9,7 @@ const Notification = require('../models/notificationModel');
 const Admin = require('../models/adminModel');
 const fs = require('fs');
 const path = require('path');
+const Bill = require('../models/billModel');
 
 // @desc    Auth student & get token
 // @route   POST /api/students/login
@@ -1583,6 +1584,161 @@ const rescheduleForm = asyncHandler(async (req, res) => {
   }
 });
 
+// Get bills for a specific student
+const getStudentBills = async (req, res) => {
+  try {
+    const studentId = req.params.studentId;
+    
+    // Find all bills for the student
+    const bills = await Bill.find({ student: studentId })
+      .populate('room', 'roomNumber building')
+      // Include all necessary fields, explicitly listing them for clarity
+      .select('_id rentalFee waterFee electricityFee otherFees dueDate status billFile amount paymentStatus amountPaid payments billingPeriodStart billingPeriodEnd')
+      .sort({ dueDate: -1 });
+
+    // Format bill files to just return the filename
+    const formattedBills = bills.map(bill => {
+      const billObj = bill.toObject();
+      
+      // Extract just the filename for billFile if it exists
+      if (billObj.billFile && billObj.billFile.trim() !== '') {
+        // Extract just the filename from any path
+        const fileNameMatch = billObj.billFile.match(/[^\/\\]+$/);
+        if (fileNameMatch) {
+          const fileName = fileNameMatch[0];
+          console.log(`Original path: ${billObj.billFile}, simplified to: ${fileName}`);
+          billObj.billFile = fileName;
+        }
+      }
+      
+      return billObj;
+    });
+
+    console.log('Simplified file paths for client usage');
+    
+    res.status(200).json(formattedBills);
+  } catch (error) {
+    console.error('Error fetching student bills:', error);
+    res.status(500).json({ message: 'Error fetching student bills' });
+  }
+};
+
+// Submit payment for a bill
+const submitBillPayment = async (req, res) => {
+  try {
+    const { id } = req.params; // bill ID
+    const { amount, paymentMethod } = req.body;
+    const studentId = req.user.id; // Get student ID from authenticated user
+    
+    // Find the bill
+    const bill = await Bill.findById(id);
+    
+    // Check if bill exists
+    if (!bill) {
+      return res.status(404).json({ message: 'Bill not found' });
+    }
+    
+    // Verify that this bill belongs to the authenticated student
+    if (bill.student.toString() !== studentId) {
+      return res.status(403).json({ 
+        message: 'Access denied: You can only make payments for your own bills' 
+      });
+    }
+    
+    // Validate payment amount
+    const paymentAmount = parseFloat(amount);
+    if (isNaN(paymentAmount) || paymentAmount <= 0) {
+      return res.status(400).json({ message: 'Invalid payment amount' });
+    }
+    
+    // Get the receipt file path (if uploaded)
+    const receiptFilePath = req.file ? req.file.path : '';
+    
+    // Create payment data
+    const paymentData = {
+      amount: paymentAmount,
+      paymentDate: new Date(),
+      notes: `Payment made via ${paymentMethod || 'online payment'}`,
+      transactionId: `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+    };
+    
+    // Add the payment to the bill
+    await bill.addPayment(paymentData);
+    
+    // Calculate total bill amount
+    const totalAmount = bill.rentalFee + bill.waterFee + bill.electricityFee +
+      (bill.otherFees || []).reduce((sum, fee) => sum + fee.amount, 0);
+    
+    // Calculate remaining balance
+    const remainingBalance = totalAmount - bill.amountPaid;
+    
+    // Update payment status - using only valid enum values (pending, paid, overdue)
+    if (bill.amountPaid >= totalAmount) {
+      bill.status = 'paid';
+      bill.paymentStatus = 'Paid';
+    } else if (bill.amountPaid > 0) {
+      // For partial payments, keep status as 'pending' but update paymentStatus field
+      bill.status = 'pending';  // Using valid enum 'pending' instead of 'partially_paid'
+      bill.paymentStatus = 'Partially Paid';
+    }
+    
+    // Save receipt file path if provided
+    if (receiptFilePath) {
+      bill.receiptFile = receiptFilePath;
+    }
+    
+    await bill.save();
+    
+    // Create a notification for the admin with payment details
+    const paymentMessage = remainingBalance > 0 
+      ? `Student ${req.user.name} made a partial payment of $${paymentAmount.toFixed(2)}. Remaining balance: $${remainingBalance.toFixed(2)}`
+      : `Student ${req.user.name} paid the full amount of $${totalAmount.toFixed(2)}`;
+      
+    await Notification.create({
+      recipient: {
+        model: 'Admin',  // Send to all admins
+        id: null
+      },
+      type: 'SYSTEM',
+      title: 'New Bill Payment',
+      content: paymentMessage,
+      relatedTo: {
+        model: 'Form',  // Using 'Form' instead of 'Bill' as it appears to be a valid enum value
+        id: bill._id
+      },
+      metadata: {
+        billId: bill._id,
+        studentId: studentId,
+        amount: paymentAmount,
+        remainingBalance: remainingBalance,
+        paymentDate: new Date()
+      }
+    });
+    
+    // Send success response with remaining balance information
+    res.status(200).json({
+      message: 'Payment submitted successfully',
+      payment: paymentData,
+      bill: {
+        _id: bill._id,
+        status: bill.status,
+        paymentStatus: bill.paymentStatus,
+        amountPaid: bill.amountPaid,
+        totalAmount: totalAmount,
+        remainingBalance: remainingBalance,
+        isFullyPaid: remainingBalance <= 0
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error submitting bill payment:', error);
+    res.status(500).json({ 
+      message: 'Error processing payment',
+      error: error.message
+    });
+  }
+};
+
 // Export all controllers
 module.exports = {
   loginStudent,
@@ -1611,4 +1767,6 @@ module.exports = {
   getStudentForms,
   submitFormReview,
   rescheduleForm,
+  getStudentBills,
+  submitBillPayment,
 }; 

@@ -13,6 +13,8 @@ const Offense = require('../models/offenseModel');
 const Staff = require('../models/staffModel');
 const Form = require('../models/FormModel');
 const Bill = require('../models/billModel');
+const path = require('path');
+const fs = require('fs');
 
 // @desc    Auth admin & get token
 // @route   POST /api/admin/login
@@ -1747,6 +1749,170 @@ const deleteBill = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Return bill to student (reject payment)
+// @route   POST /api/admin/bills/:id/return
+// @access  Private/Admin
+const returnBillToStudent = asyncHandler(async (req, res) => {
+  try {
+    const bill = await Bill.findById(req.params.id);
+    if (!bill) {
+      return res.status(404).json({ message: 'Bill not found' });
+    }
+    
+    // Get student information
+    const student = await User.findById(bill.student);
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    
+    // Store previous status for notification
+    const previousStatus = bill.status;
+    const previousPaymentStatus = bill.paymentStatus;
+    const previousAmountPaid = bill.amountPaid;
+    
+    // Reset payment information
+    bill.status = 'pending';
+    bill.paymentStatus = previousStatus === 'paid' ? 'Incomplete Payment' : 'Unpaid';
+    bill.amountPaid = 0;
+    bill.payments = [];  // Clear all payments
+    
+    // If there was a receipt file, we keep it for reference
+    // But add a note about the returned payment
+    bill.notes = bill.notes 
+      ? `${bill.notes}\n\nPayment returned on ${new Date().toLocaleString()}.` 
+      : `Payment returned on ${new Date().toLocaleString()}.`;
+    
+    await bill.save();
+    
+    // Create notification for the student
+    await Notification.create({
+      recipient: {
+        id: bill.student,
+        model: 'User'
+      },
+      type: 'SYSTEM',
+      title: 'Bill Payment Rejected',
+      content: `Your payment of $${previousAmountPaid.toFixed(2)} for bill #${bill._id.toString().substring(0, 8)} has been returned. Please contact administration for details.`,
+      relatedTo: {
+        model: 'Form',  // Using 'Form' instead of 'Bill' as valid enum
+        id: bill._id
+      },
+      metadata: {
+        billId: bill._id,
+        previousStatus,
+        previousPaymentStatus,
+        previousAmountPaid,
+        returnedAt: new Date()
+      }
+    });
+    
+    res.json({ 
+      message: 'Bill returned to student successfully',
+      bill: {
+        _id: bill._id,
+        status: bill.status,
+        paymentStatus: bill.paymentStatus
+      }
+    });
+  } catch (error) {
+    console.error('Error returning bill to student:', error);
+    res.status(500).json({ message: 'Error returning bill', error: error.message });
+  }
+});
+
+// @desc    Download file from uploads directory
+// @route   GET /api/admin/files/download/:filename
+// @access  Private/Admin
+const downloadFile = asyncHandler(async (req, res) => {
+  try {
+    let filename = req.params.filename;
+    console.log('Download file request received for:', filename);
+    
+    // Normalize filename - replace any backslashes with forward slashes
+    filename = filename.replace(/\\/g, '/');
+    console.log('Normalized filename (backslashes to forward slashes):', filename);
+    
+    // Clean up filename - remove 'uploads/' prefix if somehow still present
+    if (filename.startsWith('uploads/')) {
+      filename = filename.substring('uploads/'.length);
+      console.log(`Cleaned up filename, removed 'uploads/' prefix: ${filename}`);
+    }
+    
+    // Get just the base filename without any path
+    const baseFilename = filename.includes('/') ? filename.split('/').pop() : filename;
+    console.log('Base filename (without any path):', baseFilename);
+    
+    // Define all possible paths where the file might be
+    const uploadsDirPath = path.join(__dirname, '../uploads', baseFilename);
+    const rootDirPath = path.join(__dirname, '..', baseFilename);
+    const uploadsWithPrefixPath = path.join(__dirname, '../uploads/uploads', baseFilename);
+    
+    console.log('Checking these paths:');
+    console.log(`1. Uploads dir path: ${uploadsDirPath}`);
+    console.log(`2. Root dir path: ${rootDirPath}`);
+    console.log(`3. Uploads with prefix path: ${uploadsWithPrefixPath}`);
+    
+    // Try all potential file paths
+    let filePath = null;
+    
+    if (fs.existsSync(uploadsDirPath)) {
+      console.log(`✓ File found at uploads dir path: ${uploadsDirPath}`);
+      filePath = uploadsDirPath;
+    } else if (fs.existsSync(rootDirPath)) {
+      console.log(`✓ File found at root dir path: ${rootDirPath}`);
+      filePath = rootDirPath;
+    } else if (fs.existsSync(uploadsWithPrefixPath)) {
+      console.log(`✓ File found at uploads with prefix path: ${uploadsWithPrefixPath}`);
+      filePath = uploadsWithPrefixPath;
+    } else {
+      console.log('❌ File not found in any of the checked locations');
+      
+      // Last attempt - list all files in the uploads directory and look for a match
+      const uploadsDir = path.join(__dirname, '../uploads');
+      if (fs.existsSync(uploadsDir)) {
+        const files = fs.readdirSync(uploadsDir);
+        console.log(`Files in uploads directory (${files.length} files):`);
+        
+        // Check for exact or partial filename matches
+        const possibleMatches = files.filter(file => 
+          file === baseFilename || 
+          file.includes(baseFilename) ||
+          (baseFilename.includes('-') && file.includes(baseFilename.split('-').pop()))
+        );
+        
+        if (possibleMatches.length > 0) {
+          console.log(`Found possible matches: ${possibleMatches.join(', ')}`);
+          filePath = path.join(uploadsDir, possibleMatches[0]);
+          console.log(`Using first match: ${filePath}`);
+        } else {
+          console.log('No matching files found');
+        }
+      } else {
+        console.log('Uploads directory does not exist');
+      }
+    }
+    
+    // If we found a file path, send the file
+    if (filePath) {
+      console.log(`Sending file: ${filePath}`);
+      return res.download(filePath, baseFilename, (err) => {
+        if (err) {
+          console.error(`Error sending file: ${err.message}`);
+          if (!res.headersSent) {
+            res.status(500).json({ message: 'Error downloading file' });
+          }
+        }
+      });
+    }
+    
+    // If we get here, no file was found
+    return res.status(404).json({ message: 'File not found' });
+  } catch (error) {
+    console.error(`File download error: ${error.message}`);
+    res.status(500).json({ message: 'Server error while downloading file' });
+  }
+});
+
 module.exports = {
   loginAdmin,
   logoutAdmin,
@@ -1787,5 +1953,7 @@ module.exports = {
   getAllBills,
   getBillById,
   updateBillStatus,
-  deleteBill
+  deleteBill,
+  returnBillToStudent,
+  downloadFile
 }; 

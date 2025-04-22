@@ -1553,7 +1553,7 @@ const AdminForm = () => {
                                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                                     <Typography 
                                       variant="body2" 
-                    sx={{
+                                        sx={{
                                         color: '#fff', 
                                         fontWeight: 'medium',
                                         overflow: 'hidden',
@@ -1562,10 +1562,10 @@ const AdminForm = () => {
                                       }}
                                     >
                                       {file.originalname || file.fileName || file.filename || 'Attachment'}
-                      </Typography>
-                                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                                      {new Date(file.uploadDate || Date.now()).toLocaleDateString()}
-                      </Typography>
+                            </Typography>
+                                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                                            {new Date(file.uploadDate || Date.now()).toLocaleDateString()}
+                            </Typography>
                                   </Box>
                                   <Button
                                     onClick={() => handleAttachmentClick(file)}

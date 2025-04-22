@@ -38,8 +38,12 @@ import {
   Description as DescriptionIcon,
   Done as DoneIcon,
   LocationOn as LocationIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  AttachFile as AttachFileIcon,
+  Download as DownloadIcon,
+  Block as BlockIcon
 } from '@mui/icons-material';
+import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import { format } from 'date-fns';
 import StaffSidebar from '../components/StaffSidebar';
 import NotificationBell from '../components/NotificationBell';
@@ -64,6 +68,38 @@ const StaffAssignment = () => {
     inProgress: 0,
     completed: 0
   });
+
+  // Handle attachment download
+  const handleAttachmentClick = (file) => {
+    try {
+      const fileUrl = file.fileUrl || `/uploads/${file.filename || file.fileName}`;
+      const fullUrl = `${process.env.REACT_APP_API_URL || ''}${fileUrl}`;
+      fetch(fullUrl, { credentials: 'include' })
+        .then(res => {
+          if (!res.ok) throw new Error(`Failed to download: ${res.status}`);
+          return res.blob();
+        })
+        .then(blob => {
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          const name = file.originalname || file.fileName || file.filename || 'download';
+          link.download = name;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          toast.success('File download started');
+        })
+        .catch(err => {
+          console.error('Download error:', err);
+          toast.error('Failed to download file');
+        });
+    } catch (err) {
+      console.error('Error in handleAttachmentClick:', err);
+      toast.error('Error downloading file');
+    }
+  };
 
   // Fetch assigned forms
   useEffect(() => {
@@ -915,6 +951,59 @@ const StaffAssignment = () => {
                               {selectedForm.description || 'No description provided.'}
                             </Typography>
                           </Paper>
+                        </Box>
+                        
+                        {/* Attachments Section */}
+                        <Box sx={{ mb: 4 }}>
+                          <Typography variant="subtitle1" sx={{
+                            color: '#3B82F6', mb: 2, fontWeight: 600,
+                            borderBottom: '1px solid rgba(59, 130, 246, 0.2)', pb: 1,
+                            display: 'flex', alignItems: 'center', gap: 1
+                          }}>
+                            <AttachFileIcon sx={{ fontSize: '1.1rem', opacity: 0.8 }} />
+                            Attachments
+                          </Typography>
+                          {selectedForm.attachments && selectedForm.attachments.length > 0 ? (
+                            <Box sx={{ mb: 2 }}>
+                              <Paper sx={{
+                                bgcolor: 'rgba(15, 23, 42, 0.3)', borderRadius: '12px',
+                                border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden'
+                              }}>
+                                {selectedForm.attachments.map((file, index) => (
+                                  <Box key={index} sx={{
+                                    ...(index !== 0 && { borderTop: '1px solid rgba(255,255,255,0.05)' })
+                                  }}>
+                                    <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                                      <Avatar sx={{ bgcolor: 'rgba(59, 130, 246, 0.1)', color: '#3B82F6', width: 40, height: 40 }}>
+                                        <InsertDriveFileIcon />
+                                      </Avatar>
+                                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                                        <Typography variant="body2" sx={{ color: '#fff', fontWeight: 'medium', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                          {file.originalname || file.fileName || file.filename || 'Attachment'}
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                                          {new Date(file.uploadDate || Date.now()).toLocaleDateString()}
+                                        </Typography>
+                                      </Box>
+                                      <Button variant="contained" size="small" startIcon={<DownloadIcon />} onClick={() => handleAttachmentClick(file)} sx={{
+                                        bgcolor: 'rgba(59, 130, 246, 0.1)', color: '#fff',
+                                        '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.2)' }, borderRadius: '8px'
+                                      }}>
+                                        Download
+                                      </Button>
+                                    </Box>
+                                  </Box>
+                                ))}
+                              </Paper>
+                            </Box>
+                          ) : (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, borderRadius: '12px', bgcolor: 'rgba(15,23,42,0.3)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                              <BlockIcon sx={{ color: 'rgba(255,255,255,0.3)' }} />
+                              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                                No attachments provided
+                              </Typography>
+                            </Box>
+                          )}
                         </Box>
                         
                         {/* Schedule Information */}

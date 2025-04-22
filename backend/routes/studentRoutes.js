@@ -29,8 +29,12 @@ const {
   getStudentForms,
   submitFormReview,
   rescheduleForm,
+  getStudentBills,
+  submitBillPayment,
 } = require('../controllers/studentController');
 const Form = require('../models/FormModel');
+const path = require('path');
+const fs = require('fs');
 
 // Auth routes
 router.post('/login',  loginStudent);
@@ -94,5 +98,44 @@ router.get('/forms/:id', protect, async (req, res) => {
 });
 router.post('/forms/:id/review', protect, submitFormReview);
 router.put('/forms/:id/reschedule', protect, rescheduleForm);
+
+// Get student bills
+router.get('/:studentId/bills', protect, getStudentBills);
+
+// Bill payment route
+router.post('/bills/:id/pay', protect, upload.single('receiptFile'), submitBillPayment);
+
+// File download route
+router.get('/files/download/:filename', protect, (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const filePath = path.join(__dirname, '../uploads', filename);
+    
+    // Log the request
+    console.log(`File download request for: ${filename}`);
+    console.log(`Looking for file at: ${filePath}`);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      console.log(`File not found: ${filePath}`);
+      return res.status(404).json({ message: 'File not found' });
+    }
+    
+    // Send the file
+    console.log(`Sending file: ${filePath}`);
+    res.download(filePath, filename, (err) => {
+      if (err) {
+        console.error(`Error sending file: ${err.message}`);
+        // If headers already sent, can't send error response
+        if (!res.headersSent) {
+          res.status(500).json({ message: 'Error downloading file' });
+        }
+      }
+    });
+  } catch (error) {
+    console.error(`File download error: ${error.message}`);
+    res.status(500).json({ message: 'Server error while downloading file' });
+  }
+});
 
 module.exports = router; 

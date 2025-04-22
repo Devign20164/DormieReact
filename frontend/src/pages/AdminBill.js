@@ -26,6 +26,9 @@ import {
   Paper,
   Avatar,
   Tooltip,
+  Card,
+  Divider,
+  Chip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -42,11 +45,19 @@ import {
   Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
   Payments as PaymentsIcon,
+  TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon,
+  AttachMoney as AttachMoneyIcon,
+  Search as SearchIcon,
+  FilterList as FilterListIcon,
+  PriorityHigh as PriorityHighIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import AdminSidebar from '../components/AdminSidebar';
 import NotificationBell from '../components/NotificationBell';
+import { Dialog as MuiDialog, DialogTitle as MuiDialogTitle, DialogContent as MuiDialogContent, DialogActions as MuiDialogActions } from '@mui/material';
 
 const AdminBill = () => {
   const [students, setStudents] = useState([]);
@@ -57,6 +68,9 @@ const AdminBill = () => {
   const [selectedBill, setSelectedBill] = useState(null);
   const [newStatus, setNewStatus] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [openBillDetailsDialog, setOpenBillDetailsDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // Add new state for status filtering
   const [formData, setFormData] = useState({
     student: '',
     room: '',
@@ -70,6 +84,7 @@ const AdminBill = () => {
     otherFees: [],
     billFile: null,
   });
+  const [openReturnDialog, setOpenReturnDialog] = useState(false);
 
   // Fetch students, rooms, and bills data
   useEffect(() => {
@@ -130,6 +145,67 @@ const AdminBill = () => {
     }
   };
 
+  // Calculate total amount for all bills
+  const calculateTotalBillAmount = () => {
+    return bills.reduce((total, bill) => {
+      const billAmount = parseFloat(bill.rentalFee || 0) + 
+        parseFloat(bill.waterFee || 0) + 
+        parseFloat(bill.electricityFee || 0) +
+        (bill.otherFees || []).reduce((sum, fee) => sum + parseFloat(fee.amount || 0), 0);
+      return total + billAmount;
+    }, 0);
+  };
+
+  // Calculate overdue amount
+  const calculateOverdueAmount = () => {
+    return bills
+      .filter(bill => 
+        // Count bills that are past due (due date is in the past and not paid)
+        bill.status !== 'paid' && bill.dueDate && new Date(bill.dueDate) < new Date()
+      )
+      .reduce((total, bill) => {
+        const billAmount = parseFloat(bill.rentalFee || 0) + 
+          parseFloat(bill.waterFee || 0) + 
+          parseFloat(bill.electricityFee || 0) +
+          (bill.otherFees || []).reduce((sum, fee) => sum + parseFloat(fee.amount || 0), 0);
+        return total + billAmount;
+      }, 0);
+  };
+
+  // Calculate this month's revenue
+  const calculateMonthlyRevenue = () => {
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    
+    return bills
+      .filter(bill => {
+        if (bill.status !== 'paid') return false;
+        const paidDate = bill.paidDate ? new Date(bill.paidDate) : null;
+        return paidDate && 
+               paidDate.getMonth() === currentMonth && 
+               paidDate.getFullYear() === currentYear;
+      })
+      .reduce((total, bill) => {
+        const billAmount = parseFloat(bill.rentalFee || 0) + 
+          parseFloat(bill.waterFee || 0) + 
+          parseFloat(bill.electricityFee || 0) +
+          (bill.otherFees || []).reduce((sum, fee) => sum + parseFloat(fee.amount || 0), 0);
+        return total + billAmount;
+      }, 0);
+  };
+
+  // Handle viewing bill details
+  const handleBillDetails = (bill) => {
+    setSelectedBill(bill);
+    setOpenBillDetailsDialog(true);
+  };
+
+  // Close bill details dialog
+  const handleCloseBillDetailsDialog = () => {
+    setOpenBillDetailsDialog(false);
+  };
+
+  // Handle input change
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
@@ -360,6 +436,165 @@ const AdminBill = () => {
     }
   };
 
+  // Filter bills based on search query and status filter
+  const filteredBills = bills.filter(bill => {
+    const studentName = bill.student && typeof bill.student === 'object' 
+      ? bill.student.name 
+      : students.find(s => s._id === bill.student)?.name || '';
+    
+    const searchString = searchQuery.toLowerCase();
+    const matchesSearch = studentName.toLowerCase().includes(searchString) ||
+      (bill.roomNumber && bill.roomNumber.toLowerCase().includes(searchString)) ||
+      (bill.status && bill.status.toLowerCase().includes(searchString)) ||
+      (bill._id && bill._id.toLowerCase().includes(searchString));
+    
+    // Apply status filter
+    if (statusFilter === 'all') {
+      return matchesSearch;
+    } else if (statusFilter === 'pending') {
+      // Show only bills with pending status AND not past due
+      return matchesSearch && bill.status === 'pending' && 
+        (!bill.dueDate || new Date(bill.dueDate) >= new Date());
+    } else if (statusFilter === 'paid') {
+      return matchesSearch && bill.status === 'paid';
+    } else if (statusFilter === 'overdue') {
+      return matchesSearch && bill.status !== 'paid' && bill.dueDate && new Date(bill.dueDate) < new Date();
+    }
+    
+    return matchesSearch;
+  });
+
+  // Handle view receipt file
+  const handleViewReceipt = (receiptFile) => {
+    console.log('handleViewReceipt called with:', receiptFile);
+    
+    if (!receiptFile) {
+      console.error('No receipt file available');
+      setSnackbar({
+        open: true,
+        message: 'No receipt file available for this bill',
+        severity: 'error'
+      });
+      return;
+    }
+    
+    try {
+      // Log the original path for debugging
+      console.log('Original receipt file path:', receiptFile);
+      
+      // Normalize path - replace Windows backslashes with forward slashes
+      let normalizedPath = receiptFile.replace(/\\/g, '/');
+      console.log('Normalized path (backslashes to forward slashes):', normalizedPath);
+      
+      // Extract just the filename - handle various path formats
+      let fileName = normalizedPath;
+      
+      // If the path contains 'uploads/', we need to extract just the filename
+      if (normalizedPath.includes('uploads/')) {
+        // The problem might be that we're not removing the entire path correctly
+        // Check the exact string format with full details
+        console.log('Path contains uploads/. Full string:', JSON.stringify(normalizedPath));
+        fileName = normalizedPath.split('uploads/').pop();
+        console.log('Extracted after uploads/:', fileName);
+      } else if (normalizedPath.includes('/')) {
+        fileName = normalizedPath.split('/').pop();
+        console.log('Extracted after last /:', fileName);
+      } else {
+        console.log('Using as-is:', fileName);
+      }
+      
+      // The URL should NOT contain 'uploads/' as that's handled by the server path
+      const url = `/api/admin/files/download/${fileName}`;
+      console.log('Downloading file from URL:', url);
+      
+      // Fetch the file and trigger download
+      fetch(url, {
+        method: 'GET',
+        credentials: 'include', // Include cookies for authentication
+      })
+      .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+          throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        console.log('Blob received:', blob.type, blob.size);
+        // Create URL from blob
+        const url = window.URL.createObjectURL(blob);
+        
+        // Create download link
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName; // Set suggested filename for download
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up URL object
+        window.URL.revokeObjectURL(url);
+        
+        setSnackbar({
+          open: true,
+          message: 'File download started',
+          severity: 'success'
+        });
+      })
+      .catch(error => {
+        console.error('Download error:', error);
+        setSnackbar({
+          open: true,
+          message: error.message || 'Error downloading file',
+          severity: 'error'
+        });
+      });
+    } catch (error) {
+      console.error('Error in handleViewReceipt:', error);
+      setSnackbar({
+        open: true,
+        message: 'An error occurred while attempting to download the file',
+        severity: 'error'
+      });
+    }
+  };
+  
+  // Handle return bill to student (rejects the payment)
+  const handleReturnBill = async (billId) => {
+    try {
+      // API call to return bill
+      const response = await fetch(`/api/admin/bills/${billId}/return`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+      if (response.ok) {
+        setSnackbar({
+          open: true,
+          message: 'Bill returned to student successfully',
+          severity: 'success'
+        });
+        setOpenReturnDialog(false);
+        setOpenBillDetailsDialog(false);
+        refreshBills();
+      } else {
+        const data = await response.json();
+        throw new Error(data.message || 'Error returning bill');
+      }
+    } catch (error) {
+      console.error('Error returning bill:', error);
+      setSnackbar({
+        open: true,
+        message: error.message || 'Error returning bill',
+        severity: 'error'
+      });
+    }
+  };
+
   return (
     <Box sx={{ 
       display: 'flex', 
@@ -390,6 +625,9 @@ const AdminBill = () => {
           zIndex: 1,
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           transform: 'none',
+          maxWidth: '1800px',
+          width: '100%',
+          mx: 'auto',
         }}
       >
         {/* Dashboard Header */}
@@ -397,9 +635,7 @@ const AdminBill = () => {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
-          mb: 4,
-          pb: 3,
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          mb: 4
         }}>
           <Box>
             <Typography variant="h4" sx={{ 
@@ -408,13 +644,29 @@ const AdminBill = () => {
               textShadow: '0 2px 4px rgba(0,0,0,0.2)',
               letterSpacing: '-0.5px',
             }}>
-              Bill Management
+              Billing Management
             </Typography>
             <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 1 }}>
-              Create and track student billing records
+              Create, track, and manage student billing records
             </Typography>
           </Box>
           <Stack direction="row" spacing={2} alignItems="center">
+            <Button
+              variant="contained"
+              startIcon={<RefreshIcon />}
+              onClick={refreshBills}
+              sx={{
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                color: '#fff',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                },
+                borderRadius: '10px',
+                px: 2,
+              }}
+            >
+              Refresh
+            </Button>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -439,398 +691,304 @@ const AdminBill = () => {
           </Stack>
         </Box>
 
-        {/* Dashboard Stats */}
-        <Box sx={{ mb: 4 }}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={3}>
-              <Paper
-                elevation={0}
+        {/* Remove cards section and status pills, directly show the search/filter bar */}
+        <Card sx={{ 
+          mb: 4,
+          background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+          borderRadius: '20px',
+          p: 3,
+          border: '1px solid rgba(255, 255, 255, 0.03)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+        }}>
+          <Stack 
+            direction={{ xs: 'column', md: 'row' }} 
+            spacing={2} 
+            alignItems={{ xs: 'stretch', md: 'center' }}
+            justifyContent="space-between"
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                borderRadius: '10px',
+                px: 2,
+                py: 0.5,
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                width: { xs: '100%', md: '320px' },
+                maxWidth: '100%',
+              }}>
+                <SearchIcon sx={{ color: '#9CA3AF', mr: 1 }} />
+                <TextField
+                  placeholder="Search bills..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  fullWidth
+                  variant="standard"
+                  InputProps={{
+                    disableUnderline: true,
+                    sx: {
+                      color: '#fff',
+                      '&::placeholder': {
+                        color: '#9CA3AF',
+                        opacity: 1,
+                      },
+                    }
+                  }}
+                  sx={{
+                    '& .MuiInputBase-input::placeholder': {
+                      color: '#9CA3AF',
+                      opacity: 1,
+                    },
+                  }}
+                />
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <ReceiptLongIcon sx={{ color: '#10B981', fontSize: 22 }} />
+                <Typography variant="body1" sx={{ color: '#fff', fontWeight: 600 }}>
+                  {bills.length} Bills
+                </Typography>
+                <Chip 
+                  size="small"
+                  label={`${bills.filter(bill => bill.status === 'paid').length} Paid`}
+                  sx={{ 
+                    bgcolor: 'rgba(16, 185, 129, 0.1)', 
+                    color: '#fff',
+                    fontWeight: 500,
+                    ml: 1
+                  }}
+                />
+                <Chip 
+                  size="small"
+                  label={`${bills.filter(bill => bill.status !== 'paid' && bill.dueDate && new Date(bill.dueDate) < new Date()).length} Past Due`}
+                  sx={{ 
+                    bgcolor: 'rgba(239, 68, 68, 0.1)', 
+                    color: '#EF4444',
+                    fontWeight: 500,
+                    ml: 1
+                  }}
+                />
+              </Box>
+            </Box>
+
+            <Stack direction="row" spacing={2}>
+              <Button
+                variant="contained"
+                startIcon={<HourglassTopIcon />}
+                onClick={() => setStatusFilter('pending')}
                 sx={{
-                  p: 3,
-                  height: '100%',
-                  borderRadius: '16px',
-                  background: 'linear-gradient(145deg, rgba(31, 41, 55, 0.8), rgba(17, 24, 39, 0.8))',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                  backdropFilter: 'blur(20px)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-                  transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                  bgcolor: statusFilter === 'pending' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)',
+                  color: '#3B82F6',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
                   '&:hover': {
-                    transform: 'translateY(-5px)',
-                    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.3)',
+                    bgcolor: 'rgba(59, 130, 246, 0.2)',
                   },
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: '4px',
-                    background: 'linear-gradient(90deg, #10B981 0%, #059669 100%)',
-                    borderRadius: '4px 4px 0 0',
-                  },
+                  borderRadius: '10px',
                 }}
               >
-                <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Typography variant="body2" sx={{ color: '#9CA3AF', textTransform: 'uppercase', fontWeight: 600, fontSize: '0.75rem', letterSpacing: '0.5px' }}>
-                    Total Bills
-                  </Typography>
-                  <Box sx={{ 
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    borderRadius: '12px',
-                    p: 1.2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)'
-                  }}>
-                    <ReceiptLongIcon sx={{ color: '#10B981', fontSize: 22 }} />
-                  </Box>
-                </Box>
-                <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
-                  {bills.length}
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 'auto' }}>
-                  {`${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}
-                </Typography>
-              </Paper>
-            </Grid>
-            
-            <Grid item xs={12} md={3}>
-              <Paper
-                elevation={0}
+                Pending
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<CheckCircleIcon />}
+                onClick={() => setStatusFilter('paid')}
                 sx={{
-                  p: 3,
-                  height: '100%',
-                  borderRadius: '16px',
-                  background: 'linear-gradient(145deg, rgba(31, 41, 55, 0.8), rgba(17, 24, 39, 0.8))',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                  backdropFilter: 'blur(20px)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-                  transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                  bgcolor: statusFilter === 'paid' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)',
+                  color: '#10B981',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
                   '&:hover': {
-                    transform: 'translateY(-5px)',
-                    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.3)',
+                    bgcolor: 'rgba(16, 185, 129, 0.2)',
                   },
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: '4px',
-                    background: 'linear-gradient(90deg, #F59E0B 0%, #D97706 100%)',
-                    borderRadius: '4px 4px 0 0',
-                  },
+                  borderRadius: '10px',
                 }}
               >
-                <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Typography variant="body2" sx={{ color: '#9CA3AF', textTransform: 'uppercase', fontWeight: 600, fontSize: '0.75rem', letterSpacing: '0.5px' }}>
-                    Pending Bills
-                  </Typography>
-                  <Box sx={{ 
-                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                    borderRadius: '12px',
-                    p: 1.2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.15)'
-                  }}>
-                    <HourglassTopIcon sx={{ color: '#F59E0B', fontSize: 22 }} />
-                  </Box>
-                </Box>
-                <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
-                  {bills.filter(bill => bill.status === 'pending').length}
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 'auto' }}>
-                  Awaiting payment
-                </Typography>
-              </Paper>
-            </Grid>
-            
-            <Grid item xs={12} md={3}>
-              <Paper
-                elevation={0}
+                Paid
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<PriorityHighIcon />}
+                onClick={() => setStatusFilter('overdue')}
                 sx={{
-                  p: 3,
-                  height: '100%',
-                  borderRadius: '16px',
-                  background: 'linear-gradient(145deg, rgba(31, 41, 55, 0.8), rgba(17, 24, 39, 0.8))',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                  backdropFilter: 'blur(20px)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-                  transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                  bgcolor: statusFilter === 'overdue' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.1)',
+                  color: '#EF4444',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
                   '&:hover': {
-                    transform: 'translateY(-5px)',
-                    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.3)',
+                    bgcolor: 'rgba(239, 68, 68, 0.2)',
                   },
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: '4px',
-                    background: 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)',
-                    borderRadius: '4px 4px 0 0',
-                  },
+                  borderRadius: '10px',
                 }}
               >
-                <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Typography variant="body2" sx={{ color: '#9CA3AF', textTransform: 'uppercase', fontWeight: 600, fontSize: '0.75rem', letterSpacing: '0.5px' }}>
-                    Overdue Bills
-                  </Typography>
-                  <Box sx={{ 
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    borderRadius: '12px',
-                    p: 1.2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.15)'
-                  }}>
-                    <WarningIcon sx={{ color: '#EF4444', fontSize: 22 }} />
-                  </Box>
-                </Box>
-                <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
-                  {bills.filter(bill => bill.status === 'overdue').length}
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 'auto' }}>
-                  Past due date
-                </Typography>
-              </Paper>
-            </Grid>
-            
-            <Grid item xs={12} md={3}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 3,
-                  height: '100%',
-                  borderRadius: '16px',
-                  background: 'linear-gradient(145deg, rgba(31, 41, 55, 0.8), rgba(17, 24, 39, 0.8))',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                  backdropFilter: 'blur(20px)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-                  transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-                  '&:hover': {
-                    transform: 'translateY(-5px)',
-                    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.3)',
-                  },
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: '4px',
-                    background: 'linear-gradient(90deg, #0EA5E9 0%, #0284C7 100%)',
-                    borderRadius: '4px 4px 0 0',
-                  },
-                }}
-              >
-                <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Typography variant="body2" sx={{ color: '#9CA3AF', textTransform: 'uppercase', fontWeight: 600, fontSize: '0.75rem', letterSpacing: '0.5px' }}>
-                    Paid Bills
-                  </Typography>
-                  <Box sx={{ 
-                    backgroundColor: 'rgba(14, 165, 233, 0.1)',
-                    borderRadius: '12px',
-                    p: 1.2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 4px 12px rgba(14, 165, 233, 0.15)'
-                  }}>
-                    <CheckCircleIcon sx={{ color: '#0EA5E9', fontSize: 22 }} />
-                  </Box>
-                </Box>
-                <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
-                  {bills.filter(bill => bill.status === 'paid').length}
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 'auto' }}>
-                  Payment complete
-                </Typography>
-              </Paper>
-            </Grid>
-          </Grid>
-        </Box>
+                Overdue
+              </Button>
+              {statusFilter !== 'all' && (
+                <Button
+                  variant="outlined"
+                  onClick={() => setStatusFilter('all')}
+                  sx={{
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                    color: '#fff',
+                    '&:hover': {
+                      bgcolor: 'rgba(255, 255, 255, 0.05)',
+                      borderColor: 'rgba(255, 255, 255, 0.3)',
+                    },
+                    borderRadius: '10px',
+                  }}
+                >
+                  Show All
+                </Button>
+              )}
+            </Stack>
+          </Stack>
+        </Card>
 
         {/* Bills Table */}
-        <Paper 
-          elevation={0}
-          sx={{
-            backgroundColor: 'rgba(17, 24, 39, 0.8)',
-            borderRadius: '16px',
-            border: '1px solid rgba(255, 255, 255, 0.05)',
-            backdropFilter: 'blur(20px)',
-            overflow: 'hidden',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-          }}
-        >
+        <Card sx={{ 
+          background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+          borderRadius: '20px',
+          border: '1px solid rgba(255, 255, 255, 0.03)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+          overflow: 'hidden',
+        }}>
           <Box sx={{ 
-            p: 3, 
+            p: { xs: 2, md: 3 }, 
             display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
             justifyContent: 'space-between',
-            alignItems: 'center',
+            alignItems: { xs: 'flex-start', md: 'center' },
             borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
           }}>
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: '#fff', letterSpacing: '-0.5px' }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: '#fff', letterSpacing: '-0.5px' }}>
                 Billing Records
               </Typography>
               <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 0.5 }}>
-                Manage and track payment status
+                {filteredBills.length} bills {searchQuery ? 'found' : 'total'} • ${calculateTotalBillAmount().toFixed(2)} total amount
               </Typography>
             </Box>
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              backgroundColor: 'rgba(255, 255, 255, 0.03)',
-              borderRadius: '10px',
-              p: 0.5,
-              border: '1px solid rgba(255, 255, 255, 0.05)',
-            }}>
-              <TextField
-                placeholder="Search bills..."
+            
+            <Box sx={{ mt: { xs: 2, md: 0 }, display: 'flex', gap: 2 }}>
+              <Chip 
+                icon={<CheckCircleIcon sx={{ color: '#10B981 !important', fontSize: '1rem' }} />}
+                label={`Paid: ${bills.filter(bill => bill.status === 'paid').length}`}
                 size="small"
-                sx={{
-                  minWidth: '220px',
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '8px',
-                    color: '#fff',
-                    backgroundColor: 'transparent',
-                    '& fieldset': {
-                      border: 'none',
-                    },
-                  },
-                  '& .MuiOutlinedInput-input': {
-                    padding: '8px 12px',
-                  },
-                  '& .MuiInputBase-input::placeholder': {
-                    color: 'rgba(255, 255, 255, 0.5)',
-                    opacity: 1,
-                  },
-                }}
+                sx={{ bgcolor: 'rgba(16, 185, 129, 0.1)', color: '#fff' }}
               />
-              <IconButton sx={{ color: '#10B981' }}>
-                <AddIcon />
-              </IconButton>
+              <Chip 
+                icon={<WarningIcon sx={{ color: '#EF4444 !important', fontSize: '1rem' }} />}
+                label={`Past Due: ${bills.filter(bill => bill.status !== 'paid' && bill.dueDate && new Date(bill.dueDate) < new Date()).length}`}
+                size="small"
+                sx={{ bgcolor: 'rgba(239, 68, 68, 0.1)', color: '#fff' }}
+              />
             </Box>
           </Box>
           
-          {bills.length > 0 ? (
-            <TableContainer sx={{ maxHeight: 650 }}>
+          {filteredBills.length > 0 ? (
+            <TableContainer sx={{ 
+              maxHeight: 650,
+              '&::-webkit-scrollbar': {
+                width: '8px',
+                height: '8px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: 'rgba(0, 0, 0, 0.2)',
+                borderRadius: '4px',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: 'rgba(59, 130, 246, 0.6)',
+                borderRadius: '4px',
+                '&:hover': {
+                  background: 'rgba(59, 130, 246, 0.8)',
+                },
+              },
+            }}>
               <Table stickyHeader>
                 <TableHead>
-                  <TableRow>
+                  <TableRow sx={{ 
+                    '& th': { 
+                      borderBottom: 'none',
+                      position: 'relative',
+                      '&:after': {
+                        content: '""',
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: '2px',
+                        background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.3) 0%, rgba(59, 130, 246, 0.1) 100%)',
+                      }
+                    } 
+                  }}>
                     <TableCell 
-                  sx={{
-                        backgroundColor: 'rgba(22, 28, 36, 0.95)', 
-                        color: '#9CA3AF',
-                    fontWeight: 600,
-                    fontSize: '0.75rem',
+                      sx={{
+                        backgroundColor: 'rgba(15, 23, 42, 0.98)', 
+                        color: '#94A3B8',
+                        fontWeight: 600,
+                        fontSize: '0.75rem',
                         letterSpacing: '0.5px',
                         textTransform: 'uppercase',
-                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                        py: 2.5,
-                        pl: 3
+                        py: 2,
+                        pl: 2
                       }}
                     >
                       Student
                     </TableCell>
                     <TableCell 
-                  sx={{
-                        backgroundColor: 'rgba(22, 28, 36, 0.95)', 
-                        color: '#9CA3AF',
-                    fontWeight: 600,
-                    fontSize: '0.75rem',
+                      sx={{
+                        backgroundColor: 'rgba(15, 23, 42, 0.98)', 
+                        color: '#94A3B8',
+                        fontWeight: 600,
+                        fontSize: '0.75rem',
                         letterSpacing: '0.5px',
                         textTransform: 'uppercase',
-                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                        py: 2.5
+                        py: 2
                       }}
                     >
                       Room
                     </TableCell>
                     <TableCell 
-                  sx={{
-                        backgroundColor: 'rgba(22, 28, 36, 0.95)', 
-                        color: '#9CA3AF',
-                    fontWeight: 600,
-                    fontSize: '0.75rem',
+                      sx={{
+                        backgroundColor: 'rgba(15, 23, 42, 0.98)', 
+                        color: '#94A3B8',
+                        fontWeight: 600,
+                        fontSize: '0.75rem',
                         letterSpacing: '0.5px',
                         textTransform: 'uppercase',
-                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                        py: 2.5
+                        py: 2
                       }}
                     >
                       Amount
                     </TableCell>
                     <TableCell 
-                  sx={{
-                        backgroundColor: 'rgba(22, 28, 36, 0.95)', 
-                        color: '#9CA3AF',
-                    fontWeight: 600,
-                    fontSize: '0.75rem',
+                      sx={{
+                        backgroundColor: 'rgba(15, 23, 42, 0.98)', 
+                        color: '#94A3B8',
+                        fontWeight: 600,
+                        fontSize: '0.75rem',
                         letterSpacing: '0.5px',
                         textTransform: 'uppercase',
-                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                        py: 2.5
+                        py: 2
                       }}
                     >
                       Due Date
                     </TableCell>
                     <TableCell 
-                  sx={{
-                        backgroundColor: 'rgba(22, 28, 36, 0.95)', 
-                        color: '#9CA3AF',
-                    fontWeight: 600,
-                    fontSize: '0.75rem',
-                        letterSpacing: '0.5px',
-                        textTransform: 'uppercase',
-                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                        py: 2.5
-                      }}
-                    >
-                      Status
-                    </TableCell>
-                    <TableCell 
-                      align="right"
-                      sx={{ 
-                        backgroundColor: 'rgba(22, 28, 36, 0.95)', 
-                        color: '#9CA3AF',
+                      sx={{
+                        backgroundColor: 'rgba(15, 23, 42, 0.98)', 
+                        color: '#94A3B8',
                         fontWeight: 600,
                         fontSize: '0.75rem',
                         letterSpacing: '0.5px',
                         textTransform: 'uppercase',
-                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                        py: 2.5,
-                        pr: 3
+                        py: 2
                       }}
                     >
-                      Actions
+                      Status
                     </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                {bills.map((bill) => {
+                {filteredBills.map((bill, index) => {
                   // Calculate total amount
                   const totalAmount = parseFloat(bill.rentalFee || 0) + 
                     parseFloat(bill.waterFee || 0) + 
@@ -856,8 +1014,7 @@ const AdminBill = () => {
                   
                   // Determine if bill is past due
                   const isPastDue = bill.status !== 'paid' && 
-                    bill.dueDate && new Date(bill.dueDate) < new Date() && 
-                    bill.status !== 'overdue';
+                    bill.dueDate && new Date(bill.dueDate) < new Date();
                   
                   // Get student initials
                   const studentInitials = studentName
@@ -866,337 +1023,285 @@ const AdminBill = () => {
                     .join('')
                     .substring(0, 2)
                     .toUpperCase();
+
+                  // Get row background color (alternating rows)
+                  const isEvenRow = index % 2 === 0;
                   
                   return (
-                      <TableRow 
-                        key={bill._id}
-                        sx={{
-                          transition: 'all 0.2s ease',
-                          '&:hover': { backgroundColor: 'rgba(16, 185, 129, 0.05)' },
-                          position: 'relative',
-                          '&::before': isPastDue ? {
-                              content: '""',
-                              position: 'absolute',
-                              left: 0,
-                              top: 0,
-                            bottom: 0,
-                            width: '4px',
-                            backgroundColor: '#EF4444',
-                            borderRadius: '4px 0 0 4px'
-                          } : {}
+                    <TableRow 
+                      key={bill._id}
+                      sx={{
+                        transition: 'all 0.2s ease',
+                        backgroundColor: isEvenRow ? 'rgba(15, 23, 42, 0.4)' : 'transparent',
+                        '&:hover': { 
+                          backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                          transform: 'translateY(-1px)',
+                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                        },
+                        position: 'relative',
+                        cursor: 'pointer',
+                        borderLeft: isPastDue ? '4px solid #EF4444' : '4px solid transparent'
+                      }}
+                      onClick={() => handleBillDetails(bill)}
+                    >
+                      <TableCell 
+                        sx={{ 
+                          color: '#fff',
+                          borderBottom: '1px solid rgba(255, 255, 255, 0.03)',
+                          py: 2,
+                          pl: 2
                         }}
                       >
-                        <TableCell 
-                          sx={{ 
-                            color: '#fff',
-                            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                            py: 2.5,
-                            pl: 3
-                          }}
-                        >
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <Avatar 
-                              sx={{ 
-                                width: 38, 
-                                height: 38, 
-                                bgcolor: bill.status === 'paid' 
-                                  ? 'rgba(16, 185, 129, 0.2)' 
-                                  : bill.status === 'overdue' 
-                                    ? 'rgba(239, 68, 68, 0.2)'
-                                    : 'rgba(59, 130, 246, 0.2)',
-                                color: bill.status === 'paid' 
-                                  ? '#10B981' 
-                                  : bill.status === 'overdue' 
-                                    ? '#EF4444'
-                                    : '#3B82F6',
-                                fontSize: '0.9rem',
-                                fontWeight: 600,
-                                mr: 2,
-                                textTransform: 'uppercase'
-                              }}
-                            >
-                              {studentInitials}
-                            </Avatar>
-                            <Box>
-                              <Typography sx={{ fontWeight: 600, fontSize: '0.95rem' }}>{studentName}</Typography>
-                              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
-                                {bill._id.substring(0, 8)}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </TableCell>
-                        <TableCell 
-                          sx={{ 
-                            color: '#fff',
-                            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                            py: 2.5
-                          }}
-                        >
-                              <Box sx={{ 
-                            bgcolor: 'rgba(255, 255, 255, 0.05)', 
-                            py: 0.75, 
-                            px: 1.5, 
-                            borderRadius: '6px',
-                            display: 'inline-block'
-                          }}>
-                            <Typography sx={{ color: 'rgba(255, 255, 255, 0.9)', fontWeight: 500, fontSize: '0.85rem' }}>
-                              {roomNumber}
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                        <TableCell 
-                          sx={{ 
-                            color: '#fff',
-                            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                            fontWeight: 600,
-                            py: 2.5
-                          }}
-                        >
-                          <Typography sx={{ fontWeight: 700, color: '#10B981', fontSize: '0.95rem' }}>
-                            ₱{totalAmount.toFixed(2)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell 
-                          sx={{ 
-                            color: '#fff',
-                            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                            py: 2.5
-                          }}
-                        >
-                          <Typography sx={{ 
-                            color: isPastDue ? '#EF4444' : 'rgba(255, 255, 255, 0.8)',
-                            fontWeight: isPastDue ? 600 : 500,
-                            fontSize: '0.85rem'
-                          }}>
-                            {formattedDueDate}
-                          </Typography>
-                        </TableCell>
-                        <TableCell 
-                          sx={{ 
-                            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                            py: 2.5
-                          }}
-                        >
-                          <Box 
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Avatar 
                             sx={{ 
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                px: 1.5,
-                              py: 0.75,
-                                borderRadius: '20px',
-                              fontSize: '0.75rem',
-                                fontWeight: 600,
-                              textTransform: 'capitalize',
-                              ...(bill.status === 'pending' && {
-                                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                                color: '#F59E0B',
-                                border: '1px solid rgba(245, 158, 11, 0.2)',
-                              }),
-                              ...(bill.status === 'paid' && {
-                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                                color: '#10B981',
-                                border: '1px solid rgba(16, 185, 129, 0.2)',
-                              }),
-                              ...(bill.status === 'overdue' && {
-                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                                color: '#EF4444',
-                                border: '1px solid rgba(239, 68, 68, 0.2)',
-                              }),
-                              ...(bill.status === 'partially_paid' && {
-                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                color: '#3B82F6',
-                                border: '1px solid rgba(59, 130, 246, 0.2)',
-                              }),
+                              bgcolor: bill.status === 'paid' 
+                                ? 'rgba(16, 185, 129, 0.2)' 
+                                : bill.status === 'overdue' || isPastDue
+                                  ? 'rgba(239, 68, 68, 0.2)' 
+                                  : bill.status === 'partial' 
+                                    ? 'rgba(245, 158, 11, 0.2)'
+                                    : 'rgba(59, 130, 246, 0.2)',
+                              color: bill.status === 'paid' 
+                                ? '#10B981' 
+                                : bill.status === 'overdue' || isPastDue
+                                  ? '#EF4444' 
+                                  : bill.status === 'partial' 
+                                    ? '#F59E0B'
+                                    : '#3B82F6',
+                              width: 38,
+                              height: 38,
+                              fontWeight: 600,
+                              fontSize: '0.9rem'
                             }}
                           >
-                            {bill.status === 'pending' && <HourglassTopIcon fontSize="small" sx={{ mr: 0.5, fontSize: '0.875rem' }} />}
-                            {bill.status === 'paid' && <CheckCircleIcon fontSize="small" sx={{ mr: 0.5, fontSize: '0.875rem' }} />}
-                            {bill.status === 'overdue' && <WarningIcon fontSize="small" sx={{ mr: 0.5, fontSize: '0.875rem' }} />}
-                            {bill.status === 'partially_paid' && <PaymentsIcon fontSize="small" sx={{ mr: 0.5, fontSize: '0.875rem' }} />}
-                                  {bill.status || 'pending'}
-                                </Box>
-                        </TableCell>
-                        <TableCell 
-                          align="right"
+                            {studentInitials}
+                          </Avatar>
+                          <Box>
+                            <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5, color: '#fff' }}>
+                              {studentName}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+                              ID: {bill._id.substring(0, 8)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </TableCell>
+                      <TableCell
+                        sx={{ 
+                          color: '#fff',
+                          borderBottom: '1px solid rgba(255, 255, 255, 0.03)',
+                          py: 2
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Typography 
+                            variant="body2" 
                             sx={{ 
-                            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                            py: 2.5,
-                            pr: 3
+                              fontWeight: 500,
+                              px: 1.5,
+                              py: 0.5,
+                              borderRadius: '4px',
+                              backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                              color: '#3B82F6',
+                              display: 'inline-block',
+                              border: '1px solid rgba(59, 130, 246, 0.2)',
+                            }}
+                          >
+                            {roomNumber}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell
+                        sx={{ 
+                          color: '#fff',
+                          borderBottom: '1px solid rgba(255, 255, 255, 0.03)',
+                          py: 2
+                        }}
+                      >
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#fff', fontSize: '0.9rem' }}>
+                          ${totalAmount.toFixed(2)}
+                        </Typography>
+                        <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
+                          <Typography variant="caption" sx={{ color: '#10B981', fontSize: '0.7rem' }}>
+                            Rent: ${parseFloat(bill.rentalFee || 0).toFixed(2)}
+                          </Typography>
+                          {(parseFloat(bill.waterFee || 0) + parseFloat(bill.electricityFee || 0)) > 0 && (
+                            <Typography variant="caption" sx={{ color: '#94A3B8', fontSize: '0.7rem' }}>
+                              +
+                            </Typography>
+                          )}
+                          {parseFloat(bill.waterFee || 0) > 0 && (
+                            <Typography variant="caption" sx={{ color: '#3B82F6', fontSize: '0.7rem' }}>
+                              Utilities: ${(parseFloat(bill.waterFee || 0) + parseFloat(bill.electricityFee || 0)).toFixed(2)}
+                            </Typography>
+                          )}
+                        </Stack>
+                      </TableCell>
+                      <TableCell
+                        sx={{ 
+                          color: '#fff',
+                          borderBottom: '1px solid rgba(255, 255, 255, 0.03)',
+                          py: 2
+                        }}
+                      >
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: isPastDue ? '#EF4444' : '#fff',
+                            fontWeight: isPastDue ? 600 : 500,
+                            fontSize: '0.85rem'
                           }}
                         >
-                          <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            <Tooltip title="View Details">
-                              <IconButton
-                                size="small"
-                                sx={{ 
-                                  color: 'rgba(255, 255, 255, 0.7)',
-                                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                              '&:hover': { 
-                                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                                    color: '#3B82F6'
-                                  },
-                                  width: 34,
-                                  height: 34,
-                                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                }}
-                                onClick={() => {
-                                  console.log('View bill details:', bill._id);
-                                }}
-                              >
-                                <VisibilityIcon fontSize="small" sx={{ fontSize: '1rem' }} />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Update Status">
-                              <IconButton
-                                size="small"
-                                sx={{ 
-                                  color: 'rgba(255, 255, 255, 0.7)',
-                                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                  '&:hover': { 
-                                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                                    color: '#10B981'
-                                  },
-                                  width: 34,
-                                  height: 34,
-                                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                }}
-                                onClick={() => handleOpenStatusDialog(bill)}
-                              >
-                                <EditIcon fontSize="small" sx={{ fontSize: '1rem' }} />
-                              </IconButton>
-                            </Tooltip>
-                            {bill.billFile && (
-                              <Tooltip title="View Document">
-                                <IconButton
-                                  size="small"
-                                  sx={{ 
-                                    color: 'rgba(255, 255, 255, 0.7)',
-                                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                    '&:hover': { 
-                                      backgroundColor: 'rgba(245, 158, 11, 0.2)',
-                                      color: '#F59E0B'
-                                    },
-                                    width: 34,
-                                    height: 34,
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                  }}
-                                  onClick={() => {
-                                    window.open(`/${bill.billFile}`, '_blank');
-                                  }}
-                                >
-                                  <DescriptionIcon fontSize="small" sx={{ fontSize: '1rem' }} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            <Tooltip title="Delete Bill">
-                              <IconButton
-                                size="small"
-                                sx={{ 
-                                  color: 'rgba(255, 255, 255, 0.7)',
-                                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                  '&:hover': { 
-                                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                                    color: '#EF4444'
-                                  },
-                                  width: 34,
-                                  height: 34,
-                                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                }}
-                                onClick={async () => {
-                                  if (window.confirm('Are you sure you want to delete this bill?')) {
-                                    try {
-                                      const response = await fetch(`/api/admin/bills/${bill._id}`, {
-                                        method: 'DELETE',
-                                        credentials: 'include',
-                                      });
-                                      
-                                      if (response.ok) {
-                                        setSnackbar({ 
-                                          open: true, 
-                                          message: 'Bill deleted successfully', 
-                                          severity: 'success' 
-                                        });
-                                        refreshBills();
-                                      } else {
-                                        const data = await response.json();
-                                        setSnackbar({ 
-                                          open: true, 
-                                          message: data.message || 'Error deleting bill', 
-                                          severity: 'error' 
-                                        });
-                                      }
-                                    } catch (error) {
-                                      console.error('Error deleting bill:', error);
-                                      setSnackbar({ 
-                                        open: true, 
-                                        message: 'Error deleting bill', 
-                                        severity: 'error' 
-                                      });
-                                    }
-                                  }
-                                }}
-                              >
-                                <DeleteIcon fontSize="small" sx={{ fontSize: '1rem' }} />
-                              </IconButton>
-                            </Tooltip>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                          {formattedDueDate}
+                        </Typography>
+                        {isPastDue && (
+                          <Box 
+                            sx={{ 
+                              mt: 0.5,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                              borderRadius: '4px',
+                              px: 0.75,
+                              py: 0.25,
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                            }}
+                          >
+                            <WarningIcon sx={{ color: '#EF4444', fontSize: 12, mr: 0.5 }} />
+                            <Typography variant="caption" sx={{ color: '#EF4444', fontWeight: 600, lineHeight: 1, fontSize: '0.7rem' }}>
+                              Past Due
+                            </Typography>
+                          </Box>
+                        )}
+                      </TableCell>
+                      <TableCell
+                        sx={{ 
+                          borderBottom: '1px solid rgba(255, 255, 255, 0.03)',
+                          py: 2
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            px: 1.5,
+                            py: 0.75,
+                            borderRadius: '4px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            bgcolor: 
+                              bill.status === 'paid' 
+                                ? 'rgba(16, 185, 129, 0.1)'
+                                : bill.status === 'pending' 
+                                  ? isPastDue 
+                                    ? 'rgba(239, 68, 68, 0.1)'
+                                    : 'rgba(59, 130, 246, 0.1)'
+                                  : bill.status === 'partial' 
+                                    ? 'rgba(245, 158, 11, 0.1)'
+                                    : 'rgba(239, 68, 68, 0.1)',
+                            border: bill.status === 'paid' 
+                              ? '1px solid rgba(16, 185, 129, 0.3)'
+                              : bill.status === 'pending' 
+                                ? isPastDue 
+                                  ? '1px solid rgba(239, 68, 68, 0.3)'
+                                  : '1px solid rgba(59, 130, 246, 0.3)'
+                                : bill.status === 'partial' 
+                                  ? '1px solid rgba(245, 158, 11, 0.3)'
+                                  : '1px solid rgba(239, 68, 68, 0.3)',
+                          }}
+                        >
+                          {bill.status === 'paid' && <CheckCircleIcon sx={{ color: '#10B981', fontSize: 16, mr: 0.75 }} />}
+                          {bill.status === 'pending' && !isPastDue && <HourglassTopIcon sx={{ color: '#3B82F6', fontSize: 16, mr: 0.75 }} />}
+                          {bill.status === 'pending' && isPastDue && <WarningIcon sx={{ color: '#EF4444', fontSize: 16, mr: 0.75 }} />}
+                          {bill.status === 'partial' && <PaymentsIcon sx={{ color: '#F59E0B', fontSize: 16, mr: 0.75 }} />}
+                          {bill.status === 'overdue' && <WarningIcon sx={{ color: '#EF4444', fontSize: 16, mr: 0.75 }} />}
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: 
+                                bill.status === 'paid' 
+                                  ? '#10B981'
+                                  : bill.status === 'pending' 
+                                    ? isPastDue 
+                                      ? '#EF4444'
+                                      : '#3B82F6'
+                                    : bill.status === 'partial' 
+                                      ? '#F59E0B'
+                                      : '#EF4444',
+                              fontWeight: 600,
+                              textTransform: 'capitalize',
+                              fontSize: '0.75rem'
+                            }}
+                          >
+                            {bill.status === 'pending' && isPastDue ? 'Past Due' : bill.status}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 </TableBody>
               </Table>
             </TableContainer>
           ) : (
             <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
-              py: 10,
-              px: 3
+              textAlign: 'center', 
+              py: 8,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '400px',
+              backgroundColor: 'rgba(0, 0, 0, 0.1)',
+              borderRadius: '8px',
+              border: '1px dashed rgba(255, 255, 255, 0.1)',
+              mx: 3,
+              my: 3,
             }}>
-              <Box 
-                sx={{ 
-                  mb: 3,
-                  p: 3,
-                  borderRadius: '50%',
-                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                  boxShadow: '0 8px 20px rgba(16, 185, 129, 0.15)'
-                }}
-              >
-                <ReceiptLongIcon sx={{ fontSize: 56, color: '#10B981' }} />
-              </Box>
-              <Typography variant="h5" sx={{ color: '#fff', fontWeight: 700, mb: 1 }}>
-                No Billing Records Yet
-                            </Typography>
-              <Typography variant="body1" sx={{ color: '#9CA3AF', textAlign: 'center', maxWidth: 450, mb: 4 }}>
-                Create your first bill to start managing student payments and track financial records.
+              <ReceiptLongIcon sx={{ fontSize: 60, color: 'rgba(255, 255, 255, 0.2)', mb: 2 }} />
+              <Typography variant="h6" sx={{ color: '#fff', mb: 1 }}>
+                {searchQuery ? 'No Bills Found Matching Your Search' : 'No Bills Found'}
               </Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setOpenDialog(true)}
-                sx={{
-                  background: 'linear-gradient(90deg, #10B981 0%, #059669 100%)',
-                  boxShadow: '0 8px 20px rgba(16, 185, 129, 0.3)',
-                  transition: 'all 0.2s ease',
-                  borderRadius: '12px',
-                  px: 5,
-                  py: 1.5,
-                  fontWeight: 700,
-                  fontSize: '1rem',
-                  '&:hover': {
-                    transform: 'translateY(-3px)',
-                    boxShadow: '0 12px 25px rgba(16, 185, 129, 0.4)',
-                    background: 'linear-gradient(90deg, #059669 0%, #047857 100%)',
-                  },
-                }}
-              >
-                Create Your First Bill
-              </Button>
+              <Typography variant="body2" sx={{ color: '#9CA3AF', mb: 3, maxWidth: '400px' }}>
+                {searchQuery ? 'Try adjusting your search criteria' : 'Create your first bill by clicking the "New Bill" button above.'}
+              </Typography>
+              {!searchQuery && (
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => setOpenDialog(true)}
+                  sx={{
+                    background: 'linear-gradient(90deg, #10B981 0%, #059669 100%)',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
+                    borderRadius: '8px',
+                    px: 3,
+                    py: 1,
+                  }}
+                >
+                  Create First Bill
+                </Button>
+              )}
+              {searchQuery && (
+                <Button
+                  variant="outlined"
+                  onClick={() => setSearchQuery('')}
+                  sx={{
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                    color: '#fff',
+                    borderRadius: '8px',
+                    px: 3,
+                    py: 1,
+                    '&:hover': {
+                      borderColor: 'rgba(255, 255, 255, 0.3)',
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    }
+                  }}
+                >
+                  Clear Search
+                </Button>
+              )}
             </Box>
           )}
-        </Paper>
+        </Card>
 
         {/* Add/Edit Dialog */}
         <Dialog 
@@ -2148,6 +2253,536 @@ const AdminBill = () => {
             {snackbar.message}
           </Alert>
         </Snackbar>
+
+        {/* Bill Details Dialog */}
+        <Dialog 
+          open={openBillDetailsDialog} 
+          onClose={handleCloseBillDetailsDialog}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{
+            sx: {
+              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+              color: '#fff',
+              borderRadius: '20px',
+              border: '1px solid rgba(255, 255, 255, 0.03)',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+              overflow: 'hidden',
+            }
+          }}
+        >
+          {selectedBill && (
+            <>
+              <DialogTitle sx={{ 
+                borderBottom: '1px solid rgba(255,255,255,0.03)',
+                background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
+                py: 2,
+              }}>
+                <Typography variant="h6" sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  gap: 1,
+                  color: '#fff',
+                }}>
+                  <DescriptionIcon sx={{ color: '#3B82F6' }} />
+                  Bill Details - #{selectedBill._id.substring(0, 8)}
+                </Typography>
+              </DialogTitle>
+              
+              <DialogContent sx={{ mt: 2 }}>
+                <Box sx={{ display: 'grid', gap: 3 }}>
+                  {/* Status and Amount Section */}
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ 
+                      color: '#3B82F6', 
+                      mb: 2,
+                      borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+                      pb: 1,
+                    }}>
+                      Payment Status
+                    </Typography>
+                    <Grid container spacing={3}>
+                      <Grid item xs={12} md={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Box
+                            sx={{
+                              width: 48,
+                              height: 48,
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              bgcolor: 
+                                selectedBill.status === 'paid' 
+                                  ? 'rgba(16, 185, 129, 0.15)'
+                                  : selectedBill.status === 'pending' 
+                                    ? 'rgba(14, 165, 233, 0.15)'
+                                    : selectedBill.status === 'partial' 
+                                      ? 'rgba(245, 158, 11, 0.15)'
+                                      : 'rgba(239, 68, 68, 0.15)',
+                              mr: 2
+                            }}
+                          >
+                            {selectedBill.status === 'paid' && <CheckCircleIcon sx={{ color: '#10B981', fontSize: 24 }} />}
+                            {selectedBill.status === 'pending' && <HourglassTopIcon sx={{ color: '#0EA5E9', fontSize: 24 }} />}
+                            {selectedBill.status === 'partial' && <PaymentsIcon sx={{ color: '#F59E0B', fontSize: 24 }} />}
+                            {selectedBill.status === 'overdue' && <WarningIcon sx={{ color: '#EF4444', fontSize: 24 }} />}
+                          </Box>
+                          <Box>
+                            <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Status</Typography>
+                            <Typography
+                              variant="body1"
+                              sx={{
+                                color: 
+                                  selectedBill.status === 'paid' 
+                                    ? '#10B981'
+                                    : selectedBill.status === 'pending' 
+                                      ? '#0EA5E9'
+                                      : selectedBill.status === 'partial' 
+                                        ? '#F59E0B'
+                                        : '#EF4444',
+                                fontWeight: 600,
+                                textTransform: 'capitalize',
+                              }}
+                            >
+                              {selectedBill.status}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Total Amount</Typography>
+                        <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                          ${(parseFloat(selectedBill.rentalFee || 0) + 
+                            parseFloat(selectedBill.waterFee || 0) + 
+                            parseFloat(selectedBill.electricityFee || 0) +
+                            (selectedBill.otherFees || []).reduce((sum, fee) => sum + parseFloat(fee.amount || 0), 0)).toFixed(2)}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                  
+                  {/* Student Details Section */}
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ 
+                      color: '#3B82F6', 
+                      mb: 2,
+                      borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+                      pb: 1,
+                    }}>
+                      Student Information
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                          <Avatar 
+                            sx={{ 
+                              bgcolor: 'rgba(59, 130, 246, 0.15)',
+                              color: '#3B82F6',
+                              fontWeight: 600,
+                              mr: 2,
+                              width: 40,
+                              height: 40
+                            }}
+                          >
+                            {(selectedBill.student && typeof selectedBill.student === 'object' 
+                              ? selectedBill.student.name 
+                              : students.find(s => s._id === selectedBill.student)?.name || 'Unknown')
+                              .split(' ')
+                              .map(part => part.charAt(0))
+                              .join('')
+                              .substring(0, 2)
+                              .toUpperCase()}
+                          </Avatar>
+                          <Box>
+                            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                              {selectedBill.student && typeof selectedBill.student === 'object' 
+                                ? selectedBill.student.name 
+                                : students.find(s => s._id === selectedBill.student)?.name || 'Unknown'}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Student ID</Typography>
+                        <Typography variant="body1" sx={{ color: '#fff' }}>
+                          {selectedBill.student && typeof selectedBill.student === 'object' 
+                            ? selectedBill.student.studentDormNumber 
+                            : students.find(s => s._id === selectedBill.student)?.studentDormNumber || 'Unknown'}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Email</Typography>
+                        <Typography variant="body1" sx={{ color: '#fff' }}>
+                          {selectedBill.student && typeof selectedBill.student === 'object' 
+                            ? selectedBill.student.email 
+                            : students.find(s => s._id === selectedBill.student)?.email || 'Unknown'}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                  
+                  {/* Room Information Section */}
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ 
+                      color: '#3B82F6', 
+                      mb: 2,
+                      borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+                      pb: 1,
+                    }}>
+                      Room Information
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Building</Typography>
+                        <Typography variant="body1" sx={{ color: '#fff' }}>
+                          {selectedBill.buildingName || 'Not specified'}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Room Number</Typography>
+                        <Typography variant="body1" sx={{ color: '#fff' }}>
+                          {selectedBill.roomNumber || 'Not specified'}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                  
+                  {/* Billing Period Section */}
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ 
+                      color: '#3B82F6', 
+                      mb: 2,
+                      borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+                      pb: 1,
+                    }}>
+                      Billing Period
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Start Date</Typography>
+                        <Typography variant="body1" sx={{ color: '#fff' }}>
+                          {selectedBill.billingPeriodStart
+                            ? new Date(selectedBill.billingPeriodStart).toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })
+                            : 'Not set'}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Due Date</Typography>
+                        <Typography 
+                          variant="body1" 
+                          sx={{ 
+                            fontWeight: 500,
+                            color: selectedBill.status !== 'paid' && 
+                              selectedBill.dueDate && 
+                              new Date(selectedBill.dueDate) < new Date() ? '#EF4444' : '#fff',
+                          }}
+                        >
+                          {selectedBill.dueDate
+                            ? new Date(selectedBill.dueDate).toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })
+                            : 'Not set'}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                  
+                  {/* Bill Breakdown Section */}
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ 
+                      color: '#3B82F6', 
+                      mb: 2,
+                      borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+                      pb: 1,
+                    }}>
+                      Bill Breakdown
+                    </Typography>
+                    <TableContainer sx={{ 
+                      mb: 2,
+                      background: 'linear-gradient(145deg, #161616 0%, #101010 100%)',
+                      borderRadius: '12px',
+                      border: '1px solid rgba(255, 255, 255, 0.03)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                      overflow: 'auto',
+                    }}>
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ 
+                              color: '#fff',
+                              borderBottom: '1px solid rgba(255,255,255,0.05)',
+                              background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
+                              py: 1.5,
+                              fontSize: '0.75rem',
+                              fontWeight: 'bold'
+                            }}>
+                              Description
+                            </TableCell>
+                            <TableCell align="right" sx={{ 
+                              color: '#fff',
+                              borderBottom: '1px solid rgba(255,255,255,0.05)',
+                              background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
+                              py:.5,
+                              fontSize: '0.75rem',
+                              fontWeight: 'bold'
+                            }}>
+                              Amount
+                            </TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px 16px' }}>
+                              <Typography variant="body2" sx={{ color: '#fff' }}>Rental Fee</Typography>
+                              <Typography variant="caption" sx={{ color: '#fff' }}>
+                                Room {selectedBill.roomNumber || 'N/A'}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right" sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px 16px', color: '#fff' }}>
+                              ${parseFloat(selectedBill.rentalFee || 0).toFixed(2)}
+                            </TableCell>
+                          </TableRow>
+                          
+                          {parseFloat(selectedBill.waterFee || 0) > 0 && (
+                            <TableRow>
+                              <TableCell sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px 16px' }}>
+                                <Typography variant="body2" sx={{ color: '#fff' }}>Water Fee</Typography>
+                              </TableCell>
+                              <TableCell align="right" sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px 16px', color: '#fff' }}>
+                                ${parseFloat(selectedBill.waterFee || 0).toFixed(2)}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          
+                          {parseFloat(selectedBill.electricityFee || 0) > 0 && (
+                            <TableRow>
+                              <TableCell sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px 16px' }}>
+                                <Typography variant="body2" sx={{ color: '#fff' }}>Electricity Fee</Typography>
+                              </TableCell>
+                              <TableCell align="right" sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px 16px', color: '#fff' }}>
+                                ${parseFloat(selectedBill.electricityFee || 0).toFixed(2)}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          
+                          {(selectedBill.otherFees || []).map((fee, index) => (
+                            <TableRow key={index}>
+                              <TableCell sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px 16px' }}>
+                                <Typography variant="body2" sx={{ color: '#fff' }}>{fee.description || 'Additional Fee'}</Typography>
+                              </TableCell>
+                              <TableCell align="right" sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px 16px', color: '#fff' }}>
+                                ${parseFloat(fee.amount || 0).toFixed(2)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          
+                          <TableRow>
+                            <TableCell sx={{ 
+                              borderBottom: 'none', 
+                              padding: '12px 16px',
+                              fontWeight: 600
+                            }}>
+                              <Typography variant="subtitle2" sx={{ color: '#fff' }}>Total</Typography>
+                            </TableCell>
+                            <TableCell align="right" sx={{ 
+                              borderBottom: 'none', 
+                              padding: '12px 16px',
+                              fontWeight: 700,
+                              color: '#fff'
+                            }}>
+                              <Typography variant="subtitle1" sx={{ color: '#fff' }}>
+                                ${(parseFloat(selectedBill.rentalFee || 0) + 
+                                  parseFloat(selectedBill.waterFee || 0) + 
+                                  parseFloat(selectedBill.electricityFee || 0) +
+                                  (selectedBill.otherFees || []).reduce((sum, fee) => sum + parseFloat(fee.amount || 0), 0)).toFixed(2)}
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                    
+                    {selectedBill.notes && (
+                      <Box sx={{ 
+                        p: 2,
+                        borderRadius: '8px',
+                        bgcolor: 'rgba(0, 0, 0, 0.2)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)'
+                      }}>
+                        <Typography variant="subtitle2" sx={{ color: '#9CA3AF', mb: 1 }}>
+                          Notes
+                        </Typography>
+                        <Typography variant="body2">
+                          {selectedBill.notes}
+                        </Typography>
+                      </Box>
+                    )}
+                    
+                    {/* Receipt File Section */}
+                    {selectedBill.receiptFile && (
+                      <Box sx={{ mt: 3 }}>
+                        <Typography variant="subtitle1" sx={{ 
+                          color: '#3B82F6', 
+                          mb: 2,
+                          borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+                          pb: 1,
+                        }}>
+                          Payment Receipt
+                        </Typography>
+                        <Paper sx={{ 
+                          p: 2, 
+                          borderRadius: '8px',
+                          bgcolor: 'rgba(59, 130, 246, 0.05)',
+                          border: '1px solid rgba(59, 130, 246, 0.1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <ReceiptLongIcon sx={{ color: '#3B82F6', mr: 2, fontSize: 28 }} />
+                            <Box>
+                              <Typography variant="body2" sx={{ color: '#fff' }}>
+                                Payment Receipt Uploaded
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#9CA3AF' }}>
+                                {selectedBill.receiptFile.split('/').pop()}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<VisibilityIcon />}
+                            onClick={() => handleViewReceipt(selectedBill.receiptFile)}
+                            sx={{
+                              borderColor: 'rgba(59, 130, 246, 0.5)',
+                              color: '#3B82F6',
+                              '&:hover': {
+                                borderColor: '#3B82F6',
+                                bgcolor: 'rgba(59, 130, 246, 0.1)'
+                              }
+                            }}
+                          >
+                            View Receipt
+                          </Button>
+                        </Paper>
+                      </Box>
+                    )}
+                  </Box>
+                </Box>
+              </DialogContent>
+              
+              <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.03)', bgcolor: 'rgba(0, 0, 0, 0.2)' }}>
+                <Typography variant="body2" sx={{ color: '#9CA3AF', flexGrow: 1 }}>
+                  Last updated: {selectedBill.updatedAt ? new Date(selectedBill.updatedAt).toLocaleString() : 'Unknown'}
+                </Typography>
+                
+                  {/* Return Bill button opens custom confirmation dialog */}
+                  <Tooltip title="Return bill to student and reject payment">
+                    <Button
+                      variant="outlined"
+                      color="warning"
+                      onClick={() => setOpenReturnDialog(true)}
+                      sx={{
+                        borderColor: 'rgba(245, 158, 11, 0.5)',
+                        color: '#F59E0B',
+                        mr: 1,
+                        '&:hover': {
+                          borderColor: '#F59E0B',
+                          bgcolor: 'rgba(245, 158, 11, 0.1)'
+                        }
+                      }}
+                    >
+                      Return Bill
+                    </Button>
+                  </Tooltip>
+                
+                <Button
+                  variant="contained"
+                  onClick={handleCloseBillDetailsDialog}
+                  sx={{
+                    background: 'linear-gradient(90deg, #3B82F6 0%, #2563EB 100%)',
+                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)',
+                    color: '#fff',
+                    '&:hover': {
+                      background: 'linear-gradient(90deg, #2563EB 0%, #1D4ED8 100%)',
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 6px 15px rgba(59, 130, 246, 0.3)',
+                    }
+                  }}
+                >
+                  Close
+                </Button>
+              </DialogActions>
+            </>
+          )}
+        </Dialog>
+
+        {/* Confirmation dialog for returning bill */}
+        <MuiDialog
+          open={openReturnDialog}
+          onClose={() => setOpenReturnDialog(false)}
+          PaperProps={{
+            sx: {
+              background: 'linear-gradient(145deg, #141414 0%, #101010 100%)',
+              borderRadius: '12px',
+              border: '1px solid rgba(255,255,255,0.05)',
+              color: '#fff',
+              maxWidth: '400px'
+            }
+          }}
+        >
+          <MuiDialogTitle
+            sx={{
+              background: 'rgba(245,158,11,0.1)',
+              color: '#F59E0B',
+              fontWeight: 600,
+              py: 2,
+              fontSize: '1.25rem'
+            }}
+          >
+            Return Bill?
+          </MuiDialogTitle>
+          <MuiDialogContent sx={{ px: 3, py: 2, color: '#fff' }}>
+            <Typography>
+              Are you sure you want to return this bill to the student? This will reject their payment.
+            </Typography>
+          </MuiDialogContent>
+          <MuiDialogActions
+            sx={{
+              px: 3,
+              py: 2,
+              borderTop: '1px solid rgba(255,255,255,0.03)',
+              background: 'rgba(0,0,0,0.2)'
+            }}
+          >
+            <Button
+              onClick={() => setOpenReturnDialog(false)}
+              sx={{ color: '#9CA3AF' }}
+            >Cancel</Button>
+            <Button
+              variant="contained"
+              color="warning"
+              onClick={() => handleReturnBill(selectedBill._id)}
+              sx={{
+                background: 'linear-gradient(90deg, #F59E0B 0%, #D97706 100%)',
+                color: '#000',
+                '&:hover': {
+                  background: 'linear-gradient(90deg, #D97706 0%, #B45309 100%)'
+                }
+              }}
+            >
+              Return Bill
+            </Button>
+          </MuiDialogActions>
+        </MuiDialog>
       </Box>
     </Box>
   );
