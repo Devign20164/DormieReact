@@ -32,7 +32,7 @@ const server = http.createServer(app);
 // Initialize Socket.io
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:5000"],
+    origin: ["http://localhost:3000", "http://localhost:5000", "https://dormie.onrender.com"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"]
@@ -44,7 +44,7 @@ const io = new Server(server, {
 
 // Middleware
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:5000"],
+  origin: ["http://localhost:3000", "http://localhost:5000", "https://dormie.onrender.com"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization"]
@@ -69,12 +69,35 @@ app.use('/api/admin', adminRoutes);
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
-  // Set static folder
-  app.use(express.static(path.join(__dirname, '../frontend/build')));
+  // Set static folder - try both locations
+  const frontendBuildPath = path.join(__dirname, '../frontend/build');
+  const publicPath = path.join(__dirname, 'public');
+  
+  // Check if frontend/build exists
+  if (fs.existsSync(frontendBuildPath)) {
+    console.log('Serving static files from ../frontend/build');
+    app.use(express.static(frontendBuildPath));
+  } 
+  // Check if public folder exists (created by our build script)
+  else if (fs.existsSync(publicPath)) {
+    console.log('Serving static files from ./public');
+    app.use(express.static(publicPath));
+  }
 
   // Any route that is not an API route will be redirected to index.html
   app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, '../frontend/build', 'index.html'));
+    // Try to send from frontend/build first
+    if (fs.existsSync(path.join(frontendBuildPath, 'index.html'))) {
+      res.sendFile(path.resolve(frontendBuildPath, 'index.html'));
+    }
+    // Otherwise try from public
+    else if (fs.existsSync(path.join(publicPath, 'index.html'))) {
+      res.sendFile(path.resolve(publicPath, 'index.html'));
+    }
+    // If neither exists, send a basic response
+    else {
+      res.send('Dormie application is running but the frontend build is not available.');
+    }
   });
 } else {
   // Basic route for development

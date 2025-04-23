@@ -2,9 +2,9 @@ services:
   - type: web
     name: dormie
     env: node
-    buildCommand: npm run build
-    startCommand: npm start
+    buildCommand: chmod +x ./build.sh && ./build.sh
+    startCommand: cd backend && npm install --legacy-peer-deps && node server.js
     envVars:
       - key: NODE_ENV
         value: production
-    healthCheckPath: /api/students 
+    healthCheckPath: /api/students
