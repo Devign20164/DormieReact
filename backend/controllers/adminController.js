@@ -13,8 +13,14 @@ const Offense = require('../models/offenseModel');
 const Staff = require('../models/staffModel');
 const Form = require('../models/FormModel');
 const Bill = require('../models/billModel');
+const Curfew = require('../models/CurfewModel');
+const Log = require('../models/logModel');
 const path = require('path');
 const fs = require('fs');
+const axios = require('axios');
+
+// Telegram bot token from environment
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 // @desc    Auth admin & get token
 // @route   POST /api/admin/login
@@ -927,6 +933,21 @@ const createStudentOffense = async (req, res) => {
       { $push: { offenseHistory: savedOffense._id } }
     );
 
+    // Create a notification for the student about the new offense
+    const notification = await Notification.create({
+      recipient: { id: studentId, model: 'User' },
+      type: 'SYSTEM',
+      title: 'New Offense Recorded',
+      content: offenseReason,
+      relatedTo: { model: 'Offense', id: savedOffense._id },
+      metadata: { adminId: req.user.id }
+    });
+    // Emit the notification via Socket.IO to the student's room
+    const io = req.app.get('io');
+    if (io) {
+      io.to(studentId.toString()).emit('newNotification', notification);
+    }
+
     // Return the saved offense with admin details
     const populatedOffense = await Offense.findById(savedOffense._id).populate({
       path: 'recordedBy',
@@ -1264,7 +1285,7 @@ const updateFormStatus = asyncHandler(async (req, res) => {
         id: form.student,
         model: 'User'
       },
-      type: 'FORM_STATUS_CHANGED',
+      type: 'SYSTEM',
       title: 'Form Status Updated',
       content: notificationContent,
       relatedTo: {
@@ -1285,7 +1306,7 @@ const updateFormStatus = asyncHandler(async (req, res) => {
           id: form.staff,
           model: 'Staff'
         },
-        type: 'FORM_STATUS_CHANGED',
+        type: 'SYSTEM',
         title: 'Form Status Updated',
         content: `A ${form.formType} request assigned to you has been ${status.toLowerCase()}.`,
         relatedTo: {
@@ -1712,7 +1733,7 @@ const updateBillStatus = asyncHandler(async (req, res) => {
       title: 'Bill Status Updated',
       content: `Your bill status has been updated to ${status}`,
       relatedTo: {
-        model: 'Form',
+        model: 'Form',  // Using 'Form' instead of 'Bill' as valid enum
         id: bill._id
       },
       metadata: {
@@ -1913,6 +1934,40 @@ const downloadFile = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get all curfews
+// @route   GET /api/admin/curfews
+// @access  Private/Admin
+const getCurfews = asyncHandler(async (req, res) => {
+  const curfews = await Curfew.find({});
+  res.json(curfews);
+});
+
+// @desc    Update a curfew entry
+// @route   PUT /api/admin/curfews/:id
+// @access  Private/Admin
+const updateCurfew = asyncHandler(async (req, res) => {
+  const { date, curfewTime } = req.body;
+  const curfew = await Curfew.findById(req.params.id);
+  if (!curfew) {
+    res.status(404);
+    throw new Error('Curfew not found');
+  }
+  if (date) curfew.date = date;
+  if (curfewTime) curfew.curfewTime = curfewTime;
+  const updated = await curfew.save();
+  res.json(updated);
+});
+
+// @desc    Get all logs
+// @route   GET /api/admin/logs
+// @access  Private/Admin
+const getLogs = asyncHandler(async (req, res) => {
+  const logs = await Log.find({})
+    .populate('user', 'name email')
+    .populate('curfewTime');
+  res.json(logs);
+});
+
 module.exports = {
   loginAdmin,
   logoutAdmin,
@@ -1955,5 +2010,8 @@ module.exports = {
   updateBillStatus,
   deleteBill,
   returnBillToStudent,
+  getCurfews,
+  updateCurfew,
+  getLogs,
   downloadFile
-}; 
+};

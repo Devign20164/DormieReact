@@ -4,6 +4,7 @@ const {
   loginAdmin,
   logoutAdmin,
   getAdminProfile,
+  updateAdminProfile,
   startConversation,
   sendMessage,
   getConversations,
@@ -42,6 +43,9 @@ const {
   updateBillStatus,
   deleteBill,
   returnBillToStudent,
+  getCurfews,
+  updateCurfew,
+  getLogs,
   downloadFile
 } = require('../controllers/adminController');
 
@@ -110,4 +114,11 @@ router.delete('/bills/:id', protect, deleteBill);
 // File download route
 router.get('/files/download/:filename', protect, downloadFile);
 
-module.exports = router; 
+// Curfew route
+router.get('/curfews', protect, getCurfews);
+router.put('/curfews/:id', protect, updateCurfew);
+
+// Logs route
+router.get('/logs', protect, getLogs);
+
+module.exports = router;

@@ -6,6 +6,8 @@ const {
   loginStudent,
   logoutStudent,
   getStudentProfile,
+  checkIn,
+  checkOut,
   checkEmailExists,
   checkDormNumberExists,
   checkPhoneExists,
@@ -104,6 +106,10 @@ router.get('/:studentId/bills', protect, getStudentBills);
 
 // Bill payment route
 router.post('/bills/:id/pay', protect, upload.single('receiptFile'), submitBillPayment);
+
+// Check-in/Check-out routes
+router.post('/logs/checkin', protect, checkIn);
+router.post('/logs/checkout', protect, checkOut);
 
 // File download route
 router.get('/files/download/:filename', protect, (req, res) => {

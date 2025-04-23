@@ -10,6 +10,15 @@ const Admin = require('../models/adminModel');
 const fs = require('fs');
 const path = require('path');
 const Bill = require('../models/billModel');
+const Log = require('../models/logModel');
+const axios = require('axios');
+const Curfew = require('../models/CurfewModel');
+
+// Telegram token for bot messages
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+
+// Helper to format date/time for messages
+const formatDate = (date) => new Date(date).toLocaleString();
 
 // @desc    Auth student & get token
 // @route   POST /api/students/login
@@ -143,6 +152,7 @@ const getStudentProfile = asyncHandler(async (req, res) => {
     throw new Error('Student not found');
   }
 });
+
 // Add these new controller functions
 const checkEmailExists = async (req, res) => {
   try {
@@ -1739,11 +1749,67 @@ const submitBillPayment = async (req, res) => {
   }
 };
 
+// @desc    Student check-in
+// @route   POST /api/students/logs/checkin
+// @access  Private/Student
+const checkIn = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const now = new Date();
+  // Find today's curfew
+  const today = now.toISOString().split('T')[0];
+  const curfew = await Curfew.findOne({ date: today });
+  // Determine status
+  let status = 'Pending';
+  if (curfew) {
+    const curfewDateTime = new Date(`${today}T${curfew.curfewTime}`);
+    status = now <= curfewDateTime ? 'OnTime' : 'Pending';
+  }
+  // Create log entry
+  const log = await Log.create({
+    user: userId,
+    checkInTime: now,
+    status,
+    curfewTime: curfew ? curfew._id : undefined
+  });
+  res.json(log);
+});
+
+// @desc    Student check-out
+// @route   POST /api/students/logs/checkout
+// @access  Private/Student
+const checkOut = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const now = new Date();
+  // Find today's log without checkOutTime
+  const log = await Log.findOne({ user: userId, checkOutTime: { $exists: false } }).sort({ checkInTime: -1 });
+  if (!log) {
+    res.status(400);
+    throw new Error('No active check-in found');
+  }
+  // Find today's curfew
+  const today = now.toISOString().split('T')[0];
+  const curfew = await Curfew.findOne({ date: today });
+  // Determine status based on checkout time
+  let status = log.status; // keep previous if needed
+  if (curfew) {
+    const curfewDateTime = new Date(`${today}T${curfew.curfewTime}`);
+    status = now <= curfewDateTime ? 'OnTime' : 'Pending';
+  }
+  // Update log
+  log.checkOutTime = now;
+  log.status = status;
+  log.curfewTime = curfew ? curfew._id : log.curfewTime;
+  const updatedLog = await log.save();
+  res.json(updatedLog);
+});
+
 // Export all controllers
 module.exports = {
   loginStudent,
   logoutStudent,
   getStudentProfile,
+  checkIn,
+  checkOut,
   createStudent,
   getAllStudents,
   updateStudent,

@@ -369,7 +369,7 @@ const StudentBill = () => {
               View and pay your dormitory bills
             </Typography>
           </Box>
-          <NotificationBell />
+          <NotificationBell userType="student" color="#3B82F6" />
         </Box>
 
         {/* Bills Grid */}

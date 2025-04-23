@@ -40,9 +40,11 @@ import {
   Security as SecurityIcon,
 } from '@mui/icons-material';
 import AdminSidebar from '../components/AdminSidebar';
+import NotificationBell from '../components/NotificationBell';
 import DialogContentText from '@mui/material/DialogContentText';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+
 
 const AdminStaff = () => {
   // State for staff management
@@ -299,7 +301,18 @@ const AdminStaff = () => {
               Manage staff members and their assignments.
             </Typography>
           </Box>
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <NotificationBell userType="admin" color="#10B981" />
+            <IconButton sx={{ 
+              color: '#6B7280',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                color: '#10B981',
+                background: 'rgba(16, 185, 129, 0.1)',
+              }
+            }}>
+              <MoreVertIcon />
+            </IconButton>
             <Button
               variant="contained"
               startIcon={<AddIcon />}

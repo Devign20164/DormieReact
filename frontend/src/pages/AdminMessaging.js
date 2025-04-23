@@ -13,14 +13,19 @@ import {
   Divider,
   InputAdornment,
   CircularProgress,
+  useMediaQuery,
 } from '@mui/material';
 import { Send as SendIcon, Search as SearchIcon, DoneAll as DoneAllIcon, Check as CheckIcon, Pending as PendingIcon } from '@mui/icons-material';
+import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import AdminSidebar from '../components/AdminSidebar';
 import { useSocket } from '../context/SocketContext';
 import axios from 'axios';
 import { format } from 'date-fns';
+import { useTheme } from '@mui/material/styles';
 
 const AdminMessaging = () => {
+  const theme = useTheme();
+  const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChat, setSelectedChat] = useState(null);
   const [message, setMessage] = useState('');
@@ -750,7 +755,7 @@ const AdminMessaging = () => {
           {/* Conversations List */}
           <Paper sx={{ 
             width: 320,
-            display: 'flex',
+            display: { xs: selectedChat ? 'none' : 'flex', md: 'flex' },
             flexDirection: 'column',
             background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
             borderRadius: '20px',
@@ -852,7 +857,7 @@ const AdminMessaging = () => {
           {/* Chat Area */}
           <Paper sx={{ 
             flexGrow: 1,
-            display: 'flex',
+            display: { xs: selectedChat ? 'flex' : 'none', md: 'flex' },
             flexDirection: 'column',
             background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
             borderRadius: '20px',
@@ -876,6 +881,11 @@ const AdminMessaging = () => {
                   <Typography variant="h6" sx={{ color: '#fff' }}>
                     {selectedChat.participants.find(p => p.id !== userData._id)?.name || 'Unknown Student'}
                   </Typography>
+                  {!isMdUp && (
+                    <IconButton onClick={() => setSelectedChat(null)} sx={{ color: '#fff' }}>
+                      <ArrowBackIosIcon />
+                    </IconButton>
+                  )}
                 </Box>
 
                 {/* Messages */}

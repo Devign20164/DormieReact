@@ -13,11 +13,15 @@ import {
   Divider,
   InputAdornment,
   CircularProgress,
+  Grid,
+  useMediaQuery,
 } from '@mui/material';
 import { Send as SendIcon, Search as SearchIcon, DoneAll as DoneAllIcon, Check as CheckIcon, Pending as PendingIcon } from '@mui/icons-material';
+import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import StudentSidebar from '../components/StudentSidebar';
 import { useSocket } from '../context/SocketContext';
 import axios from 'axios';
+import { useTheme } from '@mui/material/styles';
 
 const StudentMessaging = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,6 +39,8 @@ const StudentMessaging = () => {
   const userData = JSON.parse(localStorage.getItem('userData') || '{}');
   const isTypingRef = React.useRef(false);
   const typingTimeoutRef = React.useRef(null);
+  const theme = useTheme();
+  const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
 
   // Fetch all admins
   const fetchAdmins = useCallback(async () => {
@@ -749,9 +755,9 @@ const StudentMessaging = () => {
           height: 'calc(100vh - 180px)',
         }}>
           {/* Users List */}
-          <Paper sx={{ 
+          <Paper sx={{
             width: 320,
-            display: 'flex',
+            display: { xs: selectedChat ? 'none' : 'flex', md: 'flex' },
             flexDirection: 'column',
             background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
             borderRadius: '20px',
@@ -905,7 +911,7 @@ const StudentMessaging = () => {
           {/* Chat Area */}
           <Paper sx={{ 
             flexGrow: 1,
-            display: 'flex',
+            display: { xs: selectedChat ? 'flex' : 'none', md: 'flex' },
             flexDirection: 'column',
             background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
             borderRadius: '20px',
@@ -923,6 +929,11 @@ const StudentMessaging = () => {
                   alignItems: 'center',
                   gap: 2,
                 }}>
+                  {!isMdUp && (
+                    <IconButton onClick={() => setSelectedChat(null)} sx={{ color: '#fff' }}>
+                      <ArrowBackIosIcon />
+                    </IconButton>
+                  )}
                   <Avatar sx={{ bgcolor: '#10B981' }}>
                     {selectedChat.participants.find(p => p.id !== userData._id)?.name?.[0] || '?'}
                   </Avatar>

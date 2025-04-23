@@ -48,6 +48,7 @@ import {
   Info as InfoIcon,
 } from '@mui/icons-material';
 import AdminSidebar from '../components/AdminSidebar';
+import NotificationBell from '../components/NotificationBell';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useSocket } from '../context/SocketContext';
@@ -452,6 +453,8 @@ const AdminBuilding = () => {
               Manage dormitory buildings and rooms.
             </Typography>
           </Box>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <NotificationBell userType="admin" color="#10B981" />
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -469,6 +472,7 @@ const AdminBuilding = () => {
           >
             Add Building
           </Button>
+          </Stack>
         </Box>
 
         {/* Stats Grid */}

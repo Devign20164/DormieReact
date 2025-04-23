@@ -3951,7 +3951,7 @@ const StudentForm = () => {
           }}>
             Maintenance Forms
           </Typography>
-          <NotificationBell />
+          <NotificationBell userType="student" color="#3B82F6" />
         </Box>
         
         {/* Main content */}

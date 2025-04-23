@@ -7,6 +7,7 @@ import AdminStudent from './pages/AdminStudent';
 import AdminBuilding from './pages/AdminBuilding';
 import AdminStaff from './pages/AdminStaff';
 import AdminBill from './pages/AdminBill';
+import AdminHistory from './pages/AdminHistory';
 import StaffDashboard from './pages/StaffDashboard';
 import StaffTenantLog from './pages/StaffTenantLog';
 import StaffAssignment from './pages/StaffAssignment';
@@ -16,6 +17,7 @@ import StudentMessaging from './pages/StudentMessaging';
 import StudentForm from './pages/StudentForm';
 import AdminForm from './pages/AdminForm';
 import StudentBill from './pages/StudentBill';
+import StudentLog from './pages/StudentLog';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -159,6 +161,15 @@ function App() {
           />
           
           <Route 
+            path="/admin/history" 
+            element={
+              <ProtectedRoute allowedRole="admin">
+                <AdminHistory />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
             path="/staff-dashboard" 
             element={
               <ProtectedRoute allowedRole="staff">
@@ -219,6 +230,15 @@ function App() {
                 <StudentBill />
               </ProtectedRoute>
             } 
+          />
+
+          <Route
+            path="/student/log"
+            element={
+              <ProtectedRoute allowedRole="student">
+                <StudentLog />
+              </ProtectedRoute>
+            }
           />
           
           {/* Redirect root to login */}

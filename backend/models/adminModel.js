@@ -23,7 +23,8 @@ const adminSchema = new mongoose.Schema({
     unreadNotifications: {
         type: Number,
         default: 0
-    }
+    },
+    
 }, {
     timestamps: true
 });

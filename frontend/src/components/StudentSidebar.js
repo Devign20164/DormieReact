@@ -10,6 +10,8 @@ import {
   Button,
   Avatar,
   Tooltip,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -21,18 +23,16 @@ import {
   Message as MessageIcon,
   Description as RequestIcon,
   Receipt as ReceiptIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/student-dashboard' },
-  { text: 'Profile', icon: <PersonIcon />, path: '/student/profile' },
   { text: 'Service Requests', icon: <RequestIcon />, path: '/student/forms' },
-  { text: 'Courses', icon: <MenuBookIcon />, path: '/student/courses' },
   { text: 'Messages', icon: <MessageIcon />, path: '/student/messages' },
   { text: 'Bills', icon: <ReceiptIcon />, path: '/student/bills' },
-  { text: 'Notifications', icon: <NotificationsIcon />, path: '/student/notifications' },
-  { text: 'Settings', icon: <SettingsIcon />, path: '/student/settings' },
+  { text: 'Dorm Log', icon: <HistoryIcon />, path: '/student/log' },
 ];
 
 const StudentSidebar = () => {
@@ -41,7 +41,10 @@ const StudentSidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartX = useRef(0);
-  const drawerWidth = isCollapsed ? 80 : 280;
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const collapsed = isMobile || isCollapsed;
+  const drawerWidth = collapsed ? 80 : 280;
 
   const handleMouseDown = (e) => {
     if (Math.abs(e.currentTarget.getBoundingClientRect().right - e.clientX) < 10) {
@@ -135,7 +138,7 @@ const StudentSidebar = () => {
       onDoubleClick={handleDoubleClick}
     >
       <Box sx={{ 
-        p: isCollapsed ? 2 : 3, 
+        p: collapsed ? 2 : 3, 
         display: 'flex', 
         alignItems: 'center', 
         gap: 2,
@@ -166,10 +169,10 @@ const StudentSidebar = () => {
           />
         </Box>
         <Box sx={{ 
-          opacity: isCollapsed ? 0 : 1,
-          transform: isCollapsed ? 'translateX(-20px)' : 'translateX(0)',
+          opacity: collapsed ? 0 : 1,
+          transform: collapsed ? 'translateX(-20px)' : 'translateX(0)',
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          visibility: isCollapsed ? 'hidden' : 'visible',
+          visibility: collapsed ? 'hidden' : 'visible',
         }}>
           <Typography variant="h6" sx={{ fontWeight: 600, color: '#fff' }}>
             Dormie
@@ -181,14 +184,14 @@ const StudentSidebar = () => {
       </Box>
 
       <List sx={{ 
-        px: isCollapsed ? 1 : 2, 
+        px: collapsed ? 1 : 2, 
         mt: 2,
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }}>
         {menuItems.map((item) => (
           <Tooltip 
             key={item.text}
-            title={isCollapsed ? item.text : ''}
+            title={collapsed ? item.text : ''}
             placement="right"
           >
             <ListItem
@@ -205,7 +208,7 @@ const StudentSidebar = () => {
                 background: location.pathname === item.path 
                   ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
                   : 'transparent',
-                px: isCollapsed ? 2 : 3,
+                px: collapsed ? 2 : 3,
                 minHeight: 48,
                 overflow: 'hidden',
                 cursor: 'pointer',
@@ -215,25 +218,25 @@ const StudentSidebar = () => {
                 },
                 '&:hover .MuiListItemIcon-root': {
                   color: '#10B981',
-                  transform: isCollapsed ? 'scale(1.2)' : 'scale(1)',
+                  transform: collapsed ? 'scale(1.2)' : 'scale(1)',
                 },
               }}
             >
               <ListItemIcon sx={{ 
                 color: location.pathname === item.path ? '#10B981' : '#6B7280',
-                minWidth: isCollapsed ? 32 : 40,
+                minWidth: collapsed ? 32 : 40,
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                transform: isCollapsed ? 'scale(1.1)' : 'scale(1)',
+                transform: collapsed ? 'scale(1.1)' : 'scale(1)',
               }}>
                 {item.icon}
               </ListItemIcon>
               <ListItemText 
                 primary={item.text} 
                 sx={{ 
-                  opacity: isCollapsed ? 0 : 1,
-                  transform: isCollapsed ? 'translateX(-20px)' : 'translateX(0)',
+                  opacity: collapsed ? 0 : 1,
+                  transform: collapsed ? 'translateX(-20px)' : 'translateX(0)',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  visibility: isCollapsed ? 'hidden' : 'visible',
+                  visibility: collapsed ? 'hidden' : 'visible',
                   '& .MuiListItemText-primary': { 
                     fontSize: '0.875rem',
                     color: '#fff',
@@ -247,10 +250,10 @@ const StudentSidebar = () => {
 
       <Box sx={{ 
         mt: 'auto', 
-        p: isCollapsed ? 1 : 2,
+        p: collapsed ? 1 : 2,
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }}>
-        <Tooltip title={isCollapsed ? "Logout" : ""} placement="right">
+        <Tooltip title={collapsed ? "Logout" : ""} placement="right">
           <Button
             onClick={handleLogout}
             fullWidth
@@ -263,8 +266,8 @@ const StudentSidebar = () => {
               minWidth: 0,
               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               '& .MuiButton-startIcon': {
-                mr: isCollapsed ? 0 : 1,
-                transform: isCollapsed ? 'scale(1.2)' : 'scale(1)',
+                mr: collapsed ? 0 : 1,
+                transform: collapsed ? 'scale(1.2)' : 'scale(1)',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               },
               '&:hover': {
@@ -275,10 +278,10 @@ const StudentSidebar = () => {
             }}
           >
             <Box sx={{ 
-              opacity: isCollapsed ? 0 : 1,
-              transform: isCollapsed ? 'translateX(-20px)' : 'translateX(0)',
+              opacity: collapsed ? 0 : 1,
+              transform: collapsed ? 'translateX(-20px)' : 'translateX(0)',
               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              visibility: isCollapsed ? 'hidden' : 'visible',
+              visibility: collapsed ? 'hidden' : 'visible',
             }}>
               Logout
             </Box>

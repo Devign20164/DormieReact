@@ -45,7 +45,15 @@ const notificationSchema = new mongoose.Schema({
   relatedTo: {
     model: {
       type: String,
-      enum: ['Message', 'Conversation', 'User', 'Admin', 'Staff', 'Form']
+      enum: [
+        'Message', 
+        'Conversation',
+        'User',
+        'Admin',
+        'Staff',
+        'Form',
+        'Offense'
+      ]
     },
     id: {
       type: mongoose.Schema.Types.ObjectId

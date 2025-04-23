@@ -261,7 +261,7 @@ const updateFormStatus = asyncHandler(async (req, res) => {
         id: form.student,
         model: 'User'
       },
-      type: 'FORM_STATUS_CHANGED',
+      type: 'SYSTEM',
       title: 'Form Status Updated',
       content: notificationContent,
       relatedTo: {
@@ -282,7 +282,7 @@ const updateFormStatus = asyncHandler(async (req, res) => {
           id: form.admin,
           model: 'Admin'
         },
-        type: 'FORM_STATUS_CHANGED',
+        type: 'SYSTEM',
         title: 'Form Status Updated by Staff',
         content: `A ${form.formType} request has been ${status.toLowerCase()} by ${req.user.name}.`,
         relatedTo: {

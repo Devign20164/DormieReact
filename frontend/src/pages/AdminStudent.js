@@ -35,6 +35,7 @@ import {
   Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import AdminSidebar from '../components/AdminSidebar';
+import NotificationBell from '../components/NotificationBell';
 import DialogContentText from '@mui/material/DialogContentText';
 
 const AdminStudent = () => {
@@ -605,17 +606,7 @@ const AdminStudent = () => {
             </Typography>
           </Box>
           <Stack direction="row" spacing={2}>
-            <Stack direction="row" spacing={1}>
-              <IconButton sx={{ 
-                color: '#6B7280',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  color: '#10B981',
-                  background: 'rgba(16, 185, 129, 0.1)',
-                }
-              }}>
-                <NotificationsIcon />
-              </IconButton>
+            <NotificationBell userType="admin" color="#10B981" />
               <IconButton sx={{ 
                 color: '#6B7280',
                 transition: 'all 0.3s ease',
@@ -626,7 +617,6 @@ const AdminStudent = () => {
               }}>
                 <MoreVertIcon />
               </IconButton>
-            </Stack>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
