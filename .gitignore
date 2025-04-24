@@ -43,3 +43,4 @@ backend/node_modules/.cache/
 # local dev files
 .vscode/
 .idea/
+.qodo

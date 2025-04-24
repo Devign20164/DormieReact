@@ -87,6 +87,8 @@ const loginStudent = asyncHandler(async (req, res) => {
       name: student.name,
       email: student.email,
       studentDormNumber: student.studentDormNumber,
+      fatherContact: student.fatherContact,
+      motherContact: student.motherContact,
       room: student.room ? {
         roomNumber: student.room.roomNumber,
         building: student.room.building?.name || 'Unassigned'
@@ -141,6 +143,8 @@ const getStudentProfile = asyncHandler(async (req, res) => {
       name: student.name,
       email: student.email,
       studentDormNumber: student.studentDormNumber,
+      fatherContact: student.fatherContact,
+      motherContact: student.motherContact,
       room: student.room ? {
         roomNumber: student.room.roomNumber,
         building: student.room.building?.name || 'Unassigned'
@@ -1755,22 +1759,68 @@ const submitBillPayment = async (req, res) => {
 const checkIn = asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const now = new Date();
-  // Find today's curfew
-  const today = now.toISOString().split('T')[0];
-  const curfew = await Curfew.findOne({ date: today });
-  // Determine status
-  let status = 'Pending';
-  if (curfew) {
-    const curfewDateTime = new Date(`${today}T${curfew.curfewTime}`);
-    status = now <= curfewDateTime ? 'OnTime' : 'Pending';
+  // Enforce only one active check-in and max two sessions per day
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  // Fetch today's logs
+  const todaysLogs = await Log.find({ user: userId, checkInTime: { $gte: startOfDay, $lt: endOfDay } });
+  // Prevent multiple check-ins without checkout
+  const activeLog = todaysLogs.find(log => !log.checkOutTime);
+  if (activeLog) {
+    return res.status(400).json({ message: 'You have already checked in. Please check out before checking in again.' });
   }
-  // Create log entry
+  // Prevent more than two sessions in a day
+  if (todaysLogs.length >= 2) {
+    return res.status(400).json({ message: 'You have reached the maximum number of check-ins for today.' });
+  }
+  // Find today's curfew using local date string
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const todayDateStr = `${year}-${month}-${day}`;
+  let curfew = await Curfew.findOne({ date: todayDateStr });
+  // If no curfew entry for today, fall back to the most recent curfew
+  if (!curfew) {
+    curfew = await Curfew.findOne().sort({ date: -1 });
+  }
+  // Determine status based on curfew time (hour/minute compare)
+  let status;
+  if (curfew) {
+    const [cHour, cMinute] = curfew.curfewTime.split(':').map(Number);
+    const nowHour = now.getHours();
+    const nowMinute = now.getMinutes();
+    const afterCurfew = nowHour > cHour || (nowHour === cHour && nowMinute >= cMinute);
+    // Make sure we use the exact case that matches the enum in the schema
+    status = afterCurfew ? 'Pending' : 'OnTime';
+  } else {
+    status = 'OnTime';
+  }
+  // Create log entry with isCurfewViolated flag
   const log = await Log.create({
     user: userId,
     checkInTime: now,
     status,
-    curfewTime: curfew ? curfew._id : undefined
+    curfewTime: curfew ? curfew._id : undefined,
+    isCurfewViolated: status === 'Pending'
   });
+  // Send Telegram notifications to parents if curfew violated
+  if (status === 'Pending') {
+    try {
+      // Debug: log which chat IDs we are attempting
+      console.log('Sending parent Telegram alert:', { fatherChatId: student.fatherContact, motherChatId: student.motherContact, cfTime: curfew?.curfewTime || '', violationTime: new Date(log.checkInTime).toLocaleTimeString() });
+      const message = `Hi this is Dormie, De La Salle University Dasmarinas Dormitory System. Here to inform you that ${student.name} violated the curfew time at ${curfew?.curfewTime || ''}`;
+      const botUrl = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`;
+      if (student.fatherContact) {
+        await axios.get(botUrl, { params: { chat_id: student.fatherContact, text: message } });
+      }
+      if (student.motherContact) {
+        await axios.get(botUrl, { params: { chat_id: student.motherContact, text: message } });
+      }
+    } catch (err) {
+      // Log full error response for debugging
+      console.error('Error sending parent Telegram alert (check-in):', err.response?.data || err.message);
+    }
+  }
   res.json(log);
 });
 
@@ -1780,27 +1830,124 @@ const checkIn = asyncHandler(async (req, res) => {
 const checkOut = asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const now = new Date();
+  // Enforce max two check-outs per day
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const todaysLogs = await Log.find({ user: userId, checkInTime: { $gte: startOfDay, $lt: endOfDay } });
+  const completedCount = todaysLogs.filter(log => log.checkOutTime).length;
+  if (completedCount >= 2) {
+    return res.status(400).json({ message: 'You have reached the maximum number of check-outs for today.' });
+  }
   // Find today's log without checkOutTime
   const log = await Log.findOne({ user: userId, checkOutTime: { $exists: false } }).sort({ checkInTime: -1 });
   if (!log) {
     res.status(400);
     throw new Error('No active check-in found');
   }
-  // Find today's curfew
-  const today = now.toISOString().split('T')[0];
-  const curfew = await Curfew.findOne({ date: today });
-  // Determine status based on checkout time
+  // Find today's curfew using local date string
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const todayDateStr = `${year}-${month}-${day}`;
+  let curfew = await Curfew.findOne({ date: todayDateStr });
+  // If no curfew entry for today, fall back to the most recent curfew
+  if (!curfew) {
+    curfew = await Curfew.findOne().sort({ date: -1 });
+  }
+  // Determine status based on curfew time (hour/minute compare)
   let status = log.status; // keep previous if needed
   if (curfew) {
-    const curfewDateTime = new Date(`${today}T${curfew.curfewTime}`);
-    status = now <= curfewDateTime ? 'OnTime' : 'Pending';
+    const [cHour, cMinute] = curfew.curfewTime.split(':').map(Number);
+    const nowHour = now.getHours();
+    const nowMinute = now.getMinutes();
+    const afterCurfew = nowHour > cHour || (nowHour === cHour && nowMinute >= cMinute);
+    // Make sure we use the exact case that matches the enum in the schema
+    status = afterCurfew ? 'Pending' : 'OnTime';
   }
   // Update log
   log.checkOutTime = now;
   log.status = status;
   log.curfewTime = curfew ? curfew._id : log.curfewTime;
+  log.isCurfewViolated = status === 'Pending';
   const updatedLog = await log.save();
+  // Send Telegram notifications to parents if curfew violated
+  if (status === 'Pending') {
+    try {
+      // Debug: log which chat IDs we are attempting
+      console.log('Sending parent Telegram alert:', { fatherChatId: student.fatherContact, motherChatId: student.motherContact, cfTime: curfew?.curfewTime || '', violationTime: new Date(log.checkOutTime).toLocaleTimeString() });
+      const message = `Hi this is Dormie, De La Salle University Dasmarinas Dormitory System. Here to inform you that ${student.name} violated the curfew time at ${curfew?.curfewTime || ''}`;
+      const botUrl = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`;
+      if (student.fatherContact) {
+        await axios.get(botUrl, { params: { chat_id: student.fatherContact, text: message } });
+      }
+      if (student.motherContact) {
+        await axios.get(botUrl, { params: { chat_id: student.motherContact, text: message } });
+      }
+    } catch (err) {
+      // Log full error response for debugging
+      console.error('Error sending parent Telegram alert (check-out):', err.response?.data || err.message);
+    }
+  }
   res.json(updatedLog);
+});
+
+// @desc    Get logs for the current student
+// @route   GET /api/students/logs
+// @access  Private/Student
+const getStudentLogs = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  try {
+    // Find logs for the current student
+    const logs = await Log.find({ user: userId })
+      .sort({ checkInTime: -1 })
+      .populate('curfewTime', 'date curfewTime')
+      .populate('user', 'name');
+    
+    console.log('Fetched logs for student:', userId);
+    console.log('Number of logs found:', logs.length);
+    
+    // Check each log's status and time against curfew
+    for (const log of logs) {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const todayDateStr = `${year}-${month}-${day}`;
+      
+      // If log doesn't have curfew reference, try to find it
+      if (!log.curfewTime) {
+        const checkInDate = new Date(log.checkInTime);
+        const logYear = checkInDate.getFullYear();
+        const logMonth = String(checkInDate.getMonth() + 1).padStart(2, '0');
+        const logDay = String(checkInDate.getDate()).padStart(2, '0');
+        const logDateStr = `${logYear}-${logMonth}-${logDay}`;
+        
+        const curfew = await Curfew.findOne({ date: logDateStr });
+        if (curfew) {
+          log.curfewTime = curfew;
+          
+          // Recalculate status based on curfew time
+          const [cHour, cMinute] = curfew.curfewTime.split(':').map(Number);
+          const checkInHour = checkInDate.getHours();
+          const checkInMinute = checkInDate.getMinutes();
+          const afterCurfew = checkInHour > cHour || (checkInHour === cHour && checkInMinute >= cMinute);
+          
+          if (afterCurfew && log.status === 'OnTime') {
+            log.status = 'Pending';
+            await log.save();
+            console.log(`Updated log ${log._id} status to Pending`);
+          }
+        }
+      }
+      
+      console.log(`Log ${log._id}: status=${log.status}, time=${new Date(log.checkInTime).toLocaleTimeString()}`);
+    }
+    
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching student logs:', error);
+    res.status(500).json({ message: 'Error fetching logs', error: error.message });
+  }
 });
 
 // Export all controllers
@@ -1810,6 +1957,7 @@ module.exports = {
   getStudentProfile,
   checkIn,
   checkOut,
+  getStudentLogs,
   createStudent,
   getAllStudents,
   updateStudent,

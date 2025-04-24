@@ -32,7 +32,7 @@ const server = http.createServer(app);
 // Initialize Socket.io
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:5000", "https://dormie.onrender.com"],
+    origin: ["http://localhost:3000", "http://localhost:5000", "https://dormiereact.onrender.com"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"]
@@ -44,7 +44,7 @@ const io = new Server(server, {
 
 // Middleware
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:5000", "https://dormie.onrender.com"],
+  origin: ["http://localhost:3000", "http://localhost:5000", "https://dormiereact.onrender.com"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization"]

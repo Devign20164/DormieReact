@@ -31,7 +31,8 @@ const StudentLog = () => {
   const fetchLogs = async () => {
     try {
       setLogsLoading(true);
-      const res = await axios.get('/api/admin/logs');
+      // Fetch logs specifically for the current student
+      const res = await axios.get(`/api/students/logs`);
       setLogs(res.data);
     } catch (err) {
       console.error('Error fetching logs:', err);
@@ -65,17 +66,45 @@ const StudentLog = () => {
   };
 
   const todayIso = new Date().toISOString().split('T')[0];
-  const todaysLogs = logs.filter(log =>
-    log.user && log.user._id === userId && log.checkInTime.startsWith(todayIso)
-  );
-  const hasCheckedIn = todaysLogs.length > 0;
-  const hasCheckedOut = hasCheckedIn && todaysLogs[0].checkOutTime;
+  const todaysLogs = logs.filter(log => {
+    // Check if log.checkInTime is a string or Date object
+    const checkInTimeStr = typeof log.checkInTime === 'string' 
+      ? log.checkInTime 
+      : new Date(log.checkInTime).toISOString();
+    return checkInTimeStr.startsWith(todayIso);
+  });
+  const activeLog = todaysLogs.find(log => !log.checkOutTime);
+  const completedCount = todaysLogs.filter(log => log.checkOutTime).length;
+  const canCheckIn = !activeLog && completedCount < 2;
+  const canCheckOut = Boolean(activeLog);
 
+  // Build timeline: compute status for each event individually against curfew
   const events = [];
+  // Determine curfew cutoff as local Date
+  let curfewCutoff = null;
+  if (curfew && curfew.date && curfew.curfewTime) {
+    const [year, month, day] = curfew.date.split('-').map(Number);
+    const [hour, minute] = curfew.curfewTime.split(':').map(Number);
+    curfewCutoff = new Date(year, month - 1, day, hour, minute);
+  }
   todaysLogs.forEach(log => {
-    events.push({ time: log.checkInTime, action: 'Check-In', status: log.status });
+    // Check-In event
+    const inDate = new Date(log.checkInTime);
+    // Use the status directly from the log
+    events.push({ 
+      time: log.checkInTime, 
+      action: 'Check-In', 
+      status: log.status
+    });
+    
+    // Check-Out event, if exists
     if (log.checkOutTime) {
-      events.push({ time: log.checkOutTime, action: 'Check-Out', status: log.status });
+      const outDate = new Date(log.checkOutTime);
+      events.push({ 
+        time: log.checkOutTime, 
+        action: 'Check-Out', 
+        status: log.status
+      });
     }
   });
   events.sort((a, b) => new Date(a.time) - new Date(b.time));
@@ -104,10 +133,10 @@ const StudentLog = () => {
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-              <Button variant="contained" onClick={handleCheckIn} disabled={hasCheckedIn}>
+              <Button variant="contained" onClick={handleCheckIn} disabled={!canCheckIn}>
                 Check In
               </Button>
-              <Button variant="contained" onClick={handleCheckOut} disabled={!hasCheckedIn || hasCheckedOut}>
+              <Button variant="contained" onClick={handleCheckOut} disabled={!canCheckOut}>
                 Check Out
               </Button>
             </Box>
@@ -130,7 +159,15 @@ const StudentLog = () => {
                       <TableRow key={i}>
                         <TableCell>{new Date(e.time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</TableCell>
                         <TableCell>{e.action}</TableCell>
-                        <TableCell>{e.status}</TableCell>
+                        <TableCell>
+                        {e.status === 'Pending' ? (
+                          <span style={{ color: 'orange', fontWeight: 'bold' }}>Pending</span>
+                        ) : e.status === 'OnTime' ? (
+                          <span style={{ color: 'green', fontWeight: 'bold' }}>OnTime</span>
+                        ) : (
+                          <span>{e.status}</span>
+                        )}
+                      </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

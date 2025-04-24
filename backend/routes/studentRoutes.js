@@ -33,6 +33,7 @@ const {
   rescheduleForm,
   getStudentBills,
   submitBillPayment,
+  getStudentLogs,
 } = require('../controllers/studentController');
 const Form = require('../models/FormModel');
 const path = require('path');
@@ -110,6 +111,7 @@ router.post('/bills/:id/pay', protect, upload.single('receiptFile'), submitBillP
 // Check-in/Check-out routes
 router.post('/logs/checkin', protect, checkIn);
 router.post('/logs/checkout', protect, checkOut);
+router.get('/logs', protect, getStudentLogs);
 
 // File download route
 router.get('/files/download/:filename', protect, (req, res) => {

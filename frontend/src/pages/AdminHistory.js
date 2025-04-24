@@ -92,7 +92,7 @@ const AdminHistory = () => {
       time: log.checkInTime,
       student: log.user.name || log.user.email,
       action: 'Check-In',
-      violated: false
+      violated: log.isCurfewViolated
     });
     if (log.checkOutTime) {
       events.push({
