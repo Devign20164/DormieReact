@@ -44,9 +44,12 @@ const {
   deleteBill,
   returnBillToStudent,
   getCurfews,
+  getLatestCurfew,
   updateCurfew,
   getLogs,
-  downloadFile
+  downloadFile,
+  createCurfew,
+  deleteLatestCurfew
 } = require('../controllers/adminController');
 
 const { protect } = require('../middleware/auth');
@@ -116,6 +119,9 @@ router.get('/files/download/:filename', protect, downloadFile);
 
 // Curfew route
 router.get('/curfews', protect, getCurfews);
+router.get('/curfews/latest', protect, getLatestCurfew);
+router.post('/curfews', protect, createCurfew);
+router.delete('/curfews/latest', protect, deleteLatestCurfew);
 router.put('/curfews/:id', protect, updateCurfew);
 
 // Logs route

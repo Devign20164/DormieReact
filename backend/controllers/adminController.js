@@ -282,7 +282,7 @@ const sendMessage = asyncHandler(async (req, res) => {
       userId: req.user.id
     });
     res.status(500).json({ 
-      message: 'Error sending message', 
+      message: 'Error sending message',
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
@@ -1938,8 +1938,51 @@ const downloadFile = asyncHandler(async (req, res) => {
 // @route   GET /api/admin/curfews
 // @access  Private/Admin
 const getCurfews = asyncHandler(async (req, res) => {
-  const curfews = await Curfew.find({});
+  const curfews = await Curfew.find({}).sort({ createdAt: -1 });
   res.json(curfews);
+});
+
+// @desc    Get latest curfew entry
+// @route   GET /api/admin/curfews/latest
+// @access  Private/Admin
+const getLatestCurfew = asyncHandler(async (req, res) => {
+  const latest = await Curfew.findOne({}).sort({ createdAt: -1 });
+  if (!latest) {
+    res.status(404);
+    throw new Error('No curfew entries found');
+  }
+  res.json(latest);
+});
+
+// @desc    Create a new curfew entry
+// @route   POST /api/admin/curfews
+// @access  Private/Admin
+const createCurfew = asyncHandler(async (req, res) => {
+  const { date, curfewTime } = req.body;
+  if (!date || !curfewTime) {
+    res.status(400);
+    throw new Error('Date and curfewTime are required');
+  }
+  const existing = await Curfew.findOne({ date });
+  if (existing) {
+    res.status(400);
+    throw new Error('Curfew for this date already exists');
+  }
+  const newCurfew = await Curfew.create({ date, curfewTime });
+  res.status(201).json(newCurfew);
+});
+
+// @desc    Delete the latest curfew entry
+// @route   DELETE /api/admin/curfews/latest
+// @access  Private/Admin
+const deleteLatestCurfew = asyncHandler(async (req, res) => {
+  const latest = await Curfew.findOne({}).sort({ createdAt: -1 });
+  if (!latest) {
+    res.status(404);
+    throw new Error('No curfew entries to delete');
+  }
+  await latest.deleteOne();
+  res.json({ message: 'Latest curfew deleted successfully', deletedCurfew: latest });
 });
 
 // @desc    Update a curfew entry
@@ -1962,9 +2005,24 @@ const updateCurfew = asyncHandler(async (req, res) => {
 // @route   GET /api/admin/logs
 // @access  Private/Admin
 const getLogs = asyncHandler(async (req, res) => {
-  const logs = await Log.find({})
-    .populate('user', 'name email')
-    .populate('curfewTime');
+  const dateQuery = req.query.date;
+  let logs;
+  if (!dateQuery || dateQuery === 'all') {
+    // Return all logs when no date specified or 'all' passed
+    logs = await Log.find({})
+      .populate('user', 'name studentDormNumber')
+      .populate('curfewTime');
+  } else {
+    // Filter logs by specified date (YYYY-MM-DD)
+    const start = new Date(dateQuery);
+    const end = new Date(dateQuery);
+    end.setDate(end.getDate() + 1);
+    logs = await Log.find({
+      date: { $gte: start, $lt: end }
+    })
+      .populate('user', 'name studentDormNumber')
+      .populate('curfewTime');
+  }
   res.json(logs);
 });
 
@@ -2011,6 +2069,9 @@ module.exports = {
   deleteBill,
   returnBillToStudent,
   getCurfews,
+  getLatestCurfew,
+  createCurfew,
+  deleteLatestCurfew,
   updateCurfew,
   getLogs,
   downloadFile

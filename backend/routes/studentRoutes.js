@@ -34,6 +34,7 @@ const {
   getStudentBills,
   submitBillPayment,
   getStudentLogs,
+  verifyStudentPassword,
 } = require('../controllers/studentController');
 const Form = require('../models/FormModel');
 const path = require('path');
@@ -145,5 +146,8 @@ router.get('/files/download/:filename', protect, (req, res) => {
     res.status(500).json({ message: 'Server error while downloading file' });
   }
 });
+
+// Password verification route
+router.post('/:id/verify-password', protect, verifyStudentPassword);
 
 module.exports = router; 

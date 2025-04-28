@@ -194,6 +194,21 @@ const checkPhoneExists = async (req, res) => {
   }
 };
 
+// Add a new controller to verify student password
+const verifyStudentPassword = asyncHandler(async (req, res) => {
+  const { password } = req.body;
+  const student = await Student.findById(req.params.id).select('password name');
+  if (!student) {
+    return res.status(404).json({ message: 'Student not found' });
+  }
+  const isMatch = await bcrypt.compare(password, student.password);
+  if (isMatch) {
+    res.json({ verified: true, name: student.name });
+  } else {
+    res.status(401).json({ verified: false, message: 'Invalid password' });
+  }
+});
+
 // @desc    Create a new student
 // @route   POST /api/students
 // @access  Private/Admin
@@ -334,7 +349,9 @@ const createStudent = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const getAllStudents = asyncHandler(async (req, res) => {
   try {
-    const students = await Student.find({}).select('-password');
+    const students = await Student.find({})
+      .select('-password')
+      .populate({ path: 'room', populate: { path: 'building' } });
     res.json(students);
   } catch (error) {
     console.error('Error fetching students:', error);
@@ -1795,18 +1812,21 @@ const checkIn = asyncHandler(async (req, res) => {
   } else {
     status = 'OnTime';
   }
-  // Create log entry with isCurfewViolated flag
+  // Create or append to a daily log record for today
   const log = await Log.create({
     user: userId,
-    checkInTime: now,
+    date: startOfDay,
+    entries: [
+      { user: userId, checkInTime: now, isCurfewViolated: status === 'Pending' }
+    ],
     status,
-    curfewTime: curfew ? curfew._id : undefined,
-    isCurfewViolated: status === 'Pending'
+    curfewTime: curfew ? curfew._id : undefined
   });
   // Send Telegram notifications to parents if curfew violated
   if (status === 'Pending') {
     try {
       // Debug: log which chat IDs we are attempting
+      console.log('Sending parent Telegram alert:', { fatherChatId: student.fatherContact, motherChatId: student.motherContact, cfTime: curfew?.curfewTime || '', violationTime: new Date(log.entries[0].checkInTime).toLocaleTimeString() });
       console.log('Sending parent Telegram alert:', { fatherChatId: student.fatherContact, motherChatId: student.motherContact, cfTime: curfew?.curfewTime || '', violationTime: new Date(log.checkInTime).toLocaleTimeString() });
       const message = `Hi this is Dormie, De La Salle University Dasmarinas Dormitory System. Here to inform you that ${student.name} violated the curfew time at ${curfew?.curfewTime || ''}`;
       const botUrl = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`;
@@ -1838,8 +1858,11 @@ const checkOut = asyncHandler(async (req, res) => {
   if (completedCount >= 2) {
     return res.status(400).json({ message: 'You have reached the maximum number of check-outs for today.' });
   }
-  // Find today's log without checkOutTime
-  const log = await Log.findOne({ user: userId, checkOutTime: { $exists: false } }).sort({ checkInTime: -1 });
+  // Find today's log with an entry that doesn't have a checkOutTime
+  const log = await Log.findOne({ 
+    user: userId, 
+    'entries.checkOutTime': { $exists: false } 
+  }).sort({ 'entries.checkInTime': -1 });
   if (!log) {
     res.status(400);
     throw new Error('No active check-in found');
@@ -1864,11 +1887,28 @@ const checkOut = asyncHandler(async (req, res) => {
     // Make sure we use the exact case that matches the enum in the schema
     status = afterCurfew ? 'Pending' : 'OnTime';
   }
-  // Update log
-  log.checkOutTime = now;
+  // Find the most recent entry without a checkout time
+  const activeEntryIndex = log.entries.findIndex(entry => !entry.checkOutTime);
+  
+  if (activeEntryIndex !== -1) {
+    // Update the specific entry
+    log.entries[activeEntryIndex].checkOutTime = now;
+    log.entries[activeEntryIndex].isCurfewViolated = status === 'Pending';
+  } else {
+    // If no active entry found, create a new one
+    log.entries.push({
+      user: userId,
+      checkInTime: now,
+      checkOutTime: now,
+      isCurfewViolated: status === 'Pending'
+    });
+  }
+  
+  // Update the overall log status
   log.status = status;
   log.curfewTime = curfew ? curfew._id : log.curfewTime;
-  log.isCurfewViolated = status === 'Pending';
+  
+  // Save the updated log
   const updatedLog = await log.save();
   // Send Telegram notifications to parents if curfew violated
   if (status === 'Pending') {
@@ -1901,10 +1941,9 @@ const getStudentLogs = asyncHandler(async (req, res) => {
     const logs = await Log.find({ user: userId })
       .sort({ checkInTime: -1 })
       .populate('curfewTime', 'date curfewTime')
-      .populate('user', 'name');
+      .populate('user', 'name studentDormNumber');
     
-    console.log('Fetched logs for student:', userId);
-    console.log('Number of logs found:', logs.length);
+    console.log('Fetched logs for student:', userId, 'count:', logs.length);
     
     // Check each log's status and time against curfew
     for (const log of logs) {
@@ -1983,4 +2022,5 @@ module.exports = {
   rescheduleForm,
   getStudentBills,
   submitBillPayment,
+  verifyStudentPassword,
 }; 
