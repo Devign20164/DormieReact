@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useContext } from 'react';
 import {
   Drawer,
   List,
@@ -29,8 +29,10 @@ import {
   Description as FormsIcon,
   Receipt as BillsIcon,
   History as HistoryIcon,
+  Announcement as NewsIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { ThemeContext } from '../App';
 
 const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/admin-dashboard' },
@@ -40,8 +42,10 @@ const menuItems = [
   { text: 'Forms', icon: <FormsIcon />, path: '/admin/forms' },
   { text: 'Bills', icon: <BillsIcon />, path: '/admin/bills' },
   { text: 'History', icon: <HistoryIcon />, path: '/admin/history' },
+  { text: 'News', icon: <NewsIcon />, path: '/admin/news' },
   { text: 'Messages', icon: <MessageIcon />, path: '/admin/messages' },
-  { text: 'Reports', icon: <AssignmentIcon />, path: '/reports' },
+  { text: 'Reports', icon: <AssignmentIcon />, path: '/admin/reports' },
+  { text: 'Settings', icon: <SettingsIcon />, path: '/admin/settings' },
 ];
 
 const AdminSidebar = () => {
@@ -54,6 +58,7 @@ const AdminSidebar = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const collapsed = isCollapsed || isMobile;
   const drawerWidth = collapsed ? 80 : 280;
+  const { mode } = useContext(ThemeContext);
 
   const handleMouseDown = (e) => {
     if (Math.abs(e.currentTarget.getBoundingClientRect().right - e.clientX) < 10) {
@@ -109,10 +114,12 @@ const AdminSidebar = () => {
         '& .MuiDrawer-paper': {
           width: drawerWidth,
           boxSizing: 'border-box',
-          background: 'linear-gradient(180deg, #141414 0%, #0A0A0A 100%)',
-          color: '#fff',
-          borderRight: '1px solid rgba(255, 255, 255, 0.03)',
-          boxShadow: '4px 0 15px rgba(0,0,0,0.3)',
+          background: mode === 'dark' 
+            ? 'linear-gradient(180deg, #141414 0%, #0A0A0A 100%)' 
+            : 'linear-gradient(180deg, #ffffff 0%, #f0f0f0 100%)',
+          color: mode === 'dark' ? '#fff' : '#333',
+          borderRight: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.06)'}`,
+          boxShadow: mode === 'dark' ? '4px 0 15px rgba(0,0,0,0.3)' : '4px 0 15px rgba(0,0,0,0.1)',
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           transform: 'none',
           overflow: 'hidden',
@@ -145,7 +152,9 @@ const AdminSidebar = () => {
         display: 'flex', 
         alignItems: 'center', 
         gap: 2,
-        background: 'linear-gradient(180deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%)',
+        background: mode === 'dark'
+          ? 'linear-gradient(180deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%)'
+          : 'linear-gradient(180deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
         mb: 2,
         position: 'relative',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -167,7 +176,7 @@ const AdminSidebar = () => {
               height: 12,
               borderRadius: '50%',
               backgroundColor: '#10B981',
-              border: '2px solid #0A0A0A',
+              border: mode === 'dark' ? '2px solid #0A0A0A' : '2px solid #ffffff',
             }}
           />
         </Box>
@@ -177,10 +186,10 @@ const AdminSidebar = () => {
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           visibility: collapsed ? 'hidden' : 'visible',
         }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, color: '#fff' }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: mode === 'dark' ? '#fff' : '#333' }}>
             Dormie
           </Typography>
-          <Typography variant="caption" sx={{ color: '#6B7280' }}>
+          <Typography variant="caption" sx={{ color: mode === 'dark' ? '#6B7280' : '#757575' }}>
             Admin Dashboard
           </Typography>
         </Box>
@@ -226,7 +235,7 @@ const AdminSidebar = () => {
               }}
             >
               <ListItemIcon sx={{ 
-                color: location.pathname === item.path ? '#10B981' : '#6B7280',
+                color: location.pathname === item.path ? '#10B981' : mode === 'dark' ? '#6B7280' : '#757575',
                 minWidth: collapsed ? 32 : 40,
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 transform: collapsed ? 'scale(1.1)' : 'scale(1)',
@@ -242,7 +251,7 @@ const AdminSidebar = () => {
                   visibility: collapsed ? 'hidden' : 'visible',
                   '& .MuiListItemText-primary': { 
                     fontSize: '0.875rem',
-                    color: '#fff',
+                    color: mode === 'dark' ? '#fff' : '#333',
                   }
                 }} 
               />
@@ -254,42 +263,28 @@ const AdminSidebar = () => {
       <Box sx={{ 
         mt: 'auto', 
         p: collapsed ? 1 : 2,
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1
       }}>
-        <Tooltip title={collapsed ? "Logout" : ""} placement="right">
-          <Button
-            onClick={handleLogout}
-            fullWidth
-            startIcon={<LogoutIcon />}
-            sx={{
-              color: '#fff',
-              background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
-              borderRadius: '12px',
-              p: 1,
-              minWidth: 0,
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              '& .MuiButton-startIcon': {
-                mr: collapsed ? 0 : 1,
-                transform: collapsed ? 'scale(1.2)' : 'scale(1)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              },
-              '&:hover': {
-                background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0.05) 100%)',
-                transform: 'translateY(-1px)',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-              },
-            }}
-          >
-            <Box sx={{ 
-              opacity: collapsed ? 0 : 1,
-              transform: collapsed ? 'translateX(-20px)' : 'translateX(0)',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              visibility: collapsed ? 'hidden' : 'visible',
-            }}>
-              Logout
-            </Box>
-          </Button>
-        </Tooltip>
+        <Divider sx={{ borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)', mb: 2 }} />
+        
+        <Button
+          onClick={handleLogout}
+          startIcon={<LogoutIcon />}
+          sx={{
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            color: mode === 'dark' ? '#6B7280' : '#757575',
+            textTransform: 'none',
+            p: 1.5,
+            borderRadius: '12px',
+            '&:hover': {
+              background: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
+            },
+          }}
+        >
+          {!collapsed && 'Logout'}
+        </Button>
       </Box>
     </Drawer>
   );

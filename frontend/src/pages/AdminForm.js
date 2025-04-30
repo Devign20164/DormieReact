@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Box,
   Typography,
@@ -38,6 +38,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  useTheme
 } from '@mui/material';
 import {
   Assignment as AssignmentIcon,
@@ -92,6 +93,7 @@ import {
   addDays 
 } from 'date-fns';
 import { toast } from 'react-toastify';
+import { ThemeContext } from '../App';
 
 // Status configurations
 const statusConfig = {
@@ -138,6 +140,9 @@ const MOCK_ASSIGNMENTS = [
 ];
 
 const AdminForm = () => {
+  const { mode } = useContext(ThemeContext);
+  const theme = useTheme();
+  
   const [forms, setForms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

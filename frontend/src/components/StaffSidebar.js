@@ -37,19 +37,20 @@ const StaffSidebar = () => {
 
   // Filter menu items based on staff type
   const getMenuItems = () => {
-    const baseItems = [
-      { text: 'Dashboard', icon: <DashboardIcon />, path: '/staff-dashboard' },
-    ];
-
-    // Assignments menu item for all staff types
-    baseItems.push({ 
-      text: 'Assignments', 
-      icon: <AssignmentsIcon />, 
-      path: '/staff/assignments' 
-    });
-
-    // Tenant Log only for Security staff
-    if (staffType === 'Security') {
+    const baseItems = [];
+    
+    // Dashboard is only for Cleaner and Maintenance roles
+    if (staffType === 'Cleaner' || staffType === 'Maintenance') {
+      baseItems.push({ text: 'Dashboard', icon: <DashboardIcon />, path: '/staff-dashboard' });
+      
+      // Assignments for Cleaner and Maintenance
+      baseItems.push({ 
+        text: 'Assignments', 
+        icon: <AssignmentsIcon />, 
+        path: '/staff/assignments' 
+      });
+    } else if (staffType === 'Security') {
+      // Security can only see Tenant Log
       baseItems.push({ 
         text: 'Tenant Log', 
         icon: <TenantIcon />, 

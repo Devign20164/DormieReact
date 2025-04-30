@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Box,
   Typography,
@@ -29,6 +29,7 @@ import {
   Card,
   Divider,
   Chip,
+  useTheme
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -58,8 +59,12 @@ import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import AdminSidebar from '../components/AdminSidebar';
 import NotificationBell from '../components/NotificationBell';
 import { Dialog as MuiDialog, DialogTitle as MuiDialogTitle, DialogContent as MuiDialogContent, DialogActions as MuiDialogActions } from '@mui/material';
+import { ThemeContext } from '../App';
 
 const AdminBill = () => {
+  const { mode } = useContext(ThemeContext);
+  const theme = useTheme();
+  
   const [students, setStudents] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [bills, setBills] = useState([]);

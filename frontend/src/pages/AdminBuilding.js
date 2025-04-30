@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Box,
   Typography,
@@ -28,6 +28,7 @@ import {
   Alert,
   Chip,
   Tooltip,
+  useTheme
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -52,6 +53,7 @@ import NotificationBell from '../components/NotificationBell';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useSocket } from '../context/SocketContext';
+import { ThemeContext } from '../App';
 
 // Initial stats data structure
 const initialStatsData = [
@@ -78,6 +80,9 @@ const initialStatsData = [
 ];
 
 const AdminBuilding = () => {
+  const { mode } = useContext(ThemeContext);
+  const theme = useTheme();
+  
   const [buildings, setBuildings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);

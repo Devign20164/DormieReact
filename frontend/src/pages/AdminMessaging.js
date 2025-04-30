@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import {
   Box,
   Paper,
@@ -22,8 +22,10 @@ import { useSocket } from '../context/SocketContext';
 import axios from 'axios';
 import { format } from 'date-fns';
 import { useTheme } from '@mui/material/styles';
+import { ThemeContext } from '../App';
 
 const AdminMessaging = () => {
+  const { mode } = useContext(ThemeContext);
   const theme = useTheme();
   const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
   const [searchQuery, setSearchQuery] = useState('');

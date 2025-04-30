@@ -18,6 +18,7 @@ const Log = require('../models/logModel');
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
+const News = require('../models/NewsModel');
 
 // Telegram bot token from environment
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -123,6 +124,81 @@ const getAdminProfile = asyncHandler(async (req, res) => {
   } else {
     res.status(404);
     throw new Error('Admin not found');
+  }
+});
+
+// @desc    Update admin profile
+// @route   PUT /api/admin/update-profile
+// @access  Private
+const updateAdminProfile = asyncHandler(async (req, res) => {
+  const { name } = req.body;
+
+  try {
+    const admin = await Admin.findById(req.user.id);
+    
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    
+    if (name) {
+      // Check if name is already in use by another admin
+      const nameExists = await Admin.findOne({ name, _id: { $ne: req.user.id } });
+      if (nameExists) {
+        return res.status(400).json({ message: 'Username is already taken' });
+      }
+      admin.name = name;
+    }
+    
+    await admin.save();
+    
+    res.json({
+      _id: admin._id,
+      name: admin.name,
+      role: 'admin',
+      message: 'Profile updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating admin profile:', error);
+    res.status(500).json({ message: 'Failed to update profile' });
+  }
+});
+
+// @desc    Update admin password
+// @route   POST /api/admin/update-password
+// @access  Private
+const updateAdminPassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+  
+  try {
+    const admin = await Admin.findById(req.user.id);
+    
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    
+    // Validate current password
+    const isMatch = await bcrypt.compare(currentPassword, admin.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+    
+    // Validate new password
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters long' });
+    }
+    
+    // Set new password - the hashing will be handled by the pre-save middleware in the model
+    admin.password = newPassword;
+    await admin.save();
+    
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    console.error('Error updating admin password:', error);
+    res.status(500).json({ message: 'Failed to update password' });
   }
 });
 
@@ -895,6 +971,28 @@ const getStudentOffenses = async (req, res) => {
   } catch (error) {
     console.error('Error fetching student offenses:', error);
     res.status(500).json({ message: 'Error fetching student offense history' });
+  }
+};
+
+// Get all offenses for all students
+const getAllOffenses = async (req, res) => {
+  try {
+    // Find all offenses, sorted by date (newest first)
+    const offenses = await Offense.find({})
+      .sort({ dateOfOffense: -1 })
+      .populate({
+        path: 'recordedBy',
+        select: 'name'
+      })
+      .populate({
+        path: 'student',
+        select: 'name roomNumber'
+      });
+    
+    res.json(offenses);
+  } catch (error) {
+    console.error('Error fetching all offenses:', error);
+    res.status(500).json({ message: 'Error fetching offense history' });
   }
 };
 
@@ -2001,35 +2099,523 @@ const updateCurfew = asyncHandler(async (req, res) => {
   res.json(updated);
 });
 
-// @desc    Get all logs
-// @route   GET /api/admin/logs
+// @desc    Get logs for a specific date
+// @route   GET /api/admin/logs/:date
 // @access  Private/Admin
 const getLogs = asyncHandler(async (req, res) => {
-  const dateQuery = req.query.date;
-  let logs;
-  if (!dateQuery || dateQuery === 'all') {
-    // Return all logs when no date specified or 'all' passed
-    logs = await Log.find({})
-      .populate('user', 'name studentDormNumber')
-      .populate('curfewTime');
-  } else {
-    // Filter logs by specified date (YYYY-MM-DD)
-    const start = new Date(dateQuery);
-    const end = new Date(dateQuery);
-    end.setDate(end.getDate() + 1);
-    logs = await Log.find({
-      date: { $gte: start, $lt: end }
+  try {
+    const dateStr = req.params.date; // Format: YYYY-MM-DD
+    
+    // Create date range for the specified date (start of day to end of day)
+    const startDate = new Date(dateStr);
+    startDate.setHours(0, 0, 0, 0);
+    
+    const endDate = new Date(dateStr);
+    endDate.setHours(23, 59, 59, 999);
+    
+    // Find logs for the specified date
+    const logs = await Log.find({
+      date: {
+        $gte: startDate,
+        $lte: endDate
+      }
     })
-      .populate('user', 'name studentDormNumber')
-      .populate('curfewTime');
+    .populate('user', 'name studentDormNumber')
+    .populate({
+      path: 'room',
+      select: 'roomNumber',
+      populate: {
+        path: 'building',
+        select: 'name'
+      }
+    })
+    .sort({ 'entries.checkInTime': -1 });
+    
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching logs:', error);
+    res.status(500).json({ 
+      message: 'Error fetching logs',
+      error: error.message 
+    });
   }
-  res.json(logs);
+});
+
+// @desc    Excuse late check-in/check-out
+// @route   PUT /api/admin/logs/:logId/entries/:entryId/excuse
+// @access  Private/Admin
+const excuseLateStatus = asyncHandler(async (req, res) => {
+  try {
+    const { logId, entryId } = req.params;
+    const { type } = req.body; // 'checkIn' or 'checkOut'
+
+    // Find the log
+    const log = await Log.findById(logId);
+    if (!log) {
+      return res.status(404).json({ message: 'Log not found' });
+    }
+
+    // Find the entry
+    const entryIndex = log.entries.findIndex(entry => entry._id.toString() === entryId);
+    if (entryIndex === -1) {
+      return res.status(404).json({ message: 'Entry not found' });
+    }
+
+    const entry = log.entries[entryIndex];
+
+    // Validate the type and current status
+    if (type === 'checkIn') {
+      if (entry.checkInStatus !== 'Late') {
+        return res.status(400).json({ message: 'Only late check-ins can be excused' });
+      }
+      await log.updateCheckInStatus(entryIndex, 'Excused');
+    } else if (type === 'checkOut') {
+      if (entry.checkOutStatus !== 'Late') {
+        return res.status(400).json({ message: 'Only late check-outs can be excused' });
+      }
+      await log.updateCheckOutStatus(entryIndex, 'Excused');
+    } else {
+      return res.status(400).json({ message: 'Invalid type specified' });
+    }
+
+    // Create a notification for the student
+    const notification = await Notification.create({
+      recipient: {
+        id: log.user._id,
+        model: 'User'
+      },
+      type: 'SYSTEM',
+      title: 'Late Status Excused',
+      content: `Your late ${type === 'checkIn' ? 'check-in' : 'check-out'} has been excused by an administrator.`,
+      metadata: {
+        logId: log._id,
+        entryId: entry._id,
+        type: type
+      }
+    });
+
+    // If socket.io is available, emit the notification
+    if (req.app.get('io')) {
+      req.app.get('io').to(log.user._id.toString()).emit('newNotification', notification);
+    }
+
+    res.json({
+      message: `Late ${type === 'checkIn' ? 'check-in' : 'check-out'} excused successfully`,
+      entry: log.entries[entryIndex]
+    });
+  } catch (error) {
+    console.error('Error excusing late status:', error);
+    res.status(500).json({ 
+      message: 'Error excusing late status',
+      error: error.message 
+    });
+  }
+});
+
+// @desc    Get all news items
+// @route   GET /api/admin/news
+// @access  Private/Admin
+const getAllNews = asyncHandler(async (req, res) => {
+  try {
+    // Get query parameters for filtering
+    const { 
+      category, 
+      isActive, 
+      pinned, 
+      search, 
+      limit = 10, 
+      page = 1,
+      sortBy = 'publishDate',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // Build the filter object
+    const filter = {};
+    
+    if (category && category !== 'all') {
+      filter.category = category;
+    }
+    
+    if (isActive === 'true') {
+      filter.isActive = true;
+    } else if (isActive === 'false') {
+      filter.isActive = false;
+    }
+    
+    if (pinned === 'true') {
+      filter.pinned = true;
+    } else if (pinned === 'false') {
+      filter.pinned = false;
+    }
+    
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { content: { $regex: search, $options: 'i' } },
+        { tags: { $in: [new RegExp(search, 'i')] } }
+      ];
+    }
+    
+    // Calculate pagination values
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Build sort object
+    const sort = {};
+    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+    
+    // Query the database
+    const totalCount = await News.countDocuments(filter);
+    const news = await News.find(filter)
+      .sort(sort)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('author', 'name');
+    
+    // Calculate if there are more pages
+    const hasMore = skip + news.length < totalCount;
+    
+    // Return the response
+    res.json({
+      news,
+      pagination: {
+        totalCount,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        hasMore,
+        totalPages: Math.ceil(totalCount / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Error getting news:', error);
+    res.status(500).json({ message: 'Error getting news items' });
+  }
+});
+
+// @desc    Get a single news item by ID
+// @route   GET /api/admin/news/:id
+// @access  Private/Admin
+const getNewsById = asyncHandler(async (req, res) => {
+  try {
+    const news = await News.findById(req.params.id).populate('author', 'name');
+    
+    if (!news) {
+      return res.status(404).json({ message: 'News item not found' });
+    }
+    
+    res.json(news);
+  } catch (error) {
+    console.error('Error getting news by ID:', error);
+    res.status(500).json({ message: 'Error retrieving news item' });
+  }
+});
+
+// @desc    Create a new news item
+// @route   POST /api/admin/news
+// @access  Private/Admin
+const createNews = asyncHandler(async (req, res) => {
+  try {
+    const { 
+      title, 
+      content, 
+      category, 
+      publishDate, 
+      expiryDate, 
+      tags, 
+      pinned, 
+      image, 
+      imageCaption 
+    } = req.body;
+    
+    // Validation
+    if (!title || !content || !category) {
+      return res.status(400).json({ message: 'Please provide title, content and category' });
+    }
+    
+    // Create the news item
+    const newsItem = await News.create({
+      title,
+      content,
+      category,
+      publishDate: publishDate || new Date(),
+      expiryDate: expiryDate || null,
+      isActive: true,
+      author: req.user.id,
+      pinned: pinned || false,
+      tags: tags || [],
+      image: image || null,
+      imageCaption: imageCaption || ''
+    });
+    
+    // Create notification for all students about new news
+    const notificationTitle = `New ${category}: ${title}`;
+    const notificationContent = `A new ${category.toLowerCase()} has been posted.`;
+    
+    // Create notification in the database - target all users
+    await Notification.create({
+      recipient: {
+        model: 'User' // This is for all users, so no specific ID
+      },
+      type: 'SYSTEM', // Using SYSTEM as the type since NEWS is not in the enum
+      title: notificationTitle,
+      content: notificationContent,
+      relatedTo: {
+        model: 'Form', // Using Form as the model since News is not in the enum
+        id: newsItem._id
+      },
+      metadata: {
+        newsId: newsItem._id,
+        category,
+        isNews: true // Custom flag to identify this as news in the frontend
+      }
+    });
+    
+    // Get the io instance
+    const io = req.app.get('io');
+    if (io) {
+      // Broadcast to all connected users
+      io.to('students').emit('notification', {
+        type: 'SYSTEM',
+        title: notificationTitle,
+        content: notificationContent,
+        data: {
+          newsId: newsItem._id,
+          category,
+          isNews: true
+        }
+      });
+    }
+    
+    res.status(201).json(newsItem);
+  } catch (error) {
+    console.error('Error creating news:', error);
+    res.status(500).json({ message: 'Error creating news item' });
+  }
+});
+
+// @desc    Update a news item
+// @route   PUT /api/admin/news/:id
+// @access  Private/Admin
+const updateNews = asyncHandler(async (req, res) => {
+  try {
+    const { 
+      title, 
+      content, 
+      category, 
+      publishDate, 
+      expiryDate, 
+      isActive, 
+      pinned, 
+      tags, 
+      image, 
+      imageCaption 
+    } = req.body;
+    
+    const newsId = req.params.id;
+    
+    // Find the news item
+    const newsItem = await News.findById(newsId);
+    
+    if (!newsItem) {
+      return res.status(404).json({ message: 'News item not found' });
+    }
+    
+    // Update fields
+    if (title) newsItem.title = title;
+    if (content) newsItem.content = content;
+    if (category) newsItem.category = category;
+    if (publishDate) newsItem.publishDate = publishDate;
+    if (expiryDate !== undefined) newsItem.expiryDate = expiryDate;
+    if (isActive !== undefined) newsItem.isActive = isActive;
+    if (pinned !== undefined) newsItem.pinned = pinned;
+    if (tags) newsItem.tags = tags;
+    if (image !== undefined) newsItem.image = image;
+    if (imageCaption !== undefined) newsItem.imageCaption = imageCaption;
+    
+    // Save the updated news item
+    const updatedNews = await newsItem.save();
+    
+    res.json(updatedNews);
+  } catch (error) {
+    console.error('Error updating news:', error);
+    res.status(500).json({ message: 'Error updating news item' });
+  }
+});
+
+// @desc    Delete a news item
+// @route   DELETE /api/admin/news/:id
+// @access  Private/Admin
+const deleteNews = asyncHandler(async (req, res) => {
+  try {
+    const newsId = req.params.id;
+    
+    // Find and delete the news item
+    const deletedNews = await News.findByIdAndDelete(newsId);
+    
+    if (!deletedNews) {
+      return res.status(404).json({ message: 'News item not found' });
+    }
+    
+    // Delete any related notifications
+    await Notification.deleteMany({
+      linkId: newsId,
+      linkType: 'News'
+    });
+    
+    res.json({ message: 'News item deleted successfully', deletedNews });
+  } catch (error) {
+    console.error('Error deleting news:', error);
+    res.status(500).json({ message: 'Error deleting news item' });
+  }
+});
+
+// @desc    Toggle pin status of a news item
+// @route   PUT /api/admin/news/:id/toggle-pin
+// @access  Private/Admin
+const toggleNewsPin = asyncHandler(async (req, res) => {
+  try {
+    const newsId = req.params.id;
+    
+    // Find the news item
+    const newsItem = await News.findById(newsId);
+    
+    if (!newsItem) {
+      return res.status(404).json({ message: 'News item not found' });
+    }
+    
+    // Toggle the pinned status
+    newsItem.pinned = !newsItem.pinned;
+    
+    // Save the updated news item
+    const updatedNews = await newsItem.save();
+    
+    res.json({
+      message: `News item ${updatedNews.pinned ? 'pinned' : 'unpinned'} successfully`,
+      news: updatedNews
+    });
+  } catch (error) {
+    console.error('Error toggling news pin status:', error);
+    res.status(500).json({ message: 'Error updating news pin status' });
+  }
+});
+
+// @desc    Increment view count for a news item
+// @route   PUT /api/admin/news/:id/view
+// @access  Private
+const incrementNewsViews = asyncHandler(async (req, res) => {
+  try {
+    const newsId = req.params.id;
+    
+    // Find the news item
+    const newsItem = await News.findById(newsId);
+    
+    if (!newsItem) {
+      return res.status(404).json({ message: 'News item not found' });
+    }
+    
+    // Increment view count
+    newsItem.viewCount += 1;
+    
+    // Save the updated news item
+    await newsItem.save();
+    
+    res.json({ success: true, viewCount: newsItem.viewCount });
+  } catch (error) {
+    console.error('Error incrementing news views:', error);
+    res.status(500).json({ message: 'Error updating news view count' });
+  }
+});
+
+// @desc    Upload image for news
+// @route   POST /api/admin/news/upload-image
+// @access  Private/Admin
+const uploadNewsImage = asyncHandler(async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image file provided' });
+    }
+
+    // Generate a unique filename
+    const timestamp = Date.now();
+    const originalExtension = path.extname(req.file.originalname);
+    const filename = `news_${timestamp}${originalExtension}`;
+    
+    // Define target path
+    const uploadPath = path.join(__dirname, '../uploads/news');
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    
+    // Get the source path of the uploaded file (from multer diskStorage)
+    const sourcePath = req.file.path;
+    
+    // Define the destination path
+    const destinationPath = path.join(uploadPath, filename);
+    
+    // Copy the file from the temporary location to our news directory
+    fs.copyFileSync(sourcePath, destinationPath);
+    
+    // Generate URL for the file
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const fileUrl = `${baseUrl}/api/admin/files/news/${filename}`;
+    
+    res.status(201).json({
+      message: 'Image uploaded successfully',
+      filename,
+      fileUrl
+    });
+  } catch (error) {
+    console.error('Error uploading news image:', error);
+    res.status(500).json({ message: 'Error uploading image' });
+  }
+});
+
+// @desc    Get news image file
+// @route   GET /api/admin/files/news/:filename
+// @access  Public
+const getNewsImage = asyncHandler(async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const filePath = path.join(__dirname, '../uploads/news', filename);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'Image not found' });
+    }
+    
+    // Determine content type
+    const ext = path.extname(filename).toLowerCase();
+    let contentType = 'application/octet-stream';
+    if (ext === '.jpg' || ext === '.jpeg') {
+      contentType = 'image/jpeg';
+    } else if (ext === '.png') {
+      contentType = 'image/png';
+    } else if (ext === '.gif') {
+      contentType = 'image/gif';
+    } else if (ext === '.webp') {
+      contentType = 'image/webp';
+    }
+    
+    // Set response headers
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    
+    // Stream file to response
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('Error getting news image:', error);
+    res.status(500).json({ message: 'Error retrieving image' });
+  }
 });
 
 module.exports = {
   loginAdmin,
   logoutAdmin,
   getAdminProfile,
+  updateAdminProfile,
+  updateAdminPassword,
   startConversation,
   sendMessage,
   getConversations,
@@ -2053,6 +2639,7 @@ module.exports = {
   getRoomById,
   getStudentOffenses,
   createStudentOffense,
+  getAllOffenses,
   getAllStaff,
   createStaff,
   getStaffById,
@@ -2073,6 +2660,16 @@ module.exports = {
   createCurfew,
   deleteLatestCurfew,
   updateCurfew,
+  downloadFile,
   getLogs,
-  downloadFile
+  excuseLateStatus,
+  getAllNews,
+  getNewsById,
+  createNews,
+  updateNews,
+  deleteNews,
+  toggleNewsPin,
+  incrementNewsViews,
+  uploadNewsImage,
+  getNewsImage,
 };

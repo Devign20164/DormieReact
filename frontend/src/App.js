@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, createContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material';
+import { Box, Switch, FormControlLabel, styled } from '@mui/material';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminStudent from './pages/AdminStudent';
@@ -8,6 +9,9 @@ import AdminBuilding from './pages/AdminBuilding';
 import AdminStaff from './pages/AdminStaff';
 import AdminBill from './pages/AdminBill';
 import AdminHistory from './pages/AdminHistory';
+import AdminReport from './pages/AdminReport';
+import AdminNews from './pages/AdminNews';
+import AdminSettings from './pages/AdminSettings';
 import StaffDashboard from './pages/StaffDashboard';
 import StaffTenantLog from './pages/StaffTenantLog';
 import StaffAssignment from './pages/StaffAssignment';
@@ -18,11 +22,14 @@ import StudentForm from './pages/StudentForm';
 import AdminForm from './pages/AdminForm';
 import StudentBill from './pages/StudentBill';
 import StudentLog from './pages/StudentLog';
+import StudentNews from './pages/StudentNews';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-const theme = createTheme({
-  // Add your theme customization here
+// Create a context for theme management
+export const ThemeContext = createContext({
+  mode: 'light',
+  toggleTheme: () => {},
 });
 
 // Protected Route component
@@ -91,7 +98,116 @@ const ProtectedRoute = ({ children, allowedRole }) => {
 };
 
 function App() {
+  const [mode, setMode] = useState(localStorage.getItem('themeMode') || 'light');
+
+  const themeContextValue = useMemo(() => ({
+    mode,
+    toggleTheme: () => {
+      const newMode = mode === 'light' ? 'dark' : 'light';
+      setMode(newMode);
+      localStorage.setItem('themeMode', newMode);
+    }
+  }), [mode]);
+
+  const theme = useMemo(() => createTheme({
+    palette: {
+      mode,
+      primary: {
+        main: '#3f51b5',
+        light: '#757de8',
+        dark: '#002984',
+        contrastText: '#fff',
+      },
+      secondary: {
+        main: '#f50057',
+        light: '#ff4081',
+        dark: '#c51162',
+        contrastText: '#fff',
+      },
+      background: {
+        default: mode === 'light' ? '#f5f5f5' : '#121212',
+        paper: mode === 'light' ? '#ffffff' : '#1e1e1e',
+      },
+      text: {
+        primary: mode === 'light' ? '#333333' : '#ffffff',
+        secondary: mode === 'light' ? '#757575' : '#b0b0b0',
+      },
+      error: {
+        main: '#f44336',
+      },
+      warning: {
+        main: '#ff9800',
+      },
+      info: {
+        main: '#2196f3',
+      },
+      success: {
+        main: '#4caf50',
+      },
+    },
+    typography: {
+      fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+      h1: {
+        fontSize: '2.5rem',
+        fontWeight: 500,
+      },
+      h2: {
+        fontSize: '2rem',
+        fontWeight: 500,
+      },
+      h3: {
+        fontSize: '1.75rem',
+        fontWeight: 500,
+      },
+      h4: {
+        fontSize: '1.5rem',
+        fontWeight: 500,
+      },
+      h5: {
+        fontSize: '1.25rem',
+        fontWeight: 500,
+      },
+      h6: {
+        fontSize: '1rem',
+        fontWeight: 500,
+      },
+      button: {
+        textTransform: 'none',
+        fontWeight: 500,
+      },
+    },
+    shape: {
+      borderRadius: 8,
+    },
+    components: {
+      MuiButton: {
+        styleOverrides: {
+          root: {
+            padding: '8px 16px',
+          },
+          contained: {
+            boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+          },
+        },
+      },
+      MuiCard: {
+        styleOverrides: {
+          root: {
+            boxShadow: '0px 3px 6px rgba(0, 0, 0, 0.1)',
+          },
+        },
+      },
+      MuiTextField: {
+        defaultProps: {
+          variant: 'outlined',
+          size: 'medium',
+        },
+      },
+    },
+  }), [mode]);
+
   return (
+    <ThemeContext.Provider value={themeContextValue}>
     <ThemeProvider theme={theme}>
       <Router>
         <Routes>
@@ -170,6 +286,33 @@ function App() {
           />
           
           <Route 
+            path="/admin/news" 
+            element={
+              <ProtectedRoute allowedRole="admin">
+                <AdminNews />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/admin/reports" 
+            element={
+              <ProtectedRoute allowedRole="admin">
+                <AdminReport />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/admin/settings" 
+            element={
+              <ProtectedRoute allowedRole="admin">
+                <AdminSettings />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
             path="/staff-dashboard" 
             element={
               <ProtectedRoute allowedRole="staff">
@@ -240,6 +383,15 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          <Route
+            path="/student/news"
+            element={
+              <ProtectedRoute allowedRole="student">
+                <StudentNews />
+              </ProtectedRoute>
+            }
+          />
           
           {/* Redirect root to login */}
           <Route path="/" element={<Navigate to="/login" />} />
@@ -258,9 +410,10 @@ function App() {
         pauseOnFocusLoss
         draggable
         pauseOnHover
-        theme="dark"
+          theme={mode}
       />
     </ThemeProvider>
+    </ThemeContext.Provider>
   );
 }
 

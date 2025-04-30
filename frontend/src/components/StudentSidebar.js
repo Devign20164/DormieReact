@@ -24,12 +24,14 @@ import {
   Description as RequestIcon,
   Receipt as ReceiptIcon,
   History as HistoryIcon,
+  Announcement as AnnouncementIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/student-dashboard' },
   { text: 'Service Requests', icon: <RequestIcon />, path: '/student/forms' },
+  { text: 'News', icon: <AnnouncementIcon />, path: '/student/news' },
   { text: 'Messages', icon: <MessageIcon />, path: '/student/messages' },
   { text: 'Bills', icon: <ReceiptIcon />, path: '/student/bills' },
   { text: 'Dorm Log', icon: <HistoryIcon />, path: '/student/log' },

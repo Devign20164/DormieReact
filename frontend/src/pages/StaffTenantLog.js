@@ -1,15 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
-  Grid,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  MenuItem,
   Paper,
   Table,
   TableBody,
@@ -17,272 +9,227 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
-  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
   IconButton,
-  FormControl,
-  InputLabel,
-  Select,
-  CircularProgress
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  MeetingRoom as EnterIcon,
-  ExitToApp as ExitIcon,
-  Person as PersonIcon,
-  Search as SearchIcon
-} from '@mui/icons-material';
+  Snackbar,
+  Alert,
+  CircularProgress,
+  Chip,
+  Avatar,
+  Card,
+  InputAdornment,
+} from "@mui/material";
+import { Search as SearchIcon, AccessTime as ClockIcon } from "@mui/icons-material";
 import StaffSidebar from '../components/StaffSidebar';
-import axios from 'axios';
-import { toast } from 'react-toastify';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { LocalizationProvider, DateTimePicker } from '@mui/x-date-pickers';
+import axios from "axios";
 
 const StaffTenantLog = () => {
+  // State for the list of students (initialized with empty array)
   const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [formData, setFormData] = useState({
-    studentName: '',
-    studentId: '',
-    buildingName: '',
-    roomNumber: '',
-    type: 'entry',
-    timestamp: new Date(),
-    notes: ''
-  });
-  const [editMode, setEditMode] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredStudents, setFilteredStudents] = useState([]);
-  const [rowDialogOpen, setRowDialogOpen] = useState(false);
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
-  const [curfewTime, setCurfewTime] = useState('');
-  const [lastLog, setLastLog] = useState(null);
 
+  // State for search functionality
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // State for dialogs
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [verifiedStudent, setVerifiedStudent] = useState(null);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [actionDialogOpen, setActionDialogOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  // State for notifications
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "info",
+  });
+  
+  // Fetch students data from API
   useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        setLoading(true);
+        // Replace with your actual API endpoint
+        const response = await axios.get('/api/students');
+        
+        // Format the response data for our component
+        const formattedStudents = response.data.map(student => ({
+          id: student._id || student.id,
+          name: student.name,
+          studentDormNumber: student.studentDormNumber,
+          status: student.status || "out",
+          lastCheckIn: student.lastCheckIn || null,
+          lastCheckOut: student.lastCheckOut || null,
+          password: "password123", // In a real app, handle auth properly
+        }));
+        
+        setStudents(formattedStudents);
+      } catch (error) {
+        console.error("Error fetching students:", error);
+        setSnackbar({
+          open: true,
+          message: "Failed to load students data",
+          severity: "error",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchStudents();
   }, []);
 
-  useEffect(() => {
-    // Filter students based on search term
-    if (searchTerm.trim() === '') {
-      setFilteredStudents(students);
-    } else {
-      const term = searchTerm.toLowerCase();
-      const filtered = students.filter(student =>
-        student.name.toLowerCase().includes(term) ||
-        student.email.toLowerCase().includes(term) ||
-        (student.studentDormNumber && student.studentDormNumber.toLowerCase().includes(term)) ||
-        (student.courseYear && student.courseYear.toLowerCase().includes(term))
-      );
-      setFilteredStudents(filtered);
-    }
-  }, [searchTerm, students]);
+  // Filter students based on search term
+  const filteredStudents = students.filter(
+    (student) =>
+      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.studentDormNumber
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
+  );
 
-  useEffect(() => {
-    fetchCurfew();
-  }, []);
+  // Handle row click
+  const handleRowClick = (student) => {
+    setSelectedStudent(student);
+    setPasswordDialogOpen(true);
+  };
 
-  const fetchStudents = async () => {
+  // Handle password submission
+  const handlePasswordSubmit = async () => {
+    setLoading(true);
+    
     try {
-      setLoading(true);
-      const response = await axios.get('/api/students');
-      setStudents(response.data);
-      setFilteredStudents(response.data);
+      // Call the API to verify the student's password
+      const response = await axios.post(`/api/students/${selectedStudent.id}/verify-password`, {
+        password: password
+      });
+      
+      // If verification successful
+      if (response.data.verified) {
+        setVerifiedStudent(response.data.student);
+        setPasswordDialogOpen(false);
+        setActionDialogOpen(true);
+      } else {
+        setSnackbar({
+          open: true,
+          message: "Incorrect password",
+          severity: "error",
+        });
+      }
     } catch (error) {
-      console.error('Error fetching students:', error);
-      toast.error('Failed to load students');
+      console.error("Password verification error:", error);
+      setSnackbar({
+        open: true,
+        message: "Error verifying password",
+        severity: "error",
+      });
     } finally {
+      setPassword("");
       setLoading(false);
     }
   };
 
-  const fetchCurfew = async () => {
-    try {
-      const res = await axios.get('/api/admin/curfews');
-      const todayIso = new Date().toISOString().split('T')[0];
-      const todayCurfew = res.data.find(c => c.date === todayIso) || {};
-      setCurfewTime(todayCurfew.curfewTime || '');
-    } catch (error) {
-      console.error('Error fetching curfew:', error);
-    }
-  };
-
-  const fetchLastLog = async (studentId) => {
-    try {
-      const todayIso = new Date().toISOString().split('T')[0];
-      const res = await axios.get(`/api/admin/logs?date=${todayIso}`);
-      const studentLog = res.data.find(l => l.user._id === studentId);
-      setLastLog(studentLog);
-    } catch (error) {
-      console.error('Error fetching last log:', error);
-    }
-  };
-
-  const handleCreateStudent = async () => {
-    try {
-      if (!formData.studentName || !formData.studentId || !formData.buildingName || !formData.roomNumber) {
-        toast.warning('Please fill all required fields');
-        return;
-      }
-
-      let response;
-      if (editMode) {
-        response = await axios.put(`/api/staff/tenant-logs/${selectedStudent._id}`, formData);
-        setStudents(students.map(student => student._id === selectedStudent._id ? response.data : student));
-        toast.success('Student updated successfully');
-      } else {
-        response = await axios.post('/api/staff/tenant-logs', formData);
-        setStudents([response.data, ...students]);
-        toast.success('Student created successfully');
-      }
-      
-      handleCloseDialog();
-    } catch (error) {
-      console.error('Error saving student:', error);
-      toast.error(editMode ? 'Failed to update student' : 'Failed to create student');
-    }
-  };
-
-  const handleDeleteStudent = async () => {
-    try {
-      await axios.delete(`/api/staff/tenant-logs/${selectedStudent._id}`);
-      setStudents(students.filter(student => student._id !== selectedStudent._id));
-      toast.success('Student deleted successfully');
-      setConfirmDeleteOpen(false);
-    } catch (error) {
-      console.error('Error deleting student:', error);
-      toast.error('Failed to delete student');
-    }
-  };
-
-  const handleOpenDialog = (student = null) => {
-    if (student) {
-      setFormData({
-        studentName: student.name,
-        studentId: student.studentDormNumber,
-        buildingName: student.buildingName,
-        roomNumber: student.roomNumber,
-        type: student.type,
-        timestamp: new Date(student.timestamp),
-        notes: student.notes || ''
-      });
-      setSelectedStudent(student);
-      setEditMode(true);
-    } else {
-      setFormData({
-        studentName: '',
-        studentId: '',
-        buildingName: '',
-        roomNumber: '',
-        type: 'entry',
-        timestamp: new Date(),
-        notes: ''
-      });
-      setEditMode(false);
-    }
-    setDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setSelectedStudent(null);
-  };
-
-  const handleOpenDeleteConfirm = (student) => {
-    setSelectedStudent(student);
-    setConfirmDeleteOpen(true);
-  };
-
-  const handleCloseDeleteConfirm = () => {
-    setConfirmDeleteOpen(false);
-    setSelectedStudent(null);
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
-  };
-
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const formatDate = (date) => {
-    return new Date(date).toLocaleString();
-  };
-
-  const handleRowClick = (student) => {
-    setSelectedRow(student);
-    setRowDialogOpen(true);
-  };
-
-  const handleRowDialogClose = () => {
-    setRowDialogOpen(false);
-    setSelectedRow(null);
-    setPasswordConfirm('');
-  };
-
-  const handleVerifyPassword = async () => {
-    try {
-      const response = await axios.post(
-        `/api/students/${selectedRow._id}/verify-password`,
-        { password: passwordConfirm }
-      );
-      if (response.data.verified) {
-        // Close password dialog, open success dialog, and load log
-        setRowDialogOpen(false);
-        setSuccessDialogOpen(true);
-        fetchLastLog(selectedRow._id);
-      }
-    } catch (error) {
-      console.error('Password verification error:', error);
-      toast.error(error.response?.data?.message || 'Password verification failed');
-    }
-  };
-
-  const handleSuccessDialogClose = () => {
-    setSuccessDialogOpen(false);
-    setSelectedRow(null);
-    setPasswordConfirm('');
-  };
-
+  // Handle check in
   const handleCheckIn = async () => {
+    if (!selectedStudent) return;
+    
+    setLoading(true);
     try {
-      await axios.post('/api/students/logs/checkin');
-      toast.success('Checked in successfully');
-      handleSuccessDialogClose();
-    } catch (err) {
-      console.error('Check-in error:', err);
-      toast.error(err.response?.data?.message || 'Error during check-in');
+      const response = await fetch(`/api/students/${selectedStudent.id}/check-in`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to check in');
+      }
+
+      setStudents(students.map(student =>
+        student.id === selectedStudent.id
+          ? { ...student, status: 'in', lastCheckIn: new Date().toISOString() }
+          : student
+      ));
+
+      setSnackbar({
+        open: true,
+        message: 'Successfully checked in',
+        severity: 'success'
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.message || 'Failed to check in',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+      setActionDialogOpen(false);
     }
   };
 
+  // Handle check out
   const handleCheckOut = async () => {
+    if (!selectedStudent) return;
+    
+    setLoading(true);
     try {
-      await axios.post('/api/students/logs/checkout');
-      toast.success('Checked out successfully');
-      handleSuccessDialogClose();
-    } catch (err) {
-      console.error('Check-out error:', err);
-      toast.error(err.response?.data?.message || 'Error during check-out');
+      const response = await fetch(`/api/students/${selectedStudent.id}/check-out`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to check out');
+      }
+
+      setStudents(students.map(student =>
+        student.id === selectedStudent.id
+          ? { ...student, status: 'out', lastCheckOut: new Date().toISOString() }
+          : student
+      ));
+
+      setSnackbar({
+        open: true,
+        message: 'Successfully checked out',
+        severity: 'success'
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.message || 'Failed to check out',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+      setActionDialogOpen(false);
     }
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+
+    const date = new Date(dateString);
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
   };
 
   return (
@@ -300,524 +247,214 @@ const StaffTenantLog = () => {
         sx={{
           flexGrow: 1,
           p: 4,
-          width: { sm: `calc(100% - 280px)` }
+          overflowX: 'auto',
         }}
       >
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          mb: 4
-        }}>
-          <Typography variant="h4" sx={{ color: '#fff', fontWeight: 600 }}>
-            Student Log
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog()}
-            sx={{ 
-              bgcolor: '#3B82F6',
-              '&:hover': { 
-                bgcolor: '#2563EB' 
-              } 
+        <Typography variant="h4" gutterBottom>
+          Student Log System
+        </Typography>
+
+        {/* Search Bar */}
+        <Box sx={{ mb: 4 }}>
+          <TextField
+            placeholder="Search by name or ID..."
+            variant="outlined"
+            fullWidth
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: 'rgba(255, 255, 255, 0.5)' }} />
+                </InputAdornment>
+              ),
+              sx: {
+                color: '#fff',
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                borderRadius: '8px',
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#3B82F6',
+                },
+              }
             }}
-          >
-            New Entry
-          </Button>
+          />
         </Box>
-        
-        {/* Search bar */}
-        <Paper sx={{ 
-          p: 2, 
-          mb: 3,
-          background: 'rgba(20, 20, 20, 0.7)',
-          border: '1px solid rgba(255, 255, 255, 0.05)',
-          borderRadius: '12px',
+
+        {/* Student Table */}
+        <Card sx={{ 
+          background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+          borderRadius: '16px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+          border: '1px solid rgba(255, 255, 255, 0.03)',
+          overflow: 'hidden',
         }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                placeholder="Search by name, ID, building, or room..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                variant="outlined"
-                InputProps={{
-                  startAdornment: <SearchIcon sx={{ color: '#9CA3AF', mr: 1 }} />,
-                }}
-                sx={{ 
-                  '& .MuiOutlinedInput-root': {
-                    color: '#E5E7EB',
-                    '& fieldset': {
-                      borderColor: 'rgba(156, 163, 175, 0.3)',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: 'rgba(59, 130, 246, 0.5)',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#3B82F6',
-                    },
-                  },
-                }}
-              />
-            </Grid>
-          </Grid>
-        </Paper>
-        
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-            <CircularProgress sx={{ color: '#3B82F6' }} />
-          </Box>
-        ) : (
-          <Paper sx={{ 
-            width: '100%', 
-            background: 'rgba(20, 20, 20, 0.7)',
-            border: '1px solid rgba(255, 255, 255, 0.05)',
-            borderRadius: '12px',
-            overflow: 'hidden'
-          }}>
-            <TableContainer>
-              <Table sx={{ minWidth: 650 }}>
-                <TableHead>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ 
+                  backgroundColor: 'rgba(15, 23, 42, 0.5)',
+                  '& th': { 
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    fontWeight: 600,
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                  }
+                }}>
+                  <TableCell>Student</TableCell>
+                  <TableCell>ID</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {loading ? (
                   <TableRow>
-                    <TableCell sx={{ color: '#9CA3AF', fontWeight: 600 }}>Student Name</TableCell>
-                    <TableCell sx={{ color: '#9CA3AF', fontWeight: 600 }}>Dorm Number</TableCell>
+                    <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
+                      <CircularProgress />
+                      <Typography sx={{ mt: 2, color: 'rgba(255, 255, 255, 0.7)' }}>
+                        Loading students...
+                      </Typography>
+                    </TableCell>
                   </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredStudents.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={2} align="center" sx={{ color: '#9CA3AF' }}>
-                        No students found
+                ) : filteredStudents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={2} align="center" sx={{ color: 'rgba(255, 255, 255, 0.7)', py: 4 }}>
+                      No students found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredStudents.map((student) => (
+                    <TableRow 
+                      key={student.id}
+                      onClick={() => handleRowClick(student)}
+                      sx={{ 
+                        cursor: "pointer",
+                        '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.03)' },
+                        '& td': { 
+                          color: '#fff',
+                          borderBottom: '1px solid rgba(255, 255, 255, 0.03)',
+                        }
+                      }}
+                    >
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Avatar sx={{ width: 36, height: 36, bgcolor: 'rgba(59, 130, 246, 0.2)' }}>
+                            {student.name.charAt(0)}
+                          </Avatar>
+                          <Typography variant="body1">
+                            {student.name}
+                          </Typography>
+                        </Box>
                       </TableCell>
+                      <TableCell>{student.studentDormNumber}</TableCell>
                     </TableRow>
-                  ) : (
-                    filteredStudents
-                      .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                      .map((student) => (
-                        <TableRow
-                          hover
-                          onClick={() => handleRowClick(student)}
-                          key={student._id}
-                          sx={{ 
-                            '&:hover': { background: 'rgba(59, 130, 246, 0.05)' },
-                            '& .MuiTableCell-root': { color: '#E5E7EB', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }
-                          }}
-                        >
-                          <TableCell>{student.name}</TableCell>
-                          <TableCell>{student.studentDormNumber}</TableCell>
-                        </TableRow>
-                      ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={filteredStudents.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-              sx={{ 
-                color: '#E5E7EB',
-                '& .MuiSvgIcon-root': {
-                  color: '#9CA3AF',
-                }
-              }}
-            />
-          </Paper>
-        )}
-        
-        {/* Row Selection Dialog */}
-        <Dialog open={rowDialogOpen} onClose={handleRowDialogClose}>
-          <DialogTitle>Verify Student</DialogTitle>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+
+        {/* Password Dialog */}
+        <Dialog open={passwordDialogOpen} onClose={() => setPasswordDialogOpen(false)}>
+          <DialogTitle>Verify Student Identity</DialogTitle>
           <DialogContent>
-            <Typography>Name: {selectedRow?.name}</Typography>
-            <Typography>Dorm Number: {selectedRow?.studentDormNumber}</Typography>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              Please enter the password to verify student identity
+            </Typography>
             <TextField
+              autoFocus
               margin="dense"
               label="Password"
               type="password"
               fullWidth
-              placeholder="Enter password"
-              value={passwordConfirm}
-              onChange={(e) => setPasswordConfirm(e.target.value)}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleRowDialogClose}>Cancel</Button>
-            <Button variant="contained" onClick={handleVerifyPassword}>Verify</Button>
+            <Button onClick={() => setPasswordDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handlePasswordSubmit} variant="contained" disabled={loading}>
+              {loading ? <CircularProgress size={24} /> : "Verify"}
+            </Button>
           </DialogActions>
         </Dialog>
-        
-        {/* Verification Success Dialog */}
-        <Dialog open={successDialogOpen} onClose={handleSuccessDialogClose}>
-          <DialogTitle>Verification Successful</DialogTitle>
-          <DialogContent dividers>
+
+        {/* Action Dialog */}
+        <Dialog
+          open={actionDialogOpen}
+          onClose={() => setActionDialogOpen(false)}
+          PaperProps={{
+            sx: {
+              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+              color: '#fff',
+              borderRadius: '16px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+              border: '1px solid rgba(255, 255, 255, 0.03)',
+            }
+          }}
+        >
+          <DialogTitle>Student Check In/Out</DialogTitle>
+          <DialogContent>
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                {selectedStudent?.name}
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.7 }}>
+                ID: {selectedStudent?.studentDormNumber}
+              </Typography>
+            </Box>
             <Typography gutterBottom>
-              Student: {selectedRow?.name}
+              {selectedStudent?.status === "in"
+                ? "You are currently checked in. Would you like to check out?"
+                : "You are currently checked out. Would you like to check in?"}
             </Typography>
-            <Typography gutterBottom>
-              Dorm Number: {selectedRow?.studentDormNumber}
-            </Typography>
-            <Typography gutterBottom>
-              Date & Time: {new Date().toLocaleString()}
-            </Typography>
-            <Typography gutterBottom>
-              Curfew Time: {curfewTime || 'N/A'}
-            </Typography>
-            {lastLog && (
-              <>
-                <Typography gutterBottom>
-                  Status: {lastLog.status}
-                </Typography>
-                <Typography>
-                  Last Action: {lastLog.entries && lastLog.entries.length > 0 && lastLog.entries[lastLog.entries.length - 1].checkOutTime ? 'Check-Out' : 'Check-In'}
-                </Typography>
-              </>
-            )}
           </DialogContent>
           <DialogActions>
-            <Button variant="contained" color="primary" onClick={handleCheckIn}>
-              Check In
-            </Button>
-            <Button variant="contained" color="secondary" onClick={handleCheckOut}>
-              Check Out
-            </Button>
-          </DialogActions>
-        </Dialog>
-        
-        {/* Create/Edit Student Dialog */}
-        <Dialog 
-          open={dialogOpen} 
-          onClose={handleCloseDialog}
-          PaperProps={{
-            sx: {
-              background: 'linear-gradient(145deg, rgba(20, 20, 20, 0.95) 0%, rgba(10, 10, 10, 0.95) 100%)',
-              border: '1px solid rgba(59, 130, 246, 0.2)',
-              borderRadius: '16px',
-              boxShadow: '0 4px 30px rgba(0, 0, 0, 0.5)',
-              backdropFilter: 'blur(10px)',
-              color: '#fff',
-              minWidth: { xs: '90%', sm: '500px' },
-            }
-          }}
-        >
-          <DialogTitle sx={{ 
-            borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
-            pb: 2
-          }}>
-            {editMode ? 'Edit Student Log' : 'Create New Student Log'}
-          </DialogTitle>
-          <DialogContent sx={{ mt: 2 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Student Name"
-                  name="studentName"
-                  value={formData.studentName}
-                  onChange={handleInputChange}
-                  required
-                  sx={{ 
-                    mb: 2,
-                    '& .MuiOutlinedInput-root': {
-                      color: '#E5E7EB',
-                      '& fieldset': {
-                        borderColor: 'rgba(156, 163, 175, 0.3)',
-                      },
-                      '&:hover fieldset': {
-                        borderColor: 'rgba(59, 130, 246, 0.5)',
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#3B82F6',
-                      },
-                    },
-                    '& .MuiInputLabel-root': {
-                      color: '#9CA3AF',
-                      '&.Mui-focused': {
-                        color: '#3B82F6',
-                      },
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Student ID"
-                  name="studentId"
-                  value={formData.studentId}
-                  onChange={handleInputChange}
-                  required
-                  sx={{ 
-                    mb: 2,
-                    '& .MuiOutlinedInput-root': {
-                      color: '#E5E7EB',
-                      '& fieldset': {
-                        borderColor: 'rgba(156, 163, 175, 0.3)',
-                      },
-                      '&:hover fieldset': {
-                        borderColor: 'rgba(59, 130, 246, 0.5)',
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#3B82F6',
-                      },
-                    },
-                    '& .MuiInputLabel-root': {
-                      color: '#9CA3AF',
-                      '&.Mui-focused': {
-                        color: '#3B82F6',
-                      },
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Building Name"
-                  name="buildingName"
-                  value={formData.buildingName}
-                  onChange={handleInputChange}
-                  required
-                  sx={{ 
-                    mb: 2,
-                    '& .MuiOutlinedInput-root': {
-                      color: '#E5E7EB',
-                      '& fieldset': {
-                        borderColor: 'rgba(156, 163, 175, 0.3)',
-                      },
-                      '&:hover fieldset': {
-                        borderColor: 'rgba(59, 130, 246, 0.5)',
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#3B82F6',
-                      },
-                    },
-                    '& .MuiInputLabel-root': {
-                      color: '#9CA3AF',
-                      '&.Mui-focused': {
-                        color: '#3B82F6',
-                      },
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Room Number"
-                  name="roomNumber"
-                  value={formData.roomNumber}
-                  onChange={handleInputChange}
-                  required
-                  sx={{ 
-                    mb: 2,
-                    '& .MuiOutlinedInput-root': {
-                      color: '#E5E7EB',
-                      '& fieldset': {
-                        borderColor: 'rgba(156, 163, 175, 0.3)',
-                      },
-                      '&:hover fieldset': {
-                        borderColor: 'rgba(59, 130, 246, 0.5)',
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#3B82F6',
-                      },
-                    },
-                    '& .MuiInputLabel-root': {
-                      color: '#9CA3AF',
-                      '&.Mui-focused': {
-                        color: '#3B82F6',
-                      },
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth sx={{ mb: 2 }}>
-                  <InputLabel id="type-select-label" sx={{ color: '#9CA3AF' }}>Type</InputLabel>
-                  <Select
-                    labelId="type-select-label"
-                    name="type"
-                    value={formData.type}
-                    onChange={handleInputChange}
-                    label="Type"
-                    sx={{ 
-                      color: '#E5E7EB',
-                      '.MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'rgba(156, 163, 175, 0.3)',
-                      },
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'rgba(59, 130, 246, 0.5)',
-                      },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#3B82F6',
-                      },
-                      '.MuiSvgIcon-root': {
-                        color: '#9CA3AF',
-                      }
-                    }}
-                  >
-                    <MenuItem value="entry">Entry</MenuItem>
-                    <MenuItem value="exit">Exit</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <DateTimePicker
-                    label="Timestamp"
-                    value={formData.timestamp}
-                    onChange={(newValue) => setFormData({...formData, timestamp: newValue})}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        fullWidth
-                        sx={{ 
-                          mb: 2,
-                          '& .MuiOutlinedInput-root': {
-                            color: '#E5E7EB',
-                            '& fieldset': {
-                              borderColor: 'rgba(156, 163, 175, 0.3)',
-                            },
-                            '&:hover fieldset': {
-                              borderColor: 'rgba(59, 130, 246, 0.5)',
-                            },
-                            '&.Mui-focused fieldset': {
-                              borderColor: '#3B82F6',
-                            },
-                          },
-                          '& .MuiInputLabel-root': {
-                            color: '#9CA3AF',
-                            '&.Mui-focused': {
-                              color: '#3B82F6',
-                            },
-                          },
-                        }}
-                      />
-                    )}
-                  />
-                </LocalizationProvider>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Notes"
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleInputChange}
-                  multiline
-                  rows={4}
-                  sx={{ 
-                    mb: 2,
-                    '& .MuiOutlinedInput-root': {
-                      color: '#E5E7EB',
-                      '& fieldset': {
-                        borderColor: 'rgba(156, 163, 175, 0.3)',
-                      },
-                      '&:hover fieldset': {
-                        borderColor: 'rgba(59, 130, 246, 0.5)',
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#3B82F6',
-                      },
-                    },
-                    '& .MuiInputLabel-root': {
-                      color: '#9CA3AF',
-                      '&.Mui-focused': {
-                        color: '#3B82F6',
-                      },
-                    },
-                  }}
-                />
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions sx={{ p: 3, borderTop: '1px solid rgba(59, 130, 246, 0.2)' }}>
-            <Button 
-              onClick={handleCloseDialog}
-              sx={{ 
-                color: '#9CA3AF',
-                '&:hover': { 
-                  backgroundColor: 'rgba(156, 163, 175, 0.1)' 
-                } 
-              }}
-            >
+            <Button onClick={() => setActionDialogOpen(false)} color="primary">
               Cancel
             </Button>
-            <Button 
-              variant="contained"
-              onClick={handleCreateStudent}
-              sx={{ 
-                bgcolor: '#3B82F6',
-                '&:hover': { 
-                  bgcolor: '#2563EB' 
-                } 
-              }}
-            >
-              {editMode ? 'Update' : 'Create'}
-            </Button>
+            {selectedStudent?.status === "in" ? (
+              <Button
+                onClick={handleCheckOut}
+                color="primary"
+                variant="contained"
+                disabled={loading}
+              >
+                {loading ? <CircularProgress size={24} /> : "Check Out"}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleCheckIn}
+                color="primary"
+                variant="contained"
+                disabled={loading}
+              >
+                {loading ? <CircularProgress size={24} /> : "Check In"}
+              </Button>
+            )}
           </DialogActions>
         </Dialog>
-        
-        {/* Delete Confirmation Dialog */}
-        <Dialog
-          open={confirmDeleteOpen}
-          onClose={handleCloseDeleteConfirm}
-          PaperProps={{
-            sx: {
-              background: 'linear-gradient(145deg, rgba(20, 20, 20, 0.95) 0%, rgba(10, 10, 10, 0.95) 100%)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              borderRadius: '16px',
-              boxShadow: '0 4px 30px rgba(0, 0, 0, 0.5)',
-              backdropFilter: 'blur(10px)',
-              color: '#fff',
-            }
-          }}
+
+        {/* Snackbar for notifications */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
         >
-          <DialogTitle sx={{ borderBottom: '1px solid rgba(239, 68, 68, 0.2)' }}>
-            Confirm Delete
-          </DialogTitle>
-          <DialogContent sx={{ mt: 2 }}>
-            <Typography>
-              Are you sure you want to delete this student log entry? This action cannot be undone.
-            </Typography>
-          </DialogContent>
-          <DialogActions sx={{ p: 3, borderTop: '1px solid rgba(239, 68, 68, 0.2)' }}>
-            <Button 
-              onClick={handleCloseDeleteConfirm}
-              sx={{ 
-                color: '#9CA3AF',
-                '&:hover': { 
-                  backgroundColor: 'rgba(156, 163, 175, 0.1)' 
-                } 
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="contained"
-              color="error"
-              onClick={handleDeleteStudent}
-              sx={{ 
-                bgcolor: '#EF4444',
-                '&:hover': { 
-                  bgcolor: '#DC2626' 
-                } 
-              }}
-            >
-              Delete
-            </Button>
-          </DialogActions>
-        </Dialog>
+          <Alert
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            severity={snackbar.severity}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </Box>
     </Box>
   );
 };
 
-export default StaffTenantLog;
+export default StaffTenantLog; 

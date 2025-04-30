@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import {
   Box,
   Typography,
@@ -27,6 +27,7 @@ import {
   CircularProgress,
   Chip,
   TablePagination,
+  useTheme
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -44,9 +45,13 @@ import NotificationBell from '../components/NotificationBell';
 import DialogContentText from '@mui/material/DialogContentText';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { ThemeContext } from '../App';
 
 
 const AdminStaff = () => {
+  const { mode } = useContext(ThemeContext);
+  const theme = useTheme();
+  
   // State for staff management
   const [staff, setStaff] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
@@ -252,8 +257,10 @@ const AdminStaff = () => {
     <Box sx={{ 
       display: 'flex', 
       minHeight: '100vh',
-      background: 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)',
-      color: '#fff',
+      background: mode === 'dark'
+        ? 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)'
+        : 'linear-gradient(145deg, #f0f9f4 0%, #e6f7ee 100%)',
+      color: mode === 'dark' ? '#fff' : '#333',
       position: 'relative',
       '&::before': {
         content: '""',
@@ -262,7 +269,9 @@ const AdminStaff = () => {
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'radial-gradient(circle at top right, rgba(255,255,255,0.03) 0%, transparent 70%)',
+        background: mode === 'dark'
+          ? 'radial-gradient(circle at top right, rgba(255,255,255,0.03) 0%, transparent 70%)'
+          : 'radial-gradient(circle at top right, rgba(16, 185, 129, 0.05) 0%, transparent 80%)',
         pointerEvents: 'none',
       },
     }}>
@@ -287,24 +296,31 @@ const AdminStaff = () => {
           alignItems: 'center', 
           mb: 4,
           pb: 3,
-          borderBottom: '1px solid rgba(255,255,255,0.03)',
+          borderBottom: mode === 'dark'
+            ? '1px solid rgba(255,255,255,0.03)'
+            : '1px solid rgba(16, 185, 129, 0.1)',
         }}>
           <Box>
             <Typography variant="h4" sx={{ 
               fontWeight: 600, 
-              color: '#fff',
-              textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              color: mode === 'dark' ? '#fff' : '#333',
+              textShadow: mode === 'dark'
+                ? '0 2px 4px rgba(0,0,0,0.2)'
+                : '0 1px 2px rgba(0,0,0,0.05)',
             }}>
               Staff Management
             </Typography>
-            <Typography variant="body2" sx={{ color: '#6B7280', mt: 1 }}>
+            <Typography variant="body2" sx={{ 
+              color: mode === 'dark' ? '#6B7280' : '#6c757d', 
+              mt: 1 
+            }}>
               Manage staff members and their assignments.
             </Typography>
           </Box>
           <Stack direction="row" spacing={2} alignItems="center">
             <NotificationBell userType="admin" color="#10B981" />
             <IconButton sx={{ 
-              color: '#6B7280',
+              color: mode === 'dark' ? '#6B7280' : '#6c757d',
               transition: 'all 0.3s ease',
               '&:hover': {
                 color: '#10B981',
@@ -337,10 +353,16 @@ const AdminStaff = () => {
         <TableContainer 
           component={Paper} 
           sx={{ 
-            background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+            background: mode === 'dark'
+              ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+              : 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
             borderRadius: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.03)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+            border: mode === 'dark'
+              ? '1px solid rgba(255, 255, 255, 0.03)'
+              : '1px solid rgba(16, 185, 129, 0.15)',
+            boxShadow: mode === 'dark'
+              ? '0 4px 20px rgba(0,0,0,0.2)'
+              : '0 4px 20px rgba(16, 185, 129, 0.08)',
             overflow: 'hidden',
           }}
         >
@@ -348,18 +370,24 @@ const AdminStaff = () => {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ 
-                  color: '#fff',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  color: mode === 'dark' ? '#fff' : '#333',
+                  borderBottom: mode === 'dark'
+                    ? '1px solid rgba(255,255,255,0.05)'
+                    : '1px solid rgba(0,0,0,0.05)',
                   background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
                 }}>Name</TableCell>
                 <TableCell sx={{ 
-                  color: '#fff',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  color: mode === 'dark' ? '#fff' : '#333',
+                  borderBottom: mode === 'dark'
+                    ? '1px solid rgba(255,255,255,0.05)'
+                    : '1px solid rgba(0,0,0,0.05)',
                   background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
                 }}>Type</TableCell>
                 <TableCell sx={{ 
-                  color: '#fff',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  color: mode === 'dark' ? '#fff' : '#333',
+                  borderBottom: mode === 'dark'
+                    ? '1px solid rgba(255,255,255,0.05)'
+                    : '1px solid rgba(0,0,0,0.05)',
                   background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
                 }}>Actions</TableCell>
               </TableRow>
@@ -373,7 +401,7 @@ const AdminStaff = () => {
                 </TableRow>
               ) : staff.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} align="center" sx={{ py: 3, color: '#6B7280' }}>
+                  <TableCell colSpan={4} align="center" sx={{ py: 3, color: mode === 'dark' ? '#6B7280' : '#6c757d' }}>
                     No staff members found
                   </TableCell>
                 </TableRow>
@@ -384,13 +412,17 @@ const AdminStaff = () => {
                     sx={{
                       transition: 'all 0.3s ease',
                       '&:hover': {
-                        background: 'rgba(16, 185, 129, 0.05)',
+                        background: mode === 'dark'
+                          ? 'rgba(16, 185, 129, 0.05)'
+                          : 'rgba(16, 185, 129, 0.1)',
                       },
                     }}
                   >
                     <TableCell sx={{ 
-                      color: '#D1D5DB',
-                      borderBottom: '1px solid rgba(255,255,255,0.03)',
+                      color: mode === 'dark' ? '#D1D5DB' : '#333',
+                      borderBottom: mode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.03)'
+                        : '1px solid rgba(0,0,0,0.05)',
                     }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {getStaffTypeIcon(staffMember.typeOfStaff)}
@@ -398,11 +430,15 @@ const AdminStaff = () => {
                       </Box>
                     </TableCell>
                     <TableCell sx={{ 
-                      color: '#D1D5DB',
-                      borderBottom: '1px solid rgba(255,255,255,0.03)',
+                      color: mode === 'dark' ? '#D1D5DB' : '#333',
+                      borderBottom: mode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.03)'
+                        : '1px solid rgba(0,0,0,0.05)',
                     }}>{staffMember.typeOfStaff}</TableCell>
                     <TableCell sx={{ 
-                      borderBottom: '1px solid rgba(255,255,255,0.03)',
+                      borderBottom: mode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.03)'
+                        : '1px solid rgba(0,0,0,0.05)',
                     }}>
                       <IconButton 
                         onClick={() => handleViewStaff(staffMember)}
@@ -480,17 +516,26 @@ const AdminStaff = () => {
           onClose={() => setOpenDialog(false)}
           PaperProps={{
             sx: {
-              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-              color: '#fff',
+              background: mode === 'dark'
+                ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+                : 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
+              color: mode === 'dark' ? '#fff' : '#333',
               minWidth: '500px',
               borderRadius: '20px',
-              border: '1px solid rgba(255, 255, 255, 0.03)',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+              border: mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.03)'
+                : '1px solid rgba(16, 185, 129, 0.15)',
+              boxShadow: mode === 'dark'
+                ? '0 4px 20px rgba(0,0,0,0.2)'
+                : '0 4px 20px rgba(16, 185, 129, 0.08)',
             },
           }}
         >
           <DialogTitle sx={{ 
-            borderBottom: '1px solid rgba(255,255,255,0.03)',
+            color: mode === 'dark' ? 'white' : '#333',
+            borderBottom: mode === 'dark'
+              ? '1px solid rgba(255,255,255,0.03)'
+              : '1px solid rgba(0,0,0,0.05)',
             background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
             py: 2,
           }}>
@@ -508,9 +553,9 @@ const AdminStaff = () => {
                   required
                   sx={{ 
                     '& .MuiOutlinedInput-root': {
-                      color: '#fff',
+                      color: mode === 'dark' ? '#fff' : '#333',
                       '& fieldset': {
-                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                       },
                       '&:hover fieldset': {
                         borderColor: 'rgba(16, 185, 129, 0.5)',
@@ -520,7 +565,7 @@ const AdminStaff = () => {
                       },
                     },
                     '& .MuiInputLabel-root': {
-                      color: 'rgba(255,255,255,0.7)',
+                      color: mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
                     },
                     '& .Mui-focused.MuiInputLabel-root': {
                       color: '#10B981',
@@ -538,9 +583,9 @@ const AdminStaff = () => {
                   required
                   sx={{ 
                     '& .MuiOutlinedInput-root': {
-                      color: '#fff',
+                      color: mode === 'dark' ? '#fff' : '#333',
                       '& fieldset': {
-                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                       },
                       '&:hover fieldset': {
                         borderColor: 'rgba(16, 185, 129, 0.5)',
@@ -550,7 +595,7 @@ const AdminStaff = () => {
                       },
                     },
                     '& .MuiInputLabel-root': {
-                      color: 'rgba(255,255,255,0.7)',
+                      color: mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
                     },
                     '& .Mui-focused.MuiInputLabel-root': {
                       color: '#10B981',
@@ -568,9 +613,9 @@ const AdminStaff = () => {
                   required
                   sx={{ 
                     '& .MuiOutlinedInput-root': {
-                      color: '#fff',
+                      color: mode === 'dark' ? '#fff' : '#333',
                       '& fieldset': {
-                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                       },
                       '&:hover fieldset': {
                         borderColor: 'rgba(16, 185, 129, 0.5)',
@@ -580,7 +625,7 @@ const AdminStaff = () => {
                       },
                     },
                     '& .MuiInputLabel-root': {
-                      color: 'rgba(255,255,255,0.7)',
+                      color: mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
                     },
                     '& .Mui-focused.MuiInputLabel-root': {
                       color: '#10B981',
@@ -590,7 +635,7 @@ const AdminStaff = () => {
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth>
-                  <InputLabel id="type-of-staff-label" sx={{ color: 'rgba(255,255,255,0.7)' }}>Type of Staff</InputLabel>
+                  <InputLabel id="type-of-staff-label" sx={{ color: mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)' }}>Type of Staff</InputLabel>
                   <Select
                     labelId="type-of-staff-label"
                     id="typeOfStaff"
@@ -600,9 +645,9 @@ const AdminStaff = () => {
                     label="Type of Staff"
                     required
                     sx={{ 
-                      color: '#fff',
+                      color: mode === 'dark' ? '#fff' : '#333',
                       '& .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                       },
                       '&:hover .MuiOutlinedInput-notchedOutline': {
                         borderColor: 'rgba(16, 185, 129, 0.5)',
@@ -611,7 +656,7 @@ const AdminStaff = () => {
                         borderColor: '#10B981',
                       },
                       '& .MuiSelect-icon': {
-                        color: 'rgba(255,255,255,0.7)',
+                        color: mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.54)',
                       },
                     }}
                   >
@@ -623,12 +668,12 @@ const AdminStaff = () => {
               </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.03)' }}>
+          <DialogActions sx={{ p: 2, borderTop: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(0,0,0,0.05)' }}>
             <Button 
               onClick={() => setOpenDialog(false)}
               sx={{ 
-                color: 'rgba(255,255,255,0.7)',
-                '&:hover': { color: '#fff' },
+                color: mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
+                '&:hover': { color: mode === 'dark' ? '#fff' : '#000' },
               }}
             >
               Cancel
@@ -656,11 +701,17 @@ const AdminStaff = () => {
           fullWidth
           PaperProps={{
             sx: {
-              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-              color: '#fff',
+              background: mode === 'dark'
+                ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+                : 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
+              color: mode === 'dark' ? '#fff' : '#333',
               borderRadius: '20px',
-              border: '1px solid rgba(255, 255, 255, 0.03)',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+              border: mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.03)'
+                : '1px solid rgba(16, 185, 129, 0.15)',
+              boxShadow: mode === 'dark'
+                ? '0 4px 20px rgba(0,0,0,0.2)'
+                : '0 4px 20px rgba(16, 185, 129, 0.08)',
               minWidth: '600px',
               maxWidth: '800px',
             },
@@ -669,7 +720,7 @@ const AdminStaff = () => {
           {selectedStaff && (
             <>
               <DialogTitle sx={{ 
-                borderBottom: '1px solid rgba(255,255,255,0.03)',
+                borderBottom: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(0,0,0,0.05)',
                 background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
                 py: 2,
               }}>
@@ -677,7 +728,7 @@ const AdminStaff = () => {
                   display: 'flex', 
                   alignItems: 'center',
                   gap: 1,
-                  color: '#fff',
+                  color: mode === 'dark' ? '#fff' : '#333',
                 }}>
                   <VisibilityIcon sx={{ color: '#3B82F6' }} />
                   Staff Information
@@ -697,19 +748,19 @@ const AdminStaff = () => {
                     </Typography>
                     <Grid container spacing={2}>
                       <Grid item xs={6}>
-                        <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Name</Typography>
-                        <Typography variant="body1" sx={{ color: '#fff' }}>{selectedStaff.name}</Typography>
+                        <Typography variant="body2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#6c757d' }}>Name</Typography>
+                        <Typography variant="body1" sx={{ color: mode === 'dark' ? '#fff' : '#333' }}>{selectedStaff.name}</Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Staff Type</Typography>
-                        <Typography variant="body1" sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#6c757d' }}>Staff Type</Typography>
+                        <Typography variant="body1" sx={{ color: mode === 'dark' ? '#fff' : '#333', display: 'flex', alignItems: 'center', gap: 1 }}>
                           {getStaffTypeIcon(selectedStaff.typeOfStaff)}
                           {selectedStaff.typeOfStaff}
                         </Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Status</Typography>
-                        <Typography variant="body1" sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#6c757d' }}>Status</Typography>
+                        <Typography variant="body1" sx={{ color: mode === 'dark' ? '#fff' : '#333', display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Box
                             sx={{
                               width: 10,
@@ -722,8 +773,8 @@ const AdminStaff = () => {
                         </Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Created On</Typography>
-                        <Typography variant="body1" sx={{ color: '#fff' }}>
+                        <Typography variant="body2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#6c757d' }}>Created On</Typography>
+                        <Typography variant="body1" sx={{ color: mode === 'dark' ? '#fff' : '#333' }}>
                           {new Date(selectedStaff.createdAt).toLocaleDateString()}
                         </Typography>
                       </Grid>
@@ -745,10 +796,16 @@ const AdminStaff = () => {
                       <TableContainer 
                         component={Paper} 
                         sx={{ 
-                          background: 'linear-gradient(145deg, #161616 0%, #101010 100%)',
+                          background: mode === 'dark' 
+                            ? 'linear-gradient(145deg, #161616 0%, #101010 100%)'
+                            : 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
                           borderRadius: '12px',
-                          border: '1px solid rgba(255, 255, 255, 0.03)',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                          border: mode === 'dark' 
+                            ? '1px solid rgba(255, 255, 255, 0.03)'
+                            : '1px solid rgba(59, 130, 246, 0.15)',
+                          boxShadow: mode === 'dark'
+                            ? '0 4px 12px rgba(0,0,0,0.1)'
+                            : '0 4px 12px rgba(59, 130, 246, 0.1)',
                           mb: 2,
                           maxHeight: '250px',
                           overflow: 'auto',
@@ -757,7 +814,7 @@ const AdminStaff = () => {
                             height: '8px',
                           },
                           '&::-webkit-scrollbar-track': {
-                            background: 'rgba(0, 0, 0, 0.2)',
+                            background: mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)',
                             borderRadius: '4px',
                           },
                           '&::-webkit-scrollbar-thumb': {
@@ -775,24 +832,24 @@ const AdminStaff = () => {
                           <TableHead>
                             <TableRow>
                               <TableCell sx={{ 
-                                color: '#fff',
-                                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                color: mode === 'dark' ? '#fff' : '#333',
+                                borderBottom: mode === 'dark' ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)',
                                 background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
                                 py: 1.5,
                                 fontSize: '0.75rem',
                                 fontWeight: 'bold'
                               }}>Request Type</TableCell>
                               <TableCell sx={{ 
-                                color: '#fff',
-                                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                color: mode === 'dark' ? '#fff' : '#333',
+                                borderBottom: mode === 'dark' ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)',
                                 background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
                                 py: 1.5,
                                 fontSize: '0.75rem',
                                 fontWeight: 'bold'
                               }}>Status</TableCell>
                               <TableCell sx={{ 
-                                color: '#fff',
-                                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                color: mode === 'dark' ? '#fff' : '#333',
+                                borderBottom: mode === 'dark' ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)',
                                 background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
                                 py: 1.5,
                                 fontSize: '0.75rem',
@@ -804,14 +861,14 @@ const AdminStaff = () => {
                             {selectedStaff.assignedForms.map((form, index) => (
                               <TableRow key={index}>
                                 <TableCell sx={{ 
-                                  color: '#D1D5DB',
-                                  borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                  color: mode === 'dark' ? '#D1D5DB' : '#333',
+                                  borderBottom: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(0,0,0,0.05)',
                                   fontSize: '0.75rem'
                                 }}>
                                   {form.requestType || "Unknown Request"}
                                 </TableCell>
                                 <TableCell sx={{ 
-                                  borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                  borderBottom: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(0,0,0,0.05)',
                                   fontSize: '0.75rem'
                                 }}>
                                   <Chip
@@ -837,8 +894,8 @@ const AdminStaff = () => {
                                   />
                                 </TableCell>
                                 <TableCell sx={{ 
-                                  color: '#D1D5DB',
-                                  borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                  color: mode === 'dark' ? '#D1D5DB' : '#333',
+                                  borderBottom: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(0,0,0,0.05)',
                                   fontSize: '0.75rem'
                                 }}>
                                   {form.scheduledDate ? new Date(form.scheduledDate).toLocaleDateString() : "Not scheduled"}
@@ -849,14 +906,14 @@ const AdminStaff = () => {
                         </Table>
                       </TableContainer>
                     ) : (
-                      <Typography variant="body1" sx={{ color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', py: 2 }}>
+                      <Typography variant="body1" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#6c757d', fontStyle: 'italic', textAlign: 'center', py: 2 }}>
                         No forms assigned to this staff member.
                       </Typography>
                     )}
                   </Box>
                 </Box>
               </DialogContent>
-              <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.03)' }}>
+              <DialogActions sx={{ p: 2, borderTop: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(0,0,0,0.05)' }}>
                 <Button 
                   onClick={handleCloseViewDialog}
                   variant="contained"
@@ -886,32 +943,38 @@ const AdminStaff = () => {
           onClose={handleDeleteCancel}
           PaperProps={{
             sx: {
-              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-              color: '#fff',
+              background: mode === 'dark'
+                ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+                : 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
+              color: mode === 'dark' ? '#fff' : '#333',
               borderRadius: '20px',
-              border: '1px solid rgba(255, 255, 255, 0.03)',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+              border: mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.03)'
+                : '1px solid rgba(16, 185, 129, 0.15)',
+              boxShadow: mode === 'dark'
+                ? '0 4px 20px rgba(0,0,0,0.2)'
+                : '0 4px 20px rgba(16, 185, 129, 0.08)',
             },
           }}
         >
           <DialogTitle sx={{ 
-            borderBottom: '1px solid rgba(255,255,255,0.03)',
+            borderBottom: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(0,0,0,0.05)',
             background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)',
             color: '#EF4444',
           }}>
             Confirm Deletion
           </DialogTitle>
           <DialogContent sx={{ pt: 3, mt: 1 }}>
-            <DialogContentText sx={{ color: 'rgba(255,255,255,0.7)' }}>
+            <DialogContentText sx={{ color: mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)' }}>
               Are you sure you want to delete the staff member "{staffToDelete?.name}"? This action cannot be undone.
             </DialogContentText>
           </DialogContent>
-          <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.03)' }}>
+          <DialogActions sx={{ p: 2, borderTop: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(0,0,0,0.05)' }}>
             <Button 
               onClick={handleDeleteCancel}
               sx={{ 
-                color: 'rgba(255,255,255,0.7)',
-                '&:hover': { color: '#fff' },
+                color: mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
+                '&:hover': { color: mode === 'dark' ? '#fff' : '#000' },
               }}
             >
               Cancel
@@ -941,15 +1004,15 @@ const AdminStaff = () => {
           onRowsPerPageChange={handleChangeRowsPerPage}
           rowsPerPageOptions={[5, 10, 25]}
           sx={{
-            color: 'rgba(255,255,255,0.7)',
+            color: mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
             '.MuiTablePagination-selectIcon': {
-              color: 'rgba(255,255,255,0.7)'
+              color: mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.54)'
             },
             '.MuiTablePagination-displayedRows': {
-              color: 'rgba(255,255,255,0.7)'
+              color: mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)'
             },
             '.MuiTablePagination-select': {
-              color: 'rgba(255,255,255,0.7)'
+              color: mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)'
             }
           }}
         />

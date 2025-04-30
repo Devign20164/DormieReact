@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import {
   Box,
   Typography,
@@ -25,6 +25,7 @@ import {
   InputLabel,
   FormControl,
   CircularProgress,
+  useTheme
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -37,8 +38,17 @@ import {
 import AdminSidebar from '../components/AdminSidebar';
 import NotificationBell from '../components/NotificationBell';
 import DialogContentText from '@mui/material/DialogContentText';
+import { ThemeContext } from '../App';
+
+// Add these color constants at the top of the file
+const EGGSHELL_WHITE = "#F0EAD6";
+const EMERALD_GREEN = "#50C878";
+const DARK_EMERALD = "#2E8B57";
 
 const AdminStudent = () => {
+  const { mode } = useContext(ThemeContext);
+  const theme = useTheme();
+
   // State for student management
   const [students, setStudents] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
@@ -430,10 +440,19 @@ const AdminStudent = () => {
       return;
     }
 
+    // Extract the ID if roomId is an object
+    const actualRoomId = typeof roomId === 'object' && roomId !== null ? roomId._id : roomId;
+    
+    if (!actualRoomId) {
+      setStudentRoom(null);
+      setStudentBuilding(null);
+      return;
+    }
+
     try {
       setLoadingRoomDetails(true);
       // Fetch room details
-      const roomResponse = await fetch(`/api/admin/rooms/${roomId}`);
+      const roomResponse = await fetch(`/api/admin/rooms/${actualRoomId}`);
       if (!roomResponse.ok) {
         throw new Error('Failed to fetch room details');
       }
@@ -556,8 +575,10 @@ const AdminStudent = () => {
     <Box sx={{ 
       display: 'flex', 
       minHeight: '100vh',
-      background: 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)',
-      color: '#fff',
+      background: mode === 'dark' 
+        ? 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)'
+        : '#FAF5EE',
+      color: mode === 'dark' ? '#fff' : '#000',
       position: 'relative',
       '&::before': {
         content: '""',
@@ -591,17 +612,22 @@ const AdminStudent = () => {
           alignItems: 'center', 
           mb: 4,
           pb: 3,
-          borderBottom: '1px solid rgba(255,255,255,0.03)',
+          borderBottom: mode === 'dark' 
+            ? '1px solid rgba(255,255,255,0.03)'
+            : '1px solid #1D503A',
         }}>
           <Box>
             <Typography variant="h4" sx={{ 
               fontWeight: 600, 
-              color: '#fff',
+              color: mode === 'dark' ? '#fff' : '#000',
               textShadow: '0 2px 4px rgba(0,0,0,0.2)',
             }}>
               Student Management
             </Typography>
-            <Typography variant="body2" sx={{ color: '#6B7280', mt: 1 }}>
+            <Typography variant="body2" sx={{ 
+              color: mode === 'dark' ? '#6B7280' : '#1D503A',
+              mt: 1 
+            }}>
               Manage student information and dormitory assignments.
             </Typography>
           </Box>
@@ -641,9 +667,13 @@ const AdminStudent = () => {
         <TableContainer 
           component={Paper} 
           sx={{ 
-            background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+            background: mode === 'dark'
+              ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+              : '#FAF5EE',
             borderRadius: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.03)',
+            border: mode === 'dark'
+              ? '1px solid rgba(255, 255, 255, 0.03)'
+              : '1px solid #1D503A',
             boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
             overflow: 'hidden',
           }}
@@ -652,29 +682,49 @@ const AdminStudent = () => {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ 
-                  color: '#fff',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
-                  background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
+                  color: mode === 'dark' ? '#fff' : '#000',
+                  borderBottom: mode === 'dark'
+                    ? '1px solid rgba(255,255,255,0.05)'
+                    : '1px solid #1D503A',
+                  background: mode === 'dark'
+                    ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                    : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
                 }}>Name</TableCell>
                 <TableCell sx={{ 
-                  color: '#fff',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
-                  background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
+                  color: mode === 'dark' ? '#fff' : '#000',
+                  borderBottom: mode === 'dark'
+                    ? '1px solid rgba(255,255,255,0.05)'
+                    : '1px solid #1D503A',
+                  background: mode === 'dark'
+                    ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                    : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
                 }}>Email</TableCell>
                 <TableCell sx={{ 
-                  color: '#fff',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
-                  background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
+                  color: mode === 'dark' ? '#fff' : '#000',
+                  borderBottom: mode === 'dark'
+                    ? '1px solid rgba(255,255,255,0.05)'
+                    : '1px solid #1D503A',
+                  background: mode === 'dark'
+                    ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                    : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
                 }}>Course Year</TableCell>
                 <TableCell sx={{ 
-                  color: '#fff',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
-                  background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
+                  color: mode === 'dark' ? '#fff' : '#000',
+                  borderBottom: mode === 'dark'
+                    ? '1px solid rgba(255,255,255,0.05)'
+                    : '1px solid #1D503A',
+                  background: mode === 'dark'
+                    ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                    : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
                 }}>Dorm Number</TableCell>
                 <TableCell sx={{ 
-                  color: '#fff',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
-                  background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
+                  color: mode === 'dark' ? '#fff' : '#000',
+                  borderBottom: mode === 'dark'
+                    ? '1px solid rgba(255,255,255,0.05)'
+                    : '1px solid #1D503A',
+                  background: mode === 'dark'
+                    ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                    : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
                 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -685,28 +735,43 @@ const AdminStudent = () => {
                   sx={{
                     transition: 'all 0.3s ease',
                     '&:hover': {
-                      background: 'rgba(16, 185, 129, 0.05)',
+                      background: mode === 'dark' ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.02)',
                     },
                   }}
                 >
                   <TableCell sx={{ 
-                    color: '#D1D5DB',
+                    color: mode === 'dark' ? '#D1D5DB' : '#333',
                     borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    ...(mode === 'light' && {
+                      borderBottom: '1px solid rgba(0,0,0,0.1)',
+                    })
                   }}>{student.name}</TableCell>
                   <TableCell sx={{ 
-                    color: '#D1D5DB',
+                    color: mode === 'dark' ? '#D1D5DB' : '#333',
                     borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    ...(mode === 'light' && {
+                      borderBottom: '1px solid rgba(0,0,0,0.1)',
+                    })
                   }}>{student.email}</TableCell>
                   <TableCell sx={{ 
-                    color: '#D1D5DB',
+                    color: mode === 'dark' ? '#D1D5DB' : '#333',
                     borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    ...(mode === 'light' && {
+                      borderBottom: '1px solid rgba(0,0,0,0.1)',
+                    })
                   }}>{student.courseYear}</TableCell>
                   <TableCell sx={{ 
-                    color: '#D1D5DB',
+                    color: mode === 'dark' ? '#D1D5DB' : '#333',
                     borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    ...(mode === 'light' && {
+                      borderBottom: '1px solid rgba(0,0,0,0.1)',
+                    })
                   }}>{student.studentDormNumber}</TableCell>
                   <TableCell sx={{ 
                     borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    ...(mode === 'light' && {
+                      borderBottom: '1px solid rgba(0,0,0,0.1)',
+                    })
                   }}>
                     <IconButton 
                       onClick={() => handleViewStudent(student)}
@@ -810,20 +875,28 @@ const AdminStudent = () => {
           onClose={() => setOpenDialog(false)}
           PaperProps={{
             sx: {
-              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-              color: '#fff',
+              background: mode === 'dark'
+                ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+                : '#FAF5EE',
+              color: mode === 'dark' ? '#fff' : '#000',
               minWidth: '500px',
               maxHeight: '90vh',
               borderRadius: '20px',
-              border: '1px solid rgba(255, 255, 255, 0.03)',
+              border: mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.03)'
+                : '1px solid #1D503A',
               boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-              zIndex: 1300,
             },
           }}
         >
           <DialogTitle sx={{ 
-            borderBottom: '1px solid rgba(255,255,255,0.03)',
-            background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
+            borderBottom: mode === 'dark'
+              ? '1px solid rgba(255,255,255,0.03)'
+              : '1px solid #1D503A',
+            background: mode === 'dark'
+              ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+              : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+            color: mode === 'dark' ? '#fff' : '#000',
           }}>
             {editingStudent ? 'Edit Student' : 'Add Student'}
           </DialogTitle>
@@ -967,9 +1040,11 @@ const AdminStudent = () => {
                 {/* Personal Information Section */}
                 <Box mb={3}>
                   <Typography variant="subtitle1" sx={{ 
-                    color: '#10B981', 
+                    color: mode === 'dark' ? '#10B981' : EMERALD_GREEN, 
                     mb: 2,
-                    borderBottom: '1px solid rgba(16, 185, 129, 0.2)',
+                    borderBottom: mode === 'dark'
+                      ? '1px solid rgba(16, 185, 129, 0.2)'
+                      : `1px solid ${EMERALD_GREEN}`,
                     pb: 1,
                   }}>
                     Personal Information
@@ -984,21 +1059,21 @@ const AdminStudent = () => {
                       fullWidth
                       sx={{ 
                         '& .MuiOutlinedInput-root': {
-                          color: '#fff',
+                          color: mode === 'dark' ? '#fff' : '#000',
                           '& fieldset': {
-                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(29, 80, 58, 0.3)',
                           },
                           '&:hover fieldset': {
-                            borderColor: 'rgba(16, 185, 129, 0.5)',
+                            borderColor: mode === 'dark' ? 'rgba(16, 185, 129, 0.5)' : 'rgba(29, 80, 58, 0.5)',
                           },
                           '&.Mui-focused fieldset': {
-                            borderColor: '#10B981',
+                            borderColor: mode === 'dark' ? '#10B981' : '#1D503A',
                           },
                         },
                         '& .MuiInputLabel-root': {
-                          color: '#9CA3AF',
+                          color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
                           '&.Mui-focused': {
-                            color: '#10B981',
+                            color: mode === 'dark' ? '#10B981' : '#1D503A',
                           },
                         },
                       }}
@@ -1015,22 +1090,25 @@ const AdminStudent = () => {
                       fullWidth
                       sx={{ 
                         '& .MuiOutlinedInput-root': {
-                          color: '#fff',
+                          color: mode === 'dark' ? '#fff' : '#000',
                           '& fieldset': {
-                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(29, 80, 58, 0.3)',
                           },
                           '&:hover fieldset': {
-                            borderColor: 'rgba(16, 185, 129, 0.5)',
+                            borderColor: mode === 'dark' ? 'rgba(16, 185, 129, 0.5)' : 'rgba(29, 80, 58, 0.5)',
                           },
                           '&.Mui-focused fieldset': {
-                            borderColor: '#10B981',
+                            borderColor: mode === 'dark' ? '#10B981' : '#1D503A',
                           },
                         },
                         '& .MuiInputLabel-root': {
-                          color: '#9CA3AF',
+                          color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
                           '&.Mui-focused': {
-                            color: '#10B981',
+                            color: mode === 'dark' ? '#10B981' : '#1D503A',
                           },
+                        },
+                        '& .MuiFormHelperText-root': {
+                          color: '#EF4444',
                         },
                       }}
                     />
@@ -1045,30 +1123,33 @@ const AdminStudent = () => {
                       fullWidth
                       sx={{ 
                         '& .MuiOutlinedInput-root': {
-                          color: '#fff',
+                          color: mode === 'dark' ? '#fff' : '#000',
                           '& fieldset': {
-                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(29, 80, 58, 0.3)',
                           },
                           '&:hover fieldset': {
-                            borderColor: 'rgba(16, 185, 129, 0.5)',
+                            borderColor: mode === 'dark' ? 'rgba(16, 185, 129, 0.5)' : 'rgba(29, 80, 58, 0.5)',
                           },
                           '&.Mui-focused fieldset': {
-                            borderColor: '#10B981',
+                            borderColor: mode === 'dark' ? '#10B981' : '#1D503A',
                           },
                         },
                         '& .MuiInputLabel-root': {
-                          color: '#9CA3AF',
+                          color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
                           '&.Mui-focused': {
-                            color: '#10B981',
+                            color: mode === 'dark' ? '#10B981' : '#1D503A',
                           },
+                        },
+                        '& .MuiFormHelperText-root': {
+                          color: '#EF4444',
                         },
                       }}
                     />
                     <FormControl fullWidth>
                       <InputLabel sx={{ 
-                        color: '#9CA3AF',
+                        color: mode === 'dark' ? '#9CA3AF' : DARK_EMERALD,
                         '&.Mui-focused': {
-                          color: '#10B981',
+                          color: mode === 'dark' ? '#10B981' : EMERALD_GREEN,
                         },
                       }}>
                         Gender
@@ -1079,18 +1160,19 @@ const AdminStudent = () => {
                         value={formData.gender}
                         onChange={handleInputChange}
                         sx={{
-                          color: '#fff',
+                          color: mode === 'dark' ? '#fff' : '#000',
+                          backgroundColor: mode === 'dark' ? 'transparent' : 'rgba(255, 255, 255, 0.7)',
                           '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : `rgba(80, 200, 120, 0.3)`,
                           },
                           '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'rgba(16, 185, 129, 0.5)',
+                            borderColor: mode === 'dark' ? 'rgba(16, 185, 129, 0.5)' : DARK_EMERALD,
                           },
                           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#10B981',
+                            borderColor: mode === 'dark' ? '#10B981' : EMERALD_GREEN,
                           },
                           '& .MuiSvgIcon-root': {
-                            color: '#9CA3AF',
+                            color: mode === 'dark' ? '#9CA3AF' : DARK_EMERALD,
                           },
                         }}
                       >
@@ -1134,9 +1216,11 @@ const AdminStudent = () => {
                 {/* Academic Information Section */}
                 <Box mb={3}>
                   <Typography variant="subtitle1" sx={{ 
-                    color: '#10B981', 
+                    color: mode === 'dark' ? '#10B981' : EMERALD_GREEN, 
                     mb: 2,
-                    borderBottom: '1px solid rgba(16, 185, 129, 0.2)',
+                    borderBottom: mode === 'dark'
+                      ? '1px solid rgba(16, 185, 129, 0.2)'
+                      : `1px solid ${EMERALD_GREEN}`,
                     pb: 1,
                   }}>
                     Academic Information
@@ -1206,9 +1290,11 @@ const AdminStudent = () => {
                 {/* Dormitory Assignment Section */}
                 <Box mb={3}>
                   <Typography variant="subtitle1" sx={{ 
-                    color: '#10B981', 
+                    color: mode === 'dark' ? '#10B981' : EMERALD_GREEN, 
                     mb: 2,
-                    borderBottom: '1px solid rgba(16, 185, 129, 0.2)',
+                    borderBottom: mode === 'dark'
+                      ? '1px solid rgba(16, 185, 129, 0.2)'
+                      : `1px solid ${EMERALD_GREEN}`,
                     pb: 1,
                   }}>
                     Dormitory Assignment
@@ -1216,9 +1302,9 @@ const AdminStudent = () => {
                   <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
                     <FormControl fullWidth>
                       <InputLabel sx={{ 
-                        color: '#9CA3AF',
+                        color: mode === 'dark' ? '#9CA3AF' : DARK_EMERALD,
                         '&.Mui-focused': {
-                          color: '#10B981',
+                          color: mode === 'dark' ? '#10B981' : EMERALD_GREEN,
                         },
                       }}>
                         Building
@@ -1231,18 +1317,19 @@ const AdminStudent = () => {
                         error={!!validationErrors.building}
                         disabled={loadingBuildings}
                         sx={{
-                          color: '#fff',
+                          color: mode === 'dark' ? '#fff' : '#000',
+                          backgroundColor: mode === 'dark' ? 'transparent' : 'rgba(255, 255, 255, 0.7)',
                           '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : `rgba(80, 200, 120, 0.3)`,
                           },
                           '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'rgba(16, 185, 129, 0.5)',
+                            borderColor: mode === 'dark' ? 'rgba(16, 185, 129, 0.5)' : DARK_EMERALD,
                           },
                           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#10B981',
+                            borderColor: mode === 'dark' ? '#10B981' : EMERALD_GREEN,
                           },
                           '& .MuiSvgIcon-root': {
-                            color: '#9CA3AF',
+                            color: mode === 'dark' ? '#9CA3AF' : DARK_EMERALD,
                           },
                         }}
                       >
@@ -1273,9 +1360,9 @@ const AdminStudent = () => {
                     </FormControl>
                     <FormControl fullWidth>
                       <InputLabel sx={{ 
-                        color: '#9CA3AF',
+                        color: mode === 'dark' ? '#9CA3AF' : DARK_EMERALD,
                         '&.Mui-focused': {
-                          color: '#10B981',
+                          color: mode === 'dark' ? '#10B981' : EMERALD_GREEN,
                         },
                       }}>
                         Room
@@ -1288,18 +1375,19 @@ const AdminStudent = () => {
                         error={!!validationErrors.room}
                         disabled={loadingRooms || !formData.building}
                         sx={{
-                          color: '#fff',
+                          color: mode === 'dark' ? '#fff' : '#000',
+                          backgroundColor: mode === 'dark' ? 'transparent' : 'rgba(255, 255, 255, 0.7)',
                           '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : `rgba(80, 200, 120, 0.3)`,
                           },
                           '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'rgba(16, 185, 129, 0.5)',
+                            borderColor: mode === 'dark' ? 'rgba(16, 185, 129, 0.5)' : DARK_EMERALD,
                           },
                           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#10B981',
+                            borderColor: mode === 'dark' ? '#10B981' : EMERALD_GREEN,
                           },
                           '& .MuiSvgIcon-root': {
-                            color: '#9CA3AF',
+                            color: mode === 'dark' ? '#9CA3AF' : DARK_EMERALD,
                           },
                         }}
                       >
@@ -1333,9 +1421,11 @@ const AdminStudent = () => {
                 {/* Parent Information Section */}
                 <Box>
                   <Typography variant="subtitle1" sx={{ 
-                    color: '#10B981', 
+                    color: mode === 'dark' ? '#10B981' : EMERALD_GREEN, 
                     mb: 2,
-                    borderBottom: '1px solid rgba(16, 185, 129, 0.2)',
+                    borderBottom: mode === 'dark'
+                      ? '1px solid rgba(16, 185, 129, 0.2)'
+                      : `1px solid ${EMERALD_GREEN}`,
                     pb: 1,
                   }}>
                     Parent Information
@@ -1484,13 +1574,13 @@ const AdminStudent = () => {
               </Box>
             )}
           </DialogContent>
-          <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.03)' }}>
+          <DialogActions sx={{ p: 2, borderTop: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid #1D503A' }}>
             <Button 
               onClick={() => setOpenDialog(false)} 
               sx={{ 
-                color: '#9CA3AF',
+                color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
                 '&:hover': {
-                  background: 'rgba(255,255,255,0.05)',
+                  background: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(29, 80, 58, 0.1)',
                 },
               }}
             >
@@ -1500,13 +1590,21 @@ const AdminStudent = () => {
               onClick={editingStudent ? handleUpdateStudent : handleCreateStudent}
               variant="contained"
               sx={{
-                background: 'linear-gradient(90deg, #10B981 0%, #059669 100%)',
-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
+                background: mode === 'dark'
+                  ? 'linear-gradient(90deg, #10B981 0%, #059669 100%)'
+                  : 'linear-gradient(90deg, #1D503A 0%, #0F3724 100%)',
+                boxShadow: mode === 'dark'
+                  ? '0 4px 12px rgba(16, 185, 129, 0.2)'
+                  : '0 4px 12px rgba(29, 80, 58, 0.2)',
                 transition: 'all 0.3s ease',
                 '&:hover': {
                   transform: 'translateY(-1px)',
-                  boxShadow: '0 6px 15px rgba(16, 185, 129, 0.3)',
-                  background: 'linear-gradient(90deg, #059669 0%, #047857 100%)',
+                  boxShadow: mode === 'dark'
+                    ? '0 6px 15px rgba(16, 185, 129, 0.3)'
+                    : '0 6px 15px rgba(29, 80, 58, 0.3)',
+                  background: mode === 'dark'
+                    ? 'linear-gradient(90deg, #059669 0%, #047857 100%)'
+                    : 'linear-gradient(90deg, #0F3724 0%, #0A2A1C 100%)',
                 },
               }}
             >
@@ -1523,10 +1621,14 @@ const AdminStudent = () => {
           aria-describedby="delete-dialog-description"
           PaperProps={{
             sx: {
-              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-              color: '#fff',
+              background: mode === 'dark'
+                ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+                : '#FAF5EE', // Eggshell white
+              color: mode === 'dark' ? '#fff' : '#1D503A', // Dark emerald green text
               borderRadius: '20px',
-              border: '1px solid rgba(255, 255, 255, 0.03)',
+              border: mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.03)'
+                : '1px solid #1D503A', // Dark emerald green border
               boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
               minWidth: '400px',
             },
@@ -1535,26 +1637,31 @@ const AdminStudent = () => {
           <DialogTitle 
             id="delete-dialog-title"
             sx={{ 
-              borderBottom: '1px solid rgba(255,255,255,0.03)',
-              background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)',
+              borderBottom: mode === 'dark'
+                ? '1px solid rgba(255,255,255,0.03)'
+                : '1px solid #1D503A', // Dark emerald green border
+              background: mode === 'dark'
+                ? 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)'
+                : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)', // Emerald green gradient
               py: 2,
               display: 'flex',
               alignItems: 'center',
               gap: 1,
+              color: mode === 'dark' ? '#fff' : '#1D503A', // Dark emerald green text
             }}
           >
-            <DeleteIcon sx={{ color: '#EF4444' }} />
-            <Box component="span" sx={{ color: '#fff' }}>
+            <DeleteIcon sx={{ color: mode === 'dark' ? '#EF4444' : '#1D503A' }} />
+            <Box component="span" sx={{ color: mode === 'dark' ? '#fff' : '#1D503A' }}>
               Confirm Delete
             </Box>
           </DialogTitle>
           <DialogContent sx={{ mt: 2 }}>
-            <Box sx={{ color: '#D1D5DB', fontSize: '1rem' }}>
-              Are you sure you want to delete <Box component="span" sx={{ color: '#EF4444', fontWeight: 500 }}>{studentToDelete?.name}</Box>?
+            <Box sx={{ color: mode === 'dark' ? '#D1D5DB' : '#1D503A', fontSize: '1rem' }}>
+              Are you sure you want to delete <Box component="span" sx={{ color: mode === 'dark' ? '#EF4444' : '#1D503A', fontWeight: 500 }}>{studentToDelete?.name}</Box>?
             </Box>
             <Box 
               sx={{ 
-                color: '#9CA3AF',
+                color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
                 mt: 1,
                 fontSize: '0.875rem'
               }}
@@ -1562,14 +1669,14 @@ const AdminStudent = () => {
               This action cannot be undone.
             </Box>
           </DialogContent>
-          <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.03)' }}>
+          <DialogActions sx={{ p: 2, borderTop: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(29, 80, 58, 0.2)' }}>
             <Button 
               onClick={handleDeleteCancel}
               sx={{ 
-                color: '#9CA3AF',
+                color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
                 px: 3,
                 '&:hover': {
-                  background: 'rgba(255,255,255,0.05)',
+                  background: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(29, 80, 58, 0.1)',
                 },
               }}
             >
@@ -1579,15 +1686,23 @@ const AdminStudent = () => {
               onClick={handleDeleteConfirm}
               variant="contained"
               sx={{
-                background: 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)',
+                background: mode === 'dark'
+                  ? 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)'
+                  : 'linear-gradient(90deg, #1D503A 0%, #0F3724 100%)',
                 color: '#fff',
                 px: 3,
-                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)',
+                boxShadow: mode === 'dark'
+                  ? '0 4px 12px rgba(239, 68, 68, 0.2)'
+                  : '0 4px 12px rgba(29, 80, 58, 0.2)',
                 transition: 'all 0.3s ease',
                 '&:hover': {
                   transform: 'translateY(-1px)',
-                  boxShadow: '0 6px 15px rgba(239, 68, 68, 0.3)',
-                  background: 'linear-gradient(90deg, #DC2626 0%, #B91C1C 100%)',
+                  boxShadow: mode === 'dark'
+                    ? '0 6px 15px rgba(239, 68, 68, 0.3)'
+                    : '0 6px 15px rgba(29, 80, 58, 0.3)',
+                  background: mode === 'dark'
+                    ? 'linear-gradient(90deg, #DC2626 0%, #B91C1C 100%)'
+                    : 'linear-gradient(90deg, #0F3724 0%, #0A2A1C 100%)',
                 },
               }}
             >
@@ -1602,10 +1717,14 @@ const AdminStudent = () => {
           onClose={() => setViewDialogOpen(false)}
           PaperProps={{
             sx: {
-              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-              color: '#fff',
+              background: mode === 'dark'
+                ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+                : '#FAF5EE', // Eggshell white
+              color: mode === 'dark' ? '#fff' : '#1D503A', // Dark emerald green text
               borderRadius: '20px',
-              border: '1px solid rgba(255, 255, 255, 0.03)',
+              border: mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.03)'
+                : '1px solid #1D503A', // Dark emerald green border
               boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
               minWidth: '600px',
               maxWidth: '800px',
@@ -1613,17 +1732,21 @@ const AdminStudent = () => {
           }}
         >
           <DialogTitle sx={{ 
-            borderBottom: '1px solid rgba(255,255,255,0.03)',
-            background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
+            borderBottom: mode === 'dark'
+              ? '1px solid rgba(255,255,255,0.03)'
+              : '1px solid #1D503A', // Dark emerald green border
+            background: mode === 'dark'
+              ? 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)'
+              : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)', // Emerald green gradient
             py: 2,
           }}>
             <Typography variant="h6" sx={{ 
               display: 'flex', 
               alignItems: 'center',
               gap: 1,
-              color: '#fff',
+              color: mode === 'dark' ? '#fff' : '#1D503A', // Dark emerald green text
             }}>
-              <VisibilityIcon sx={{ color: '#3B82F6' }} />
+              <VisibilityIcon sx={{ color: mode === 'dark' ? '#3B82F6' : '#1D503A' }} />
               Student Information
             </Typography>
           </DialogTitle>
@@ -1633,29 +1756,31 @@ const AdminStudent = () => {
                 {/* Personal Information Section */}
                 <Box>
                   <Typography variant="subtitle1" sx={{ 
-                    color: '#3B82F6', 
+                    color: mode === 'dark' ? '#3B82F6' : '#1D503A', // Dark emerald green
                     mb: 2,
-                    borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+                    borderBottom: mode === 'dark'
+                      ? '1px solid rgba(59, 130, 246, 0.2)'
+                      : '1px solid rgba(29, 80, 58, 0.2)', // Emerald green border
                     pb: 1,
                   }}>
                     Personal Information
                   </Typography>
                   <Grid container spacing={2}>
                     <Grid item xs={6}>
-                      <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Name</Typography>
-                      <Typography variant="body1" sx={{ color: '#fff' }}>{selectedStudent.name}</Typography>
+                      <Typography variant="body2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#1D503A' }}>Name</Typography>
+                      <Typography variant="body1" sx={{ color: mode === 'dark' ? '#fff' : '#000' }}>{selectedStudent.name}</Typography>
                     </Grid>
                     <Grid item xs={6}>
-                      <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Email</Typography>
-                      <Typography variant="body1" sx={{ color: '#fff' }}>{selectedStudent.email}</Typography>
+                      <Typography variant="body2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#1D503A' }}>Email</Typography>
+                      <Typography variant="body1" sx={{ color: mode === 'dark' ? '#fff' : '#000' }}>{selectedStudent.email}</Typography>
                     </Grid>
                     <Grid item xs={6}>
-                      <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Contact Info</Typography>
-                      <Typography variant="body1" sx={{ color: '#fff' }}>{selectedStudent.contactInfo}</Typography>
+                      <Typography variant="body2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#1D503A' }}>Contact Info</Typography>
+                      <Typography variant="body1" sx={{ color: mode === 'dark' ? '#fff' : '#000' }}>{selectedStudent.contactInfo}</Typography>
                     </Grid>
                     <Grid item xs={6}>
-                      <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Gender</Typography>
-                      <Typography variant="body1" sx={{ color: '#fff' }}>{selectedStudent.gender || 'Not specified'}</Typography>
+                      <Typography variant="body2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#1D503A' }}>Gender</Typography>
+                      <Typography variant="body1" sx={{ color: mode === 'dark' ? '#fff' : '#000' }}>{selectedStudent.gender || 'Not specified'}</Typography>
                     </Grid>
                   </Grid>
                 </Box>
@@ -1663,21 +1788,23 @@ const AdminStudent = () => {
                 {/* Academic Information Section */}
                 <Box>
                   <Typography variant="subtitle1" sx={{ 
-                    color: '#3B82F6', 
+                    color: mode === 'dark' ? '#3B82F6' : '#1D503A', // Dark emerald green
                     mb: 2,
-                    borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+                    borderBottom: mode === 'dark'
+                      ? '1px solid rgba(59, 130, 246, 0.2)'
+                      : '1px solid rgba(29, 80, 58, 0.2)', // Emerald green border
                     pb: 1,
                   }}>
                     Academic Information
                   </Typography>
                   <Grid container spacing={2}>
                     <Grid item xs={6}>
-                      <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Course Year</Typography>
-                      <Typography variant="body1" sx={{ color: '#fff' }}>{selectedStudent.courseYear}</Typography>
+                      <Typography variant="body2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#1D503A' }}>Course Year</Typography>
+                      <Typography variant="body1" sx={{ color: mode === 'dark' ? '#fff' : '#000' }}>{selectedStudent.courseYear}</Typography>
                     </Grid>
                     <Grid item xs={6}>
-                      <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Dorm Number</Typography>
-                      <Typography variant="body1" sx={{ color: '#fff' }}>{selectedStudent.studentDormNumber}</Typography>
+                      <Typography variant="body2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#1D503A' }}>Dorm Number</Typography>
+                      <Typography variant="body1" sx={{ color: mode === 'dark' ? '#fff' : '#000' }}>{selectedStudent.studentDormNumber}</Typography>
                     </Grid>
                   </Grid>
                 </Box>
@@ -1685,59 +1812,90 @@ const AdminStudent = () => {
                 {/* Dormitory Information Section */}
                 <Box>
                   <Typography variant="subtitle1" sx={{ 
-                    color: '#3B82F6', 
+                    color: mode === 'dark' ? '#3B82F6' : '#1D503A', // Dark emerald green
                     mb: 2,
-                    borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+                    borderBottom: mode === 'dark'
+                      ? '1px solid rgba(59, 130, 246, 0.2)'
+                      : '1px solid rgba(29, 80, 58, 0.2)', // Emerald green border
                     pb: 1,
                   }}>
                     Dormitory Information
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Building</Typography>
-                      {loadingRoomDetails ? (
-                        <CircularProgress size={16} sx={{ color: '#3B82F6', ml: 1 }} />
-                      ) : (
-                        <Typography variant="body1" sx={{ color: '#fff' }}>
-                          {studentBuilding ? studentBuilding.name : 'Not assigned'}
-                        </Typography>
+                    {/* Building Information */}
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" sx={{ 
+                          color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
+                          fontWeight: 500 
+                        }}>Building</Typography>
+                        {loadingRoomDetails ? (
+                          <CircularProgress size={16} sx={{ color: mode === 'dark' ? '#3B82F6' : '#1D503A', ml: 1 }} />
+                        ) : (
+                          <Typography variant="body1" sx={{ 
+                            color: mode === 'dark' ? '#fff' : '#000',
+                            fontWeight: 400
+                          }}>
+                            {studentBuilding ? studentBuilding.name : 'Not assigned'}
+                          </Typography>
+                        )}
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" sx={{ 
+                          color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
+                          fontWeight: 500 
+                        }}>Room Number</Typography>
+                        {loadingRoomDetails ? (
+                          <CircularProgress size={16} sx={{ color: mode === 'dark' ? '#3B82F6' : '#1D503A', ml: 1 }} />
+                        ) : (
+                          <Typography variant="body1" sx={{ 
+                            color: mode === 'dark' ? '#fff' : '#000',
+                            fontWeight: 400
+                          }}>
+                            {studentRoom ? studentRoom.roomNumber : 'Not assigned'}
+                          </Typography>
+                        )}
+                      </Grid>
+                      {studentRoom && (
+                        <>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ 
+                              color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
+                              fontWeight: 500 
+                            }}>Room Type</Typography>
+                            <Typography variant="body1" sx={{ 
+                              color: mode === 'dark' ? '#fff' : '#000',
+                              fontWeight: 400
+                            }}>
+                              {studentRoom.type}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ 
+                              color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
+                              fontWeight: 500 
+                            }}>Room Price</Typography>
+                            <Typography variant="body1" sx={{ 
+                              color: mode === 'dark' ? '#fff' : '#000',
+                              fontWeight: 400
+                            }}>
+                              ${studentRoom.price}
+                            </Typography>
+                          </Grid>
+                        </>
                       )}
                     </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Room Number</Typography>
-                      {loadingRoomDetails ? (
-                        <CircularProgress size={16} sx={{ color: '#3B82F6', ml: 1 }} />
-                      ) : (
-                        <Typography variant="body1" sx={{ color: '#fff' }}>
-                          {studentRoom ? studentRoom.roomNumber : 'Not assigned'}
-                        </Typography>
-                      )}
-                    </Grid>
-                    {studentRoom && (
-                      <>
-                        <Grid item xs={6}>
-                          <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Room Type</Typography>
-                          <Typography variant="body1" sx={{ color: '#fff' }}>
-                            {studentRoom.type}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Room Price</Typography>
-                          <Typography variant="body1" sx={{ color: '#fff' }}>
-                            ${studentRoom.price}
-                          </Typography>
-                        </Grid>
-                      </>
-                    )}
                   </Grid>
                 </Box>
 
                 {/* Offense History Section */}
                 <Box>
                   <Typography variant="subtitle1" sx={{ 
-                    color: '#3B82F6', 
+                    color: mode === 'dark' ? '#3B82F6' : '#1D503A', // Dark emerald green
                     mb: 2,
-                    borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+                    borderBottom: mode === 'dark'
+                      ? '1px solid rgba(59, 130, 246, 0.2)'
+                      : '1px solid rgba(29, 80, 58, 0.2)', // Emerald green border
                     pb: 1,
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -1753,15 +1911,21 @@ const AdminStudent = () => {
                         size="small"
                         onClick={handleOpenOffenseDialog}
                         sx={{
-                          background: 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)',
+                          background: mode === 'dark'
+                            ? 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)'
+                            : 'linear-gradient(90deg, #1D503A 0%, #0F3724 100%)',
                           color: '#fff',
                           fontSize: '0.7rem',
                           py: 0.5,
                           px: 1,
                           minWidth: 'auto',
-                          boxShadow: '0 2px 8px rgba(239, 68, 68, 0.2)',
+                          boxShadow: mode === 'dark'
+                            ? '0 2px 8px rgba(239, 68, 68, 0.2)'
+                            : '0 2px 8px rgba(29, 80, 58, 0.2)',
                           '&:hover': {
-                            background: 'linear-gradient(90deg, #DC2626 0%, #B91C1C 100%)',
+                            background: mode === 'dark'
+                              ? 'linear-gradient(90deg, #DC2626 0%, #B91C1C 100%)'
+                              : 'linear-gradient(90deg, #0F3724 0%, #0A2A1C 100%)',
                           },
                         }}
                       >
@@ -1778,9 +1942,13 @@ const AdminStudent = () => {
                     <TableContainer 
                       component={Paper} 
                       sx={{ 
-                        background: 'linear-gradient(145deg, #161616 0%, #101010 100%)',
+                        background: mode === 'dark'
+                          ? 'linear-gradient(145deg, #161616 0%, #101010 100%)'
+                          : '#FAF5EE',
                         borderRadius: '12px',
-                        border: '1px solid rgba(255, 255, 255, 0.03)',
+                        border: mode === 'dark'
+                          ? '1px solid rgba(255, 255, 255, 0.03)'
+                          : '1px solid #1D503A',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                         mb: 2,
                         maxHeight: '200px',
@@ -1790,51 +1958,75 @@ const AdminStudent = () => {
                           height: '8px',
                         },
                         '&::-webkit-scrollbar-track': {
-                          background: 'rgba(0, 0, 0, 0.2)',
+                          background: mode === 'dark' 
+                            ? 'rgba(0, 0, 0, 0.2)'
+                            : 'rgba(29, 80, 58, 0.1)',
                           borderRadius: '4px',
                         },
                         '&::-webkit-scrollbar-thumb': {
-                          background: 'rgba(59, 130, 246, 0.6)',
+                          background: mode === 'dark'
+                            ? 'rgba(59, 130, 246, 0.6)'
+                            : 'rgba(29, 80, 58, 0.5)',
                           borderRadius: '4px',
                           '&:hover': {
-                            background: 'rgba(59, 130, 246, 0.8)',
+                            background: mode === 'dark'
+                              ? 'rgba(59, 130, 246, 0.8)'
+                              : 'rgba(29, 80, 58, 0.7)',
                           },
                         },
                         scrollbarWidth: 'thin',
-                        scrollbarColor: 'rgba(59, 130, 246, 0.6) rgba(0, 0, 0, 0.2)',
+                        scrollbarColor: mode === 'dark'
+                          ? 'rgba(59, 130, 246, 0.6) rgba(0, 0, 0, 0.2)'
+                          : 'rgba(29, 80, 58, 0.5) rgba(29, 80, 58, 0.1)',
                       }}
                     >
                       <Table size="small">
                         <TableHead>
                           <TableRow>
                             <TableCell sx={{ 
-                              color: '#fff',
-                              borderBottom: '1px solid rgba(255,255,255,0.05)',
-                              background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
+                              color: mode === 'dark' ? '#fff' : '#1D503A',
+                              borderBottom: mode === 'dark'
+                                ? '1px solid rgba(255,255,255,0.05)'
+                                : '1px solid rgba(29, 80, 58, 0.2)',
+                              background: mode === 'dark'
+                                ? 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)'
+                                : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
                               py: 1.5,
                               fontSize: '0.75rem',
                               fontWeight: 'bold'
                             }}>Date</TableCell>
                             <TableCell sx={{ 
-                              color: '#fff',
-                              borderBottom: '1px solid rgba(255,255,255,0.05)',
-                              background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
+                              color: mode === 'dark' ? '#fff' : '#1D503A',
+                              borderBottom: mode === 'dark'
+                                ? '1px solid rgba(255,255,255,0.05)'
+                                : '1px solid rgba(29, 80, 58, 0.2)',
+                              background: mode === 'dark'
+                                ? 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)'
+                                : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
                               py: 1.5,
                               fontSize: '0.75rem',
                               fontWeight: 'bold'
                             }}>Type</TableCell>
                             <TableCell sx={{ 
-                              color: '#fff',
-                              borderBottom: '1px solid rgba(255,255,255,0.05)',
-                              background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
+                              color: mode === 'dark' ? '#fff' : '#1D503A',
+                              borderBottom: mode === 'dark'
+                                ? '1px solid rgba(255,255,255,0.05)'
+                                : '1px solid rgba(29, 80, 58, 0.2)',
+                              background: mode === 'dark'
+                                ? 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)'
+                                : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
                               py: 1.5,
                               fontSize: '0.75rem',
                               fontWeight: 'bold'
                             }}>Reason</TableCell>
                             <TableCell sx={{ 
-                              color: '#fff',
-                              borderBottom: '1px solid rgba(255,255,255,0.05)',
-                              background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
+                              color: mode === 'dark' ? '#fff' : '#1D503A',
+                              borderBottom: mode === 'dark'
+                                ? '1px solid rgba(255,255,255,0.05)'
+                                : '1px solid rgba(29, 80, 58, 0.2)',
+                              background: mode === 'dark'
+                                ? 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)'
+                                : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
                               py: 1.5,
                               fontSize: '0.75rem',
                               fontWeight: 'bold'
@@ -1845,14 +2037,18 @@ const AdminStudent = () => {
                           {offenseHistory.map((offense) => (
                             <TableRow key={offense._id}>
                               <TableCell sx={{ 
-                                color: '#D1D5DB',
-                                borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                color: mode === 'dark' ? '#D1D5DB' : '#1D503A',
+                                borderBottom: mode === 'dark'
+                                  ? '1px solid rgba(255,255,255,0.03)'
+                                  : '1px solid rgba(29, 80, 58, 0.1)',
                                 fontSize: '0.75rem'
                               }}>
                                 {new Date(offense.dateOfOffense).toLocaleDateString()}
                               </TableCell>
                               <TableCell sx={{ 
-                                borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                borderBottom: mode === 'dark'
+                                  ? '1px solid rgba(255,255,255,0.03)'
+                                  : '1px solid rgba(29, 80, 58, 0.1)',
                                 fontSize: '0.75rem'
                               }}>
                                 <Box sx={{ 
@@ -1863,25 +2059,31 @@ const AdminStudent = () => {
                                   fontSize: '0.7rem',
                                   fontWeight: 'medium',
                                   color: 'white',
-                                  background: offense.typeOfOffense.includes('Major') ? 
-                                    'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)' : 
-                                    offense.typeOfOffense.includes('3rd') || offense.typeOfOffense.includes('4th') ?
-                                    'linear-gradient(90deg, #F59E0B 0%, #D97706 100%)' :
-                                    'linear-gradient(90deg, #3B82F6 0%, #2563EB 100%)'
+                                  background: mode === 'dark'
+                                    ? offense.typeOfOffense.includes('Major')
+                                      ? 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)'
+                                      : offense.typeOfOffense.includes('3rd') || offense.typeOfOffense.includes('4th')
+                                        ? 'linear-gradient(90deg, #F59E0B 0%, #D97706 100%)'
+                                        : 'linear-gradient(90deg, #3B82F6 0%, #2563EB 100%)'
+                                    : 'linear-gradient(90deg, #1D503A 0%, #0F3724 100%)'
                                 }}>
                                   {offense.typeOfOffense}
                                 </Box>
                               </TableCell>
                               <TableCell sx={{ 
-                                color: '#D1D5DB',
-                                borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                color: mode === 'dark' ? '#D1D5DB' : '#1D503A',
+                                borderBottom: mode === 'dark'
+                                  ? '1px solid rgba(255,255,255,0.03)'
+                                  : '1px solid rgba(29, 80, 58, 0.1)',
                                 fontSize: '0.75rem'
                               }}>
                                 {offense.offenseReason}
                               </TableCell>
                               <TableCell sx={{ 
-                                color: '#D1D5DB',
-                                borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                color: mode === 'dark' ? '#D1D5DB' : '#1D503A',
+                                borderBottom: mode === 'dark'
+                                  ? '1px solid rgba(255,255,255,0.03)'
+                                  : '1px solid rgba(29, 80, 58, 0.1)',
                                 fontSize: '0.75rem'
                               }}>
                                 {offense.recordedByName?.name || 'Admin'}
@@ -1894,74 +2096,100 @@ const AdminStudent = () => {
                   )}
                 </Box>
 
+                {/* Section Headers */}
+                <Typography variant="subtitle1" sx={{ 
+                  color: mode === 'dark' ? '#3B82F6' : '#1D503A',
+                  mb: 2,
+                  borderBottom: mode === 'dark'
+                    ? '1px solid rgba(59, 130, 246, 0.2)'
+                    : '1px solid rgba(29, 80, 58, 0.2)',
+                  pb: 1,
+                  fontWeight: 600,
+                }}>
+                  Offense History
+                </Typography>
+
                 {/* Parent Information Section */}
                 <Box>
                   <Typography variant="subtitle1" sx={{ 
-                    color: '#3B82F6', 
+                    color: mode === 'dark' ? '#3B82F6' : '#1D503A',
                     mb: 2,
-                    borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
+                    borderBottom: mode === 'dark'
+                      ? '1px solid rgba(59, 130, 246, 0.2)'
+                      : '1px solid rgba(29, 80, 58, 0.2)',
                     pb: 1,
+                    fontWeight: 600,
                   }}>
                     Parent Information
                   </Typography>
                   <Grid container spacing={2}>
                     <Grid item xs={6}>
-                      <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Father's Name</Typography>
-                      <Typography variant="body1" sx={{ color: '#fff' }}>{selectedStudent.fatherName || 'Not specified'}</Typography>
+                      <Typography variant="body2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#1D503A' }}>Father's Name</Typography>
+                      <Typography variant="body1" sx={{ color: mode === 'dark' ? '#fff' : '#000' }}>{selectedStudent.fatherName || 'Not specified'}</Typography>
                     </Grid>
                     <Grid item xs={6}>
-                      <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Father's Contact</Typography>
-                      <Typography variant="body1" sx={{ color: '#fff' }}>{selectedStudent.fatherContact || 'Not specified'}</Typography>
+                      <Typography variant="body2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#1D503A' }}>Father's Contact</Typography>
+                      <Typography variant="body1" sx={{ color: mode === 'dark' ? '#fff' : '#000' }}>{selectedStudent.fatherContact || 'Not specified'}</Typography>
                     </Grid>
                     <Grid item xs={6}>
-                      <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Mother's Name</Typography>
-                      <Typography variant="body1" sx={{ color: '#fff' }}>{selectedStudent.motherName || 'Not specified'}</Typography>
+                      <Typography variant="body2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#1D503A' }}>Mother's Name</Typography>
+                      <Typography variant="body1" sx={{ color: mode === 'dark' ? '#fff' : '#000' }}>{selectedStudent.motherName || 'Not specified'}</Typography>
                     </Grid>
                     <Grid item xs={6}>
-                      <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Mother's Contact</Typography>
-                      <Typography variant="body1" sx={{ color: '#fff' }}>{selectedStudent.motherContact || 'Not specified'}</Typography>
+                      <Typography variant="body2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#1D503A' }}>Mother's Contact</Typography>
+                      <Typography variant="body1" sx={{ color: mode === 'dark' ? '#fff' : '#000' }}>{selectedStudent.motherContact || 'Not specified'}</Typography>
                     </Grid>
                   </Grid>
                 </Box>
 
-                {/* Address Information Section */}
-                <Box>
-                  <Typography variant="subtitle1" sx={{ 
-                    color: '#3B82F6', 
-                    mb: 2,
-                    borderBottom: '1px solid rgba(59, 130, 246, 0.2)',
-                    pb: 1,
-                  }}>
-                    Address Information
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                      <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Student's Address</Typography>
-                      <Typography variant="body1" sx={{ color: '#fff' }}>{selectedStudent.address || 'Not specified'}</Typography>
+                {/* Address Information */}
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <Typography variant="body2" sx={{ 
+                          color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
+                          fontWeight: 500 
+                        }}>Student's Address</Typography>
+                        <Typography variant="body1" sx={{ 
+                          color: mode === 'dark' ? '#fff' : '#000',
+                          fontWeight: 400
+                        }}>{selectedStudent.address || 'Not specified'}</Typography>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Typography variant="body2" sx={{ 
+                          color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
+                          fontWeight: 500 
+                        }}>Parents' Address</Typography>
+                        <Typography variant="body1" sx={{ 
+                          color: mode === 'dark' ? '#fff' : '#000',
+                          fontWeight: 400
+                        }}>{selectedStudent.parentsAddress || 'Not specified'}</Typography>
+                      </Grid>
                     </Grid>
-                    <Grid item xs={12}>
-                      <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Parents' Address</Typography>
-                      <Typography variant="body1" sx={{ color: '#fff' }}>{selectedStudent.parentsAddress || 'Not specified'}</Typography>
-                    </Grid>
-                  </Grid>
-                </Box>
               </Box>
             )}
           </DialogContent>
-          <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.03)' }}>
+          <DialogActions sx={{ p: 2, borderTop: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(29, 80, 58, 0.2)' }}>
             <Button 
               onClick={() => setViewDialogOpen(false)}
               variant="contained"
               sx={{
-                background: 'linear-gradient(90deg, #3B82F6 0%, #2563EB 100%)',
+                background: mode === 'dark'
+                  ? 'linear-gradient(90deg, #3B82F6 0%, #2563EB 100%)'
+                  : 'linear-gradient(90deg, #1D503A 0%, #0F3724 100%)',
                 color: '#fff',
                 px: 3,
-                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)',
+                boxShadow: mode === 'dark'
+                  ? '0 4px 12px rgba(59, 130, 246, 0.2)'
+                  : '0 4px 12px rgba(29, 80, 58, 0.2)',
                 transition: 'all 0.3s ease',
                 '&:hover': {
                   transform: 'translateY(-1px)',
-                  boxShadow: '0 6px 15px rgba(59, 130, 246, 0.3)',
-                  background: 'linear-gradient(90deg, #2563EB 0%, #1D4ED8 100%)',
+                  boxShadow: mode === 'dark'
+                    ? '0 6px 15px rgba(59, 130, 246, 0.3)'
+                    : '0 6px 15px rgba(29, 80, 58, 0.3)',
+                  background: mode === 'dark'
+                    ? 'linear-gradient(90deg, #2563EB 0%, #1D4ED8 100%)'
+                    : 'linear-gradient(90deg, #0F3724 0%, #0A2A1C 100%)',
                 },
               }}
             >
@@ -1976,18 +2204,27 @@ const AdminStudent = () => {
           onClose={() => setOffenseDialogOpen(false)}
           PaperProps={{
             sx: {
-              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-              color: '#fff',
+              background: mode === 'dark'
+                ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+                : '#FAF5EE', // Eggshell white
+              color: mode === 'dark' ? '#fff' : '#1D503A', // Dark emerald green text
               borderRadius: '20px',
-              border: '1px solid rgba(255, 255, 255, 0.03)',
+              border: mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.03)'
+                : '1px solid #1D503A', // Dark emerald green border
               boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
               minWidth: '400px',
             },
           }}
         >
           <DialogTitle sx={{ 
-            borderBottom: '1px solid rgba(255,255,255,0.03)',
-            background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)',
+            borderBottom: mode === 'dark'
+              ? '1px solid rgba(255,255,255,0.03)'
+              : '1px solid #1D503A', // Dark emerald green border
+            background: mode === 'dark'
+              ? 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)'
+              : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)', // Emerald green gradient
+            color: mode === 'dark' ? '#fff' : '#1D503A', // Dark emerald green text
           }}>
             Record Offense for {selectedStudent?.name}
           </DialogTitle>
@@ -1995,9 +2232,9 @@ const AdminStudent = () => {
             <Box sx={{ display: 'grid', gap: 2 }}>
               <FormControl fullWidth>
                 <InputLabel sx={{ 
-                  color: '#9CA3AF',
+                  color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
                   '&.Mui-focused': {
-                    color: '#EF4444',
+                    color: mode === 'dark' ? '#EF4444' : '#1D503A',
                   },
                 }}>
                   Type of Offense
@@ -2007,18 +2244,18 @@ const AdminStudent = () => {
                   value={offenseFormData.typeOfOffense}
                   onChange={handleOffenseInputChange}
                   sx={{
-                    color: '#fff',
+                    color: mode === 'dark' ? '#fff' : '#000',
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255,255,255,0.1)',
+                      borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(29, 80, 58, 0.5)',
                     },
                     '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(239, 68, 68, 0.5)',
+                      borderColor: mode === 'dark' ? 'rgba(239, 68, 68, 0.5)' : 'rgba(29, 80, 58, 0.8)',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#EF4444',
+                      borderColor: mode === 'dark' ? '#EF4444' : '#1D503A',
                     },
                     '& .MuiSvgIcon-root': {
-                      color: '#9CA3AF',
+                      color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
                     },
                   }}
                 >
@@ -2042,34 +2279,34 @@ const AdminStudent = () => {
                 onChange={handleOffenseInputChange}
                 sx={{ 
                   '& .MuiOutlinedInput-root': {
-                    color: '#fff',
+                    color: mode === 'dark' ? '#fff' : '#000',
                     '& fieldset': {
-                      borderColor: 'rgba(255,255,255,0.1)',
+                      borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(29, 80, 58, 0.5)',
                     },
                     '&:hover fieldset': {
-                      borderColor: 'rgba(239, 68, 68, 0.5)',
+                      borderColor: mode === 'dark' ? 'rgba(239, 68, 68, 0.5)' : 'rgba(29, 80, 58, 0.8)',
                     },
                     '&.Mui-focused fieldset': {
-                      borderColor: '#EF4444',
+                      borderColor: mode === 'dark' ? '#EF4444' : '#1D503A',
                     },
                   },
                   '& .MuiInputLabel-root': {
-                    color: '#9CA3AF',
+                    color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
                     '&.Mui-focused': {
-                      color: '#EF4444',
+                      color: mode === 'dark' ? '#EF4444' : '#1D503A',
                     },
                   },
                 }}
               />
             </Box>
           </DialogContent>
-          <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.03)' }}>
+          <DialogActions sx={{ p: 2, borderTop: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(29, 80, 58, 0.2)' }}>
             <Button 
               onClick={() => setOffenseDialogOpen(false)}
               sx={{ 
-                color: '#9CA3AF',
+                color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
                 '&:hover': {
-                  background: 'rgba(255,255,255,0.05)',
+                  background: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(29, 80, 58, 0.1)',
                 },
               }}
             >
@@ -2079,11 +2316,17 @@ const AdminStudent = () => {
               variant="contained"
               onClick={handleOffenseSubmit}
               sx={{
-                background: 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)',
+                background: mode === 'dark' 
+                  ? 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)'
+                  : 'linear-gradient(90deg, #1D503A 0%, #0F3724 100%)',
                 color: '#fff',
-                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)',
+                boxShadow: mode === 'dark'
+                  ? '0 4px 12px rgba(239, 68, 68, 0.2)'
+                  : '0 4px 12px rgba(29, 80, 58, 0.2)',
                 '&:hover': {
-                  background: 'linear-gradient(90deg, #DC2626 0%, #B91C1C 100%)',
+                  background: mode === 'dark'
+                    ? 'linear-gradient(90deg, #DC2626 0%, #B91C1C 100%)'
+                    : 'linear-gradient(90deg, #0F3724 0%, #0A2A1C 100%)',
                 },
               }}
             >

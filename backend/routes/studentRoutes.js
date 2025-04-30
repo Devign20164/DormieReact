@@ -6,8 +6,8 @@ const {
   loginStudent,
   logoutStudent,
   getStudentProfile,
-  checkIn,
-  checkOut,
+  checkInStudent,
+  checkOutStudent,
   checkEmailExists,
   checkDormNumberExists,
   checkPhoneExists,
@@ -35,6 +35,8 @@ const {
   submitBillPayment,
   getStudentLogs,
   verifyStudentPassword,
+  getStudentNews,
+  getStudentNewsById
 } = require('../controllers/studentController');
 const Form = require('../models/FormModel');
 const path = require('path');
@@ -50,6 +52,10 @@ router.get('/', protect, getAllStudents);
 router.post('/', protect, createStudent);
 router.put('/:id', protect, updateStudent);
 router.delete('/:id', protect, deleteStudent);
+
+// Check-in/Check-out routes
+router.post('/:id/check-in', protect, checkInStudent);
+router.post('/:id/check-out', protect, checkOutStudent);
 
 // Validation routes
 router.get('/check-email/:email', checkEmailExists);
@@ -109,11 +115,6 @@ router.get('/:studentId/bills', protect, getStudentBills);
 // Bill payment route
 router.post('/bills/:id/pay', protect, upload.single('receiptFile'), submitBillPayment);
 
-// Check-in/Check-out routes
-router.post('/logs/checkin', protect, checkIn);
-router.post('/logs/checkout', protect, checkOut);
-router.get('/logs', protect, getStudentLogs);
-
 // File download route
 router.get('/files/download/:filename', protect, (req, res) => {
   try {
@@ -149,5 +150,9 @@ router.get('/files/download/:filename', protect, (req, res) => {
 
 // Password verification route
 router.post('/:id/verify-password', protect, verifyStudentPassword);
+
+// News routes
+router.get('/news', protect, getStudentNews);
+router.get('/news/:id', protect, getStudentNewsById);
 
 module.exports = router; 

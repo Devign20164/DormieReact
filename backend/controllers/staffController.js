@@ -11,17 +11,15 @@ const config = require('../config/config');
 // @access  Public
 const loginStaff = asyncHandler(async (req, res) => {
   try {
-    // Handle both 'identifier' from the login form and 'name' for direct API calls
-    const { identifier, name, password } = req.body;
-    const staffName = name || identifier;
-    console.log('Login attempt for staff:', staffName);
+    const { identifier, password } = req.body;
+    console.log('Login attempt for staff:', identifier);
 
     // Find staff by name
-    const staff = await Staff.findOne({ name: staffName });
+    const staff = await Staff.findOne({ name: identifier });
     console.log('Staff found:', staff ? 'Yes' : 'No');
 
     if (!staff) {
-      console.log('Staff not found with name:', staffName);
+      console.log('Staff not found with name:', identifier);
       return res.status(401).json({
         message: 'Invalid credentials'
       });
