@@ -137,19 +137,8 @@ const getStudentProfile = asyncHandler(async (req, res) => {
     });
 
   if (student) {
-    res.json({
-      _id: student._id,
-      name: student.name,
-      email: student.email,
-      studentDormNumber: student.studentDormNumber,
-      fatherContact: student.fatherContact,
-      motherContact: student.motherContact,
-      room: student.room ? {
-        roomNumber: student.room.roomNumber,
-        building: student.room.building?.name || 'Unassigned'
-      } : null,
-      role: 'student'
-    });
+    // Return all student data instead of just a few fields
+    res.json(student);
   } else {
     res.status(404);
     throw new Error('Student not found');
@@ -2103,6 +2092,68 @@ const getStudentNewsById = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Update student password
+// @route   PUT /api/students/update-password
+// @access  Private/Student
+const updateStudentPassword = asyncHandler(async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    
+    // Validation
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current password and new password are required' });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters long' });
+    }
+    
+    // Get student with password
+    const student = await Student.findById(req.user.id);
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    
+    // Check if current password matches
+    const isMatch = await bcrypt.compare(currentPassword, student.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+    
+    // Update password
+    student.password = newPassword;
+    await student.save();
+    
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    console.error('Error updating student password:', error);
+    res.status(500).json({ 
+      message: 'Error updating password',
+      error: error.message 
+    });
+  }
+});
+
+// @desc    Get student offenses
+// @route   GET /api/students/offenses
+// @access  Private
+const getStudentOffenses = asyncHandler(async (req, res) => {
+  try {
+    // Require the Offense model
+    const Offense = require('../models/offenseModel');
+    
+    // Find all offenses for the current student
+    const offenses = await Offense.find({ student: req.user.id })
+      .sort({ dateOfOffense: -1 })
+      .populate('recordedBy', 'name');
+    
+    res.json(offenses);
+  } catch (error) {
+    console.error('Error fetching student offenses:', error);
+    res.status(500).json({ message: 'Error fetching student offenses' });
+  }
+});
+
 // Export all controllers
 module.exports = {
   loginStudent,
@@ -2137,5 +2188,7 @@ module.exports = {
   checkInStudent,
   checkOutStudent,
   getStudentNews,
-  getStudentNewsById
+  getStudentNewsById,
+  updateStudentPassword,
+  getStudentOffenses
 }; 

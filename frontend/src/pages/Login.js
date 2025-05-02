@@ -34,8 +34,10 @@ import { styled, useTheme } from '@mui/material/styles';
 // API Base URL - change this to match your backend
 const API_BASE_URL = "/api"; // Using relative path instead of hardcoded localhost
 
-// Color constants
-const EGGSHELL_WHITE = "#F0EAD6";
+// Color constants - updated colors
+const EGGSHELL_WHITE = "#FFFFFF"; // Changed to pure white
+const BLACK = "#000000"; // New black color
+const LIGHT_GREEN = "#90EE90"; // Light green
 const EMERALD_GREEN = "#50C878";
 const DARK_EMERALD = "#2E8B57";
 const LIGHT_EMERALD = "#8FE3B6";
@@ -58,7 +60,7 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
       borderColor: 'rgba(10, 38, 71, 0.1)',
     },
     '&.Mui-focused fieldset': {
-      borderColor: NAVY_BLUE,
+      borderColor: LIGHT_GREEN,
     },
     '& .MuiInputAdornment-root': {
       color: '#64748b',
@@ -70,7 +72,7 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
     fontWeight: 500,
     color: '#64748b',
     '&.Mui-focused': {
-      color: NAVY_BLUE,
+      color: LIGHT_GREEN,
     },
   },
   '& .MuiInputBase-input': {
@@ -87,11 +89,11 @@ const StyledButton = styled(Button)(({ theme }) => ({
   fontSize: '1rem',
   boxShadow: 'none',
   transition: 'all 0.3s ease',
-  background: NAVY_BLUE,
+  background: LIGHT_GREEN,
   '&:hover': {
-    background: NAVY_BLUE,
+    background: DARK_EMERALD,
     opacity: 0.9,
-    boxShadow: '0 4px 8px rgba(10, 38, 71, 0.2)',
+    boxShadow: '0 4px 8px rgba(46, 139, 87, 0.2)',
   },
 }));
 
@@ -177,7 +179,13 @@ const Login = () => {
         sessionStorage.setItem("justLoggedIn", "true");
 
         // Redirect based on role
-        navigate(redirectPath);
+        if (role === "staff" && data.typeOfStaff === "Security") {
+          // Redirect Security staff directly to tenant log
+          navigate("/staff/tenant-log");
+        } else {
+          // Redirect other roles to their dashboards
+          navigate(redirectPath);
+        }
       } catch (err) {
         console.error("Login error:", err);
         setError(
@@ -197,7 +205,7 @@ const Login = () => {
         overflow: "hidden",
       }}
     >
-      {/* Left side - Image and branding */}
+      {/* Left side - Image and branding - changed to black background */}
       <Box
         sx={{
           flex: { xs: 0, md: "0 0 50%" },
@@ -206,7 +214,7 @@ const Login = () => {
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
-          background: `linear-gradient(135deg, ${NAVY_BLUE} 0%, ${LIGHT_NAVY} 100%)`,
+          background: BLACK, // Changed to black
           color: "white",
           overflow: "hidden",
         }}
@@ -223,7 +231,7 @@ const Login = () => {
           zIndex: 0,
         }} />
         
-        {/* Emerald green accents */}
+        {/* Light green accents - changed from emerald green */}
         <Box
           sx={{
             position: "absolute",
@@ -232,7 +240,7 @@ const Login = () => {
             width: "180px",
             height: "180px",
             borderRadius: "50%",
-            background: `radial-gradient(circle, ${EMERALD_GREEN} 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${LIGHT_GREEN} 0%, transparent 70%)`,
             opacity: 0.15,
             zIndex: 0,
           }}
@@ -246,7 +254,7 @@ const Login = () => {
             width: "250px",
             height: "250px",
             borderRadius: "50%",
-            background: `radial-gradient(circle, ${EMERALD_GREEN} 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${LIGHT_GREEN} 0%, transparent 70%)`,
             opacity: 0.15,
             zIndex: 0,
           }}
@@ -266,9 +274,9 @@ const Login = () => {
               left: [`${70 - i * 20}%`, `${25 + i * 15}%`, `${60 - i * 15}%`, `${30 + i * 10}%`][i],
               zIndex: 0,
               opacity: 0.6,
-            }}
-          />
-        ))}
+          }}
+        />
+      ))}
         
         {/* Logo and content */}
         <Box
@@ -290,7 +298,7 @@ const Login = () => {
           >
             <Box
               sx={{
-                backgroundColor: EMERALD_GREEN,
+                backgroundColor: LIGHT_GREEN, // Changed to light green
                 width: "60px",
                 height: "60px",
                 display: "flex",
@@ -328,19 +336,19 @@ const Login = () => {
             }}
           >
             <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2 }}>
-              <CheckCircleIcon sx={{ color: EMERALD_GREEN }} />
+              <CheckCircleIcon sx={{ color: LIGHT_GREEN }} /> {/* Changed to light green */}
               <Typography variant="body1" sx={{ fontSize: "1.1rem", textAlign: "left" }}>
                 Efficient room allocation system
               </Typography>
             </Box>
             <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2 }}>
-              <CheckCircleIcon sx={{ color: EMERALD_GREEN }} />
+              <CheckCircleIcon sx={{ color: LIGHT_GREEN }} /> {/* Changed to light green */}
               <Typography variant="body1" sx={{ fontSize: "1.1rem", textAlign: "left" }}>
                 Real-time maintenance request tracking
               </Typography>
             </Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <CheckCircleIcon sx={{ color: EMERALD_GREEN }} />
+              <CheckCircleIcon sx={{ color: LIGHT_GREEN }} /> {/* Changed to light green */}
               <Typography variant="body1" sx={{ fontSize: "1.1rem", textAlign: "left" }}>
                 Secure access for students, staff & admin
               </Typography>
@@ -377,14 +385,14 @@ const Login = () => {
         </Box>
       </Box>
 
-      {/* Right side - Login form */}
+      {/* Right side - Login form - changed to white background */}
       <Box
         sx={{
           flex: { xs: "1 1 100%", md: "0 0 50%" },
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
-          backgroundColor: EGGSHELL_WHITE,
+          backgroundColor: EGGSHELL_WHITE, // Now pure white
         }}
       >
         <Box
@@ -393,14 +401,14 @@ const Login = () => {
             width: "100%", 
             mx: "auto",
             px: { xs: 3, sm: 4 },
-          }}
-        >
+            }}
+          >
           <Box sx={{ mb: 5, textAlign: "left" }}>
-            <Typography 
+            <Typography
               variant="h4" 
-              component="h1" 
+              component="h1"
               fontWeight="bold" 
-              color={NAVY_BLUE}
+              color={DARK_EMERALD} // Changed from NAVY_BLUE to DARK_EMERALD
               sx={{ mb: 1.5 }}
             >
               Welcome Back
@@ -434,7 +442,7 @@ const Login = () => {
               sx={{
                 mb: 4,
                 "& .MuiTabs-indicator": {
-                  backgroundColor: EMERALD_GREEN,
+                  backgroundColor: LIGHT_GREEN, // Changed to light green
                   height: "3px",
                   borderRadius: "3px",
                 },
@@ -445,10 +453,10 @@ const Login = () => {
                   minHeight: "48px",
                   transition: "all 0.3s ease",
                   "&.Mui-selected": {
-                    color: NAVY_BLUE,
+                    color: DARK_EMERALD, // Changed from NAVY_BLUE
                   },
                   "&:hover": {
-                    color: EMERALD_GREEN,
+                    color: LIGHT_GREEN, // Changed to light green
                   }
                 },
               }}
@@ -456,19 +464,19 @@ const Login = () => {
               <Tab 
                 label="Student" 
                 value="student" 
-                icon={<SchoolIcon sx={{ color: role === "student" ? EMERALD_GREEN : "#64748b" }} />} 
+                icon={<SchoolIcon sx={{ color: role === "student" ? LIGHT_GREEN : "#64748b" }} />} // Changed to light green
                 iconPosition="start" 
               />
               <Tab 
                 label="Staff" 
                 value="staff" 
-                icon={<PersonIcon sx={{ color: role === "staff" ? EMERALD_GREEN : "#64748b" }} />} 
+                icon={<PersonIcon sx={{ color: role === "staff" ? LIGHT_GREEN : "#64748b" }} />} // Changed to light green
                 iconPosition="start"
               />
               <Tab 
                 label="Admin" 
                 value="admin" 
-                icon={<AdminPanelSettingsIcon sx={{ color: role === "admin" ? EMERALD_GREEN : "#64748b" }} />} 
+                icon={<AdminPanelSettingsIcon sx={{ color: role === "admin" ? LIGHT_GREEN : "#64748b" }} />} // Changed to light green
                 iconPosition="start"
               />
             </Tabs>
@@ -517,7 +525,7 @@ const Login = () => {
                         onClick={handlePasswordVisibility}
                         edge="end"
                       >
-                        {showPassword ? <VisibilityOffIcon sx={{ color: NAVY_BLUE }} /> : <VisibilityIcon sx={{ color: NAVY_BLUE }} />}
+                        {showPassword ? <VisibilityOffIcon sx={{ color: LIGHT_GREEN }} /> : <VisibilityIcon sx={{ color: LIGHT_GREEN }} />} {/* Changed to light green */}
                       </IconButton>
                     </InputAdornment>
                   ),
@@ -536,9 +544,10 @@ const Login = () => {
                 type="submit"
                 fullWidth
                 disabled={loading}
-                sx={{ 
+                sx={{
                   py: 1.5,
                   fontSize: "1rem",
+                  color: "white", // Ensuring text is white for better contrast
                 }}
               >
                 {loading ? (

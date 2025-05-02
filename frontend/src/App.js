@@ -23,6 +23,8 @@ import AdminForm from './pages/AdminForm';
 import StudentBill from './pages/StudentBill';
 import StudentLog from './pages/StudentLog';
 import StudentNews from './pages/StudentNews';
+import StudentFAQS from './pages/StudentFAQS.js';
+import StudentSettings from './pages/StudentSettings';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -391,6 +393,24 @@ function App() {
                 <StudentNews />
               </ProtectedRoute>
             }
+          />
+
+          <Route 
+            path="/student/faqs" 
+            element={
+              <ProtectedRoute allowedRole="student">
+                <StudentFAQS />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/student/settings" 
+            element={
+              <ProtectedRoute allowedRole="student">
+                <StudentSettings />
+              </ProtectedRoute>
+            } 
           />
           
           {/* Redirect root to login */}

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   Drawer,
   List,
@@ -10,6 +10,11 @@ import {
   Button,
   Avatar,
   Tooltip,
+  ListItemButton,
+  Divider,
+  useTheme,
+  useMediaQuery,
+  IconButton,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -17,22 +22,45 @@ import {
   Person as TenantIcon,
   Settings as SettingsIcon,
   ExitToApp as LogoutIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { ThemeContext } from '../App';
+
+// Color constants matching AdminSidebar.js
+const GREEN_MAIN = "#10B981";
+const GREEN_DARK = "#059669";
+const GREEN_DARKER = "#047857";
+const FOREST_GREEN = "#1D503A";
+const BG_DARK = "#141414";
+const BG_DARKER = "#0A0A0A";
+const BG_LIGHT = "#FAF5EE";
 
 const StaffSidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
   const [staffType, setStaffType] = useState('');
-  const dragStartX = useRef(0);
-  const drawerWidth = isCollapsed ? 80 : 280;
+  const [staffName, setStaffName] = useState('Staff');
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const collapsed = isCollapsed || isMobile;
+  const drawerWidth = collapsed ? 80 : 260;
+  const { mode } = useContext(ThemeContext) || { mode: 'dark' };
+
+  // Background colors based on mode
+  const bgColor = mode === 'dark' 
+    ? 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)'
+    : BG_LIGHT;
+  const textColor = mode === 'dark' ? '#fff' : '#000';
+  const textSecondary = mode === 'dark' ? '#6B7280' : FOREST_GREEN;
 
   // Get staff type from localStorage
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('userData') || '{}');
     setStaffType(userData.typeOfStaff || '');
+    setStaffName(userData.name || 'Staff');
   }, []);
 
   // Filter menu items based on staff type
@@ -67,32 +95,9 @@ const StaffSidebar = () => {
 
     return baseItems;
   };
-
-  const handleMouseDown = (e) => {
-    if (Math.abs(e.currentTarget.getBoundingClientRect().right - e.clientX) < 10) {
-      setIsDragging(true);
-      dragStartX.current = e.clientX;
-    }
-  };
-
-  const handleMouseMove = (e) => {
-    if (isDragging) {
-      const diff = dragStartX.current - e.clientX;
-      if (Math.abs(diff) > 50) {
-        setIsCollapsed(diff > 0);
-        setIsDragging(false);
-      }
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleDoubleClick = (e) => {
-    if (Math.abs(e.currentTarget.getBoundingClientRect().right - e.clientX) < 10) {
-      setIsCollapsed(!isCollapsed);
-    }
+  
+  const handleToggleCollapse = () => {
+    setIsCollapsed(!isCollapsed);
   };
 
   const handleLogout = async () => {
@@ -131,193 +136,265 @@ const StaffSidebar = () => {
       sx={{
         width: drawerWidth,
         flexShrink: 0,
-        position: 'relative',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        transform: 'none',
         '& .MuiDrawer-paper': {
           width: drawerWidth,
           boxSizing: 'border-box',
-          background: 'linear-gradient(180deg, #141414 0%, #0A0A0A 100%)',
-          color: '#fff',
-          borderRight: '1px solid rgba(255, 255, 255, 0.03)',
-          boxShadow: '4px 0 15px rgba(0,0,0,0.3)',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          transform: 'none',
+          background: bgColor,
+          color: textColor,
+          borderRight: mode === 'dark' 
+            ? '1px solid rgba(255, 255, 255, 0.03)'
+            : `1px solid ${FOREST_GREEN}`,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+          transition: 'all 0.3s ease',
           overflow: 'hidden',
-          whiteSpace: 'nowrap',
-          cursor: isDragging ? 'col-resize' : 'auto',
-          '&::after': {
+          position: 'relative',
+          '&::before': {
             content: '""',
             position: 'absolute',
             top: 0,
+            left: 0,
             right: 0,
-            width: '10px',
-            height: '100%',
-            cursor: 'col-resize',
-            background: 'transparent',
-            transition: 'background 0.2s',
-            '&:hover': {
-              background: 'rgba(59, 130, 246, 0.1)',
-            },
+            bottom: 0,
+            background: 'radial-gradient(circle at top right, rgba(255,255,255,0.03) 0%, transparent 70%)',
+            pointerEvents: 'none',
+            zIndex: 0,
           },
         },
       }}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onDoubleClick={handleDoubleClick}
     >
+      {/* Header with Logo */}
       <Box sx={{ 
-        p: isCollapsed ? 2 : 3, 
+        p: 2.5,
         display: 'flex', 
         alignItems: 'center', 
-        gap: 2,
-        background: 'linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, transparent 100%)',
-        mb: 2,
+        justifyContent: 'space-between',
+        borderBottom: mode === 'dark' 
+          ? '1px solid rgba(255,255,255,0.03)'
+          : `1px solid ${FOREST_GREEN}`,
         position: 'relative',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        zIndex: 1,
       }}>
-        <Box sx={{ position: 'relative' }}>
-          <Avatar sx={{ 
-            bgcolor: 'transparent',
-            width: 40, 
-            height: 40,
-            background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
-            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)',
-          }}>D</Avatar>
-          <Box
-            sx={{
-              position: 'absolute',
-              right: -2,
-              top: -2,
-              width: 12,
-              height: 12,
-              borderRadius: '50%',
-              backgroundColor: '#3B82F6',
-              border: '2px solid #0A0A0A',
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Avatar 
+            sx={{ 
+              bgcolor: 'transparent',
+              width: 38, 
+              height: 38,
+              background: `linear-gradient(135deg, ${GREEN_MAIN} 0%, ${GREEN_DARK} 100%)`,
+              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
+              color: '#fff',
+              fontWeight: 'bold',
             }}
-          />
-        </Box>
-        <Box sx={{ 
-          opacity: isCollapsed ? 0 : 1,
-          transform: isCollapsed ? 'translateX(-20px)' : 'translateX(0)',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          visibility: isCollapsed ? 'hidden' : 'visible',
-        }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, color: '#fff' }}>
-            Dormie
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#6B7280' }}>
-            Staff Dashboard
-          </Typography>
-        </Box>
-      </Box>
-
-      <List sx={{ 
-        px: isCollapsed ? 1 : 2, 
-        mt: 2,
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      }}>
-        {getMenuItems().map((item) => (
-          <Tooltip 
-            key={item.text}
-            title={isCollapsed ? item.text : ''}
-            placement="right"
           >
-            <ListItem
-              component="button"
-              onClick={() => navigate(item.path)}
-              selected={location.pathname === item.path}
-              sx={{
-                border: 'none',
-                outline: 'none',
-                width: '100%',
-                borderRadius: '12px',
-                mb: 1,
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                background: location.pathname === item.path 
-                  ? 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)'
-                  : 'transparent',
-                px: isCollapsed ? 2 : 3,
-                minHeight: 48,
-                overflow: 'hidden',
-                cursor: 'pointer',
-                '&:hover': {
-                  background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
-                  backdropFilter: 'blur(4px)',
-                },
-                '&:hover .MuiListItemIcon-root': {
-                  color: '#3B82F6',
-                  transform: isCollapsed ? 'scale(1.2)' : 'scale(1)',
-                },
+            D
+          </Avatar>
+          {!collapsed && (
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontWeight: 600, 
+                fontSize: '1.2rem',
+                color: mode === 'dark' ? '#fff' : '#000',
+                textShadow: mode === 'dark' ? '0 2px 4px rgba(0,0,0,0.2)' : 'none',
               }}
             >
-              <ListItemIcon sx={{ 
-                color: location.pathname === item.path ? '#3B82F6' : '#6B7280',
-                minWidth: isCollapsed ? 32 : 40,
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                transform: isCollapsed ? 'scale(1.1)' : 'scale(1)',
-              }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText 
-                primary={item.text} 
-                sx={{ 
-                  opacity: isCollapsed ? 0 : 1,
-                  transform: isCollapsed ? 'translateX(-20px)' : 'translateX(0)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  visibility: isCollapsed ? 'hidden' : 'visible',
-                  '& .MuiListItemText-primary': { 
-                    fontSize: '0.875rem',
-                    color: '#fff',
-                  }
-                }} 
-              />
-            </ListItem>
-          </Tooltip>
-        ))}
-      </List>
+              Dormie
+            </Typography>
+          )}
+        </Box>
 
-      <Box sx={{ 
-        mt: 'auto', 
-        p: isCollapsed ? 1 : 2,
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      }}>
-        <Tooltip title={isCollapsed ? "Logout" : ""} placement="right">
-          <Button
-            onClick={handleLogout}
-            fullWidth
-            startIcon={<LogoutIcon />}
-            sx={{
-              color: '#fff',
-              background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)',
-              borderRadius: '12px',
-              p: 1,
-              minWidth: 0,
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              '& .MuiButton-startIcon': {
-                mr: isCollapsed ? 0 : 1,
-                transform: isCollapsed ? 'scale(1.2)' : 'scale(1)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              },
-              '&:hover': {
-                background: 'linear-gradient(90deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.05) 100%)',
-                transform: 'translateY(-1px)',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-              },
+        <IconButton 
+          onClick={handleToggleCollapse} 
+          sx={{ 
+            color: GREEN_MAIN,
+            backgroundColor: mode === 'dark' 
+              ? 'rgba(16, 185, 129, 0.1)'
+              : 'rgba(16, 185, 129, 0.1)',
+            borderRadius: '8px',
+            p: '6px',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              backgroundColor: mode === 'dark' 
+                ? 'rgba(16, 185, 129, 0.2)'
+                : 'rgba(16, 185, 129, 0.2)',
+              transform: 'translateY(-1px)',
+            }
+          }}
+        >
+          {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+        </IconButton>
+      </Box>
+
+      {/* Staff Info - Only shown when not collapsed */}
+      {!collapsed && (
+        <Box 
+          sx={{ 
+            p: 2, 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center',
+            background: mode === 'dark'
+              ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+              : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+            mb: 2,
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          <Typography 
+            variant="body1" 
+            sx={{ 
+              fontWeight: 600, 
+              color: textColor,
             }}
           >
-            <Box sx={{ 
-              opacity: isCollapsed ? 0 : 1,
-              transform: isCollapsed ? 'translateX(-20px)' : 'translateX(0)',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              visibility: isCollapsed ? 'hidden' : 'visible',
-            }}>
-              Logout
-            </Box>
-          </Button>
-        </Tooltip>
+            Welcome, {staffName}
+          </Typography>
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              color: textSecondary,
+              opacity: 0.8 
+            }}
+          >
+            {staffType} Staff
+          </Typography>
+        </Box>
+      )}
+
+      {/* Navigation Menu */}
+      <Box 
+        sx={{ 
+          py: 1, 
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          height: '100%',
+          position: 'relative',
+          zIndex: 1,
+          '&::-webkit-scrollbar': {
+            width: '4px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: GREEN_MAIN,
+            borderRadius: '10px',
+          },
+        }}
+      >
+        <List 
+          sx={{ 
+            px: collapsed ? 1 : 2,
+          }}
+        >
+          {getMenuItems().map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <ListItem
+                key={item.text}
+                disablePadding
+                sx={{ 
+                  mb: 0.7, 
+                  display: 'block',
+                }}
+              >
+                <Tooltip 
+                  title={collapsed ? item.text : ''} 
+                  placement="right"
+                  arrow
+                >
+                  <ListItemButton
+                    onClick={() => navigate(item.path)}
+                    sx={{
+                      minHeight: 44,
+                      px: collapsed ? 2.5 : 3,
+                      py: 1,
+                      borderRadius: '10px',
+                      backgroundColor: isActive 
+                        ? mode === 'dark'
+                          ? 'rgba(16, 185, 129, 0.1)'
+                          : 'rgba(29, 80, 58, 0.1)'
+                        : 'transparent',
+                      '&:hover': {
+                        background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
+                        backdropFilter: 'blur(4px)',
+                      },
+                      '&:hover .MuiListItemIcon-root': {
+                        color: GREEN_MAIN,
+                        transform: collapsed ? 'scale(1.1)' : 'scale(1)',
+                      },
+                      transition: 'all 0.3s ease',
+                    }}
+                  >
+                    <ListItemIcon
+                      sx={{
+                        minWidth: 0,
+                        mr: collapsed ? 0 : 2,
+                        justifyContent: 'center',
+                        color: isActive ? GREEN_MAIN : textSecondary,
+                        transition: 'all 0.3s ease',
+                      }}
+                    >
+                      {item.icon}
+                    </ListItemIcon>
+                    
+                    {!collapsed && (
+                      <ListItemText
+                        primary={item.text}
+                        primaryTypographyProps={{
+                          fontSize: '0.9rem',
+                          fontWeight: isActive ? 600 : 500,
+                          color: isActive ? GREEN_MAIN : textColor,
+                          whiteSpace: 'nowrap',
+                          textOverflow: 'ellipsis',
+                          overflow: 'hidden',
+                        }}
+                      />
+                    )}
+                  </ListItemButton>
+                </Tooltip>
+              </ListItem>
+            );
+          })}
+        </List>
+      </Box>
+
+      {/* Logout Button */}
+      <Box 
+        sx={{ 
+          mt: 'auto', 
+          p: 2, 
+          borderTop: mode === 'dark' 
+            ? '1px solid rgba(255,255,255,0.05)'
+            : `1px solid rgba(29, 80, 58, 0.2)`,
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
+        <Button
+          variant="contained"
+          fullWidth
+          startIcon={!collapsed && <LogoutIcon />}
+          onClick={handleLogout}
+          sx={{
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            background: 'linear-gradient(90deg, #10B981 0%, #059669 100%)',
+            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
+            color: '#fff',
+            textTransform: 'none',
+            borderRadius: '8px',
+            p: collapsed ? 1 : '8px 16px',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              transform: 'translateY(-1px)',
+              boxShadow: '0 6px 15px rgba(16, 185, 129, 0.3)',
+              background: 'linear-gradient(90deg, #059669 0%, #047857 100%)',
+            },
+          }}
+        >
+          {collapsed ? <LogoutIcon /> : 'Logout'}
+        </Button>
       </Box>
     </Drawer>
   );

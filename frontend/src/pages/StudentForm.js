@@ -555,7 +555,9 @@ const StudentForm = () => {
           id: response.data._id,
           name: response.data.name,
           email: response.data.email,
-          buildingName: response.data.room?.building || 'Unassigned',
+          buildingName: typeof response.data.room?.building === 'object' 
+            ? response.data.room?.building?.name 
+            : response.data.room?.building || 'Unassigned',
           roomNumber: response.data.room?.roomNumber || 'Unassigned',
           studentDormNumber: response.data.studentDormNumber,
           role: response.data.role,
