@@ -50,7 +50,6 @@ const menuItems = [
   { text: 'News', icon: <AnnouncementIcon />, path: '/student/news' },
   { text: 'Messages', icon: <MessageIcon />, path: '/student/messages' },
   { text: 'Bills', icon: <ReceiptIcon />, path: '/student/bills' },
-  { text: 'Dorm Log', icon: <HistoryIcon />, path: '/student/log' },
   { text: 'FAQs', icon: <FAQIcon />, path: '/student/faqs' },
   { text: 'Settings', icon: <SettingsIcon />, path: '/student/settings' },
 ];
@@ -72,9 +71,9 @@ const StudentSidebar = () => {
     : BG_LIGHT;
   const textColor = mode === 'dark' ? '#fff' : '#000';
   const textSecondary = mode === 'dark' ? '#6B7280' : FOREST_GREEN;
-  
+
   const handleToggleCollapse = () => {
-    setIsCollapsed(!isCollapsed);
+      setIsCollapsed(!isCollapsed);
   };
 
   const handleLogout = async () => {
@@ -145,11 +144,11 @@ const StudentSidebar = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Avatar 
             sx={{ 
-              bgcolor: 'transparent',
+            bgcolor: 'transparent',
               width: 38, 
               height: 38,
               background: `linear-gradient(135deg, ${GREEN_MAIN} 0%, ${GREEN_DARK} 100%)`,
-              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
+            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
               color: '#fff',
               fontWeight: 'bold',
             }}
@@ -164,7 +163,7 @@ const StudentSidebar = () => {
                 fontSize: '1.2rem',
                 color: mode === 'dark' ? '#fff' : '#000',
                 textShadow: mode === 'dark' ? '0 2px 4px rgba(0,0,0,0.2)' : 'none',
-              }}
+            }}
             >
               Dormie
             </Typography>
@@ -253,7 +252,7 @@ const StudentSidebar = () => {
       >
         <List 
           sx={{ 
-            px: collapsed ? 1 : 2,
+        px: collapsed ? 1 : 2, 
           }}
         >
           {menuItems.map((item) => {
@@ -267,14 +266,14 @@ const StudentSidebar = () => {
                   display: 'block',
                 }}
               >
-                <Tooltip 
-                  title={collapsed ? item.text : ''} 
-                  placement="right"
+          <Tooltip 
+            title={collapsed ? item.text : ''}
+            placement="right"
                   arrow
-                >
+          >
                   <ListItemButton
-                    onClick={() => navigate(item.path)}
-                    sx={{
+              onClick={() => navigate(item.path)}
+              sx={{
                       minHeight: 44,
                       px: collapsed ? 2.5 : 3,
                       py: 1,
@@ -283,18 +282,18 @@ const StudentSidebar = () => {
                         ? mode === 'dark'
                           ? 'rgba(16, 185, 129, 0.1)'
                           : 'rgba(29, 80, 58, 0.1)'
-                        : 'transparent',
-                      '&:hover': {
-                        background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
-                        backdropFilter: 'blur(4px)',
-                      },
-                      '&:hover .MuiListItemIcon-root': {
+                  : 'transparent',
+                '&:hover': {
+                  background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
+                  backdropFilter: 'blur(4px)',
+                },
+                '&:hover .MuiListItemIcon-root': {
                         color: GREEN_MAIN,
                         transform: collapsed ? 'scale(1.1)' : 'scale(1)',
-                      },
+                },
                       transition: 'all 0.3s ease',
-                    }}
-                  >
+              }}
+            >
                     <ListItemIcon
                       sx={{
                         minWidth: 0,
@@ -304,12 +303,12 @@ const StudentSidebar = () => {
                         transition: 'all 0.3s ease',
                       }}
                     >
-                      {item.icon}
-                    </ListItemIcon>
+                {item.icon}
+              </ListItemIcon>
                     
                     {!collapsed && (
-                      <ListItemText
-                        primary={item.text}
+              <ListItemText 
+                primary={item.text} 
                         primaryTypographyProps={{
                           fontSize: '0.9rem',
                           fontWeight: isActive ? 600 : 500,
@@ -322,16 +321,16 @@ const StudentSidebar = () => {
                     )}
                   </ListItemButton>
                 </Tooltip>
-              </ListItem>
+            </ListItem>
             );
           })}
-        </List>
+      </List>
       </Box>
 
       {/* Logout Button */}
       <Box 
         sx={{ 
-          mt: 'auto', 
+        mt: 'auto', 
           p: 2, 
           borderTop: mode === 'dark' 
             ? '1px solid rgba(255,255,255,0.05)'
@@ -340,29 +339,29 @@ const StudentSidebar = () => {
           zIndex: 1,
         }}
       >
-        <Button
+          <Button
           variant="contained"
           fullWidth
           startIcon={!collapsed && <LogoutIcon />}
-          onClick={handleLogout}
-          sx={{
+            onClick={handleLogout}
+            sx={{
             justifyContent: collapsed ? 'center' : 'flex-start',
             background: 'linear-gradient(90deg, #10B981 0%, #059669 100%)',
             boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
-            color: '#fff',
+              color: '#fff',
             textTransform: 'none',
             borderRadius: '8px',
             p: collapsed ? 1 : '8px 16px',
             transition: 'all 0.3s ease',
-            '&:hover': {
-              transform: 'translateY(-1px)',
+              '&:hover': {
+                transform: 'translateY(-1px)',
               boxShadow: '0 6px 15px rgba(16, 185, 129, 0.3)',
               background: 'linear-gradient(90deg, #059669 0%, #047857 100%)',
-            },
-          }}
-        >
+              },
+            }}
+          >
           {collapsed ? <LogoutIcon /> : 'Logout'}
-        </Button>
+          </Button>
       </Box>
     </Drawer>
   );

@@ -15,6 +15,7 @@ import AdminSettings from './pages/AdminSettings';
 import StaffDashboard from './pages/StaffDashboard';
 import StaffTenantLog from './pages/StaffTenantLog';
 import StaffAssignment from './pages/StaffAssignment';
+import StaffSettings from './pages/StaffSettings';
 import StudentDashboard from './pages/StudentDashboard';
 import AdminMessaging from './pages/AdminMessaging';
 import StudentMessaging from './pages/StudentMessaging';
@@ -337,6 +338,15 @@ function App() {
             element={
               <ProtectedRoute allowedRole="staff">
                 <StaffAssignment />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/staff/settings" 
+            element={
+              <ProtectedRoute allowedRole="staff">
+                <StaffSettings />
               </ProtectedRoute>
             } 
           />

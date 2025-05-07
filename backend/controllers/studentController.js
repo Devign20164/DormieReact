@@ -185,7 +185,7 @@ const checkPhoneExists = async (req, res) => {
 // Add a new controller to verify student password
 const verifyStudentPassword = asyncHandler(async (req, res) => {
   const { password } = req.body;
-  const student = await Student.findById(req.params.id).select('password name studentDormNumber');
+  const student = await Student.findById(req.params.id).select('password name studentDormNumber status lastCheckIn lastCheckOut');
   if (!student) {
     return res.status(404).json({ message: 'Student not found' });
   }
@@ -193,8 +193,14 @@ const verifyStudentPassword = asyncHandler(async (req, res) => {
   if (isMatch) {
     res.json({ 
       verified: true, 
-      name: student.name,
-      studentDormNumber: student.studentDormNumber
+      student: {
+        id: student._id,
+        name: student.name,
+        studentDormNumber: student.studentDormNumber,
+        status: student.status || 'out',
+        lastCheckIn: student.lastCheckIn,
+        lastCheckOut: student.lastCheckOut
+      }
     });
   } else {
     res.status(401).json({ verified: false, message: 'Invalid password' });

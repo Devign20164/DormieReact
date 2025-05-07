@@ -181,8 +181,8 @@ const Login = () => {
         // Redirect based on role
         if (role === "staff" && data.typeOfStaff === "Security") {
           // Redirect Security staff directly to tenant log
-          navigate("/staff/tenant-log");
-        } else {
+              navigate("/staff/tenant-log");
+            } else {
           // Redirect other roles to their dashboards
           navigate(redirectPath);
         }
@@ -302,13 +302,13 @@ const Login = () => {
                 width: "60px",
                 height: "60px",
                 display: "flex",
-                alignItems: "center",
+            alignItems: "center",
                 justifyContent: "center",
                 borderRadius: "8px",
                 mr: 2,
                 transform: "rotate(10deg)",
-              }}
-            >
+          }}
+        >
               <SchoolIcon sx={{ fontSize: 40, color: "white" }} />
             </Box>
             <Typography 
@@ -398,7 +398,7 @@ const Login = () => {
         <Box
           sx={{
             maxWidth: "450px", 
-            width: "100%", 
+              width: "100%",
             mx: "auto",
             px: { xs: 3, sm: 4 },
             }}

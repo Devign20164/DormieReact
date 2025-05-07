@@ -224,7 +224,7 @@ const StudentDashboard = () => {
               // Uncomment the next line to use sample data for development/testing
               // setRecentOffenses(generateSampleOffenses().slice(0, 5));
             } else {
-              setRecentOffenses(sortedOffenses.slice(0, 5)); // Get the 5 most recent offenses
+            setRecentOffenses(sortedOffenses.slice(0, 5)); // Get the 5 most recent offenses
             }
           })
           .catch(err => {
@@ -327,6 +327,31 @@ const StudentDashboard = () => {
           p: { xs: 2, md: 3 },
         }}
       >
+        {/* Header */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 4,
+          pb: 3,
+          borderBottom: '1px solid rgba(255,255,255,0.03)',
+        }}>
+          <Box>
+            <Typography variant="h4" sx={{ 
+              fontWeight: 600, 
+              color: '#fff',
+              textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            }}>
+              Welcome back, {studentData?.name || 'Student'}
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#6B7280', mt: 1 }}>
+              Here's your dormitory overview
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <NotificationBell userType="student" color="#10B981" />
+          </Stack>
+        </Box>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
             <CircularProgress sx={{ color: '#2DD4BF' }} />
@@ -436,7 +461,7 @@ const StudentDashboard = () => {
                 boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
                 flex: '1 1 28%',
                 minWidth: { xs: '100%', sm: '320px', md: '30%' },
-                display: 'flex', 
+          display: 'flex', 
                 flexDirection: 'column',
                 position: 'relative',
                 overflow: 'hidden',
@@ -460,80 +485,112 @@ const StudentDashboard = () => {
                   </Box>
                   {latestBill && (
                     <Chip 
-                      label="paid" 
+                      label={latestBill.status || "pending"} 
                       size="small"
                       sx={{ 
-                        bgcolor: 'rgba(45, 212, 191, 0.2)',
-                        color: '#2DD4BF',
+                        bgcolor: `${getStatusColor(latestBill.status)}20`,
+                        color: getStatusColor(latestBill.status),
                         fontWeight: 'medium',
                         fontSize: '0.625rem',
                         height: 20,
-                        boxShadow: '0 0 10px rgba(45, 212, 191, 0.3)',
+                        boxShadow: `0 0 10px ${getStatusColor(latestBill.status)}30`,
                       }}
                     />
                   )}
                 </Box>
                 
                 <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
-                  <Box>
-                    <Box sx={{ mb: 1.5 }}>
-                      <Typography variant="caption" sx={{ color: '#94A3B8', display: 'flex', alignItems: 'center' }}>
-                        <DateRangeIcon sx={{ fontSize: 14, mr: 0.5, color: '#8B5CF6' }} /> Bill Period
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: '#fff' }}>
-                        Apr 23, 2025 - May 22, 2025
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ mb: 1.5 }}>
-                      <Typography variant="caption" sx={{ color: '#94A3B8', display: 'flex', alignItems: 'center' }}>
-                        <DateRangeIcon sx={{ fontSize: 14, mr: 0.5, color: '#8B5CF6' }} /> Due Date
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: '#fff' }}>
-                        Apr 30, 2025
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ mb: 1.5 }}>
-                      <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                        Total Amount
-                      </Typography>
-                      <Typography variant="h5" sx={{ 
-                        color: '#2DD4BF', 
-                        fontWeight: 'bold',
-                        textShadow: '0 0 10px rgba(45, 212, 191, 0.7)'
-                      }}>
-                        ₱2,242,723
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
-                      <Box>
-                        <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                          Paid Amount
+                  {latestBill ? (
+          <Box>
+                      <Box sx={{ mb: 1.5 }}>
+                        <Typography variant="caption" sx={{ color: '#94A3B8', display: 'flex', alignItems: 'center' }}>
+                          <DateRangeIcon sx={{ fontSize: 14, mr: 0.5, color: '#8B5CF6' }} /> Bill Period
                         </Typography>
-                        <Typography variant="body2" sx={{ color: '#10B981', fontWeight: 'medium' }}>
-                          ₱100,000,000,000,000
+                        <Typography variant="body2" sx={{ color: '#fff' }}>
+                          {latestBill.billingPeriodStart && latestBill.billingPeriodEnd
+                            ? `${formatDate(latestBill.billingPeriodStart)} - ${formatDate(latestBill.billingPeriodEnd)}`
+                            : 'Not specified'}
                         </Typography>
                       </Box>
 
-                      <Box sx={{ textAlign: 'right' }}>
-                        <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                          Balance Due
+                      <Box sx={{ mb: 1.5 }}>
+                        <Typography variant="caption" sx={{ color: '#94A3B8', display: 'flex', alignItems: 'center' }}>
+                          <DateRangeIcon sx={{ fontSize: 14, mr: 0.5, color: '#8B5CF6' }} /> Due Date
                         </Typography>
-                        <Typography variant="body2" sx={{ color: '#EF4444', fontWeight: 'medium' }}>
-                          ₱-99,999,999,997,757,280
+                        <Typography variant="body2" sx={{ color: '#fff' }}>
+                          {formatDate(latestBill.dueDate)}
                         </Typography>
                       </Box>
-                    </Box>
-                  </Box>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
-                    <SportsScoreIcon sx={{ color: '#10B981', fontSize: 18 }} />
-                    <Typography variant="body2" sx={{ color: '#10B981', fontSize: '0.8rem' }}>
-                      Payment completed on time
-                    </Typography>
-                  </Box>
+                      <Box sx={{ mb: 1.5 }}>
+                        <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+                          Total Amount
+                        </Typography>
+                        <Typography variant="h5" sx={{ 
+                          color: '#2DD4BF', 
+                          fontWeight: 'bold',
+                          textShadow: '0 0 10px rgba(45, 212, 191, 0.7)'
+                        }}>
+                          ₱{(latestBill.amount || 
+                             (latestBill.rentalFee + latestBill.waterFee + latestBill.electricityFee + 
+                              (latestBill.otherFees ? latestBill.otherFees.reduce((sum, fee) => sum + fee.amount, 0) : 0)
+                             ) || 0).toLocaleString()}
+            </Typography>
+                      </Box>
+
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
+                        <Box>
+                          <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+                            Paid Amount
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: '#10B981', fontWeight: 'medium' }}>
+                            ₱{(latestBill.amountPaid || 0).toLocaleString()}
+            </Typography>
+          </Box>
+
+                        <Box sx={{ textAlign: 'right' }}>
+                          <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+                            Balance Due
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: '#EF4444', fontWeight: 'medium' }}>
+                            ₱{(
+                              (latestBill.amount || 
+                               (latestBill.rentalFee + latestBill.waterFee + latestBill.electricityFee + 
+                                (latestBill.otherFees ? latestBill.otherFees.reduce((sum, fee) => sum + fee.amount, 0) : 0)
+                               )) - (latestBill.amountPaid || 0)
+                            ).toLocaleString()}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                      <Typography variant="body1" sx={{ color: '#fff', fontWeight: 'medium', mb: 1 }}>
+                        No bills available
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: '#94A3B8', textAlign: 'center' }}>
+                        You don't have any bills yet
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {latestBill && latestBill.status?.toLowerCase() === 'paid' && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
+                      <SportsScoreIcon sx={{ color: '#10B981', fontSize: 18 }} />
+                      <Typography variant="body2" sx={{ color: '#10B981', fontSize: '0.8rem' }}>
+                        Payment completed on time
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {latestBill && latestBill.status?.toLowerCase() === 'overdue' && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
+                      <WarningIcon sx={{ color: '#EF4444', fontSize: 18 }} />
+                      <Typography variant="body2" sx={{ color: '#EF4444', fontSize: '0.8rem' }}>
+                        Payment is overdue
+                      </Typography>
+                    </Box>
+                  )}
                 </Box>
               </Card>
 
@@ -606,7 +663,7 @@ const StudentDashboard = () => {
                       }}
                     />
                   </Box>
-                </Box>
+        </Box>
 
                 <Box sx={{ flexGrow: 1, overflow: 'hidden', height: 237, position: 'relative', zIndex: 1 }}>
                   {recentOffenses.length === 0 ? (
@@ -624,7 +681,7 @@ const StudentDashboard = () => {
                         boxShadow: '0 0 20px rgba(16, 185, 129, 0.3)',
                       }}>
                         <EmojiEventsIcon sx={{ color: '#10B981', fontSize: 30 }} />
-                      </Box>
+          </Box>
                       <Typography variant="body1" sx={{ color: '#fff', fontWeight: 'medium', mb: 1 }}>
                         No offenses recorded
                       </Typography>
@@ -682,11 +739,11 @@ const StudentDashboard = () => {
               </Card>
 
               {/* Recent Bills Card */}
-              <Card sx={{ 
-                background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-                borderRadius: '20px',
-                border: '1px solid rgba(255, 255, 255, 0.03)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+                <Card sx={{ 
+                  background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+                  borderRadius: '20px',
+                  border: '1px solid rgba(255, 255, 255, 0.03)',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
                 flex: '1 1 28%',
                 minWidth: { xs: '100%', sm: '320px', md: '30%' },
                 display: 'flex',
@@ -713,7 +770,7 @@ const StudentDashboard = () => {
                   </Box>
                   <Box
                     component="a"
-                    href="/student/bill"
+                    href="/student/bills"
                     sx={{ 
                       color: '#2DD4BF',
                       fontWeight: 'medium',
@@ -759,7 +816,10 @@ const StudentDashboard = () => {
                                   fontSize: '0.875rem',
                                   textShadow: '0 0 5px rgba(45, 212, 191, 0.5)'
                                 }}>
-                                  ₱{bill.amount ? bill.amount.toLocaleString() : '2,242,723'}
+                                  ₱{(bill.amount || 
+                                     (bill.rentalFee + bill.waterFee + bill.electricityFee + 
+                                      (bill.otherFees ? bill.otherFees.reduce((sum, fee) => sum + fee.amount, 0) : 0)
+                                     ) || 0).toLocaleString()}
                                 </Typography>
                               </Box>
                             }
@@ -975,24 +1035,24 @@ const StudentDashboard = () => {
             <Grid container spacing={3}>
               <Grid item xs={12} sm={6} md={4}>
                 <Box sx={{ textAlign: 'center', mb: { xs: 3, md: 0 } }}>
-                  <Avatar
-                    sx={{
+                    <Avatar 
+                      sx={{ 
                       width: 120,
                       height: 120,
                       mx: 'auto',
                       mb: 2,
-                      boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
+                        boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
                       bgcolor: '#3B82F6',
-                    }}
-                  >
+                      }}
+                    >
                     <PersonIcon sx={{ fontSize: 60 }} />
-                  </Avatar>
+                    </Avatar>
                   <Typography variant="body1" sx={{ color: '#fff', fontWeight: 600 }}>
-                    {studentData?.name || 'Student Name'}
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: '#6B7280' }}>
+                        {studentData?.name || 'Student Name'}
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: '#6B7280' }}>
                     {studentData?.studentDormNumber || 'N/A'}
-                  </Typography>
+                      </Typography>
                   <Chip
                     label={studentData?.status || 'Active'}
                     size="small"
@@ -1003,19 +1063,19 @@ const StudentDashboard = () => {
                       mt: 1,
                     }}
                   />
-                </Box>
+                    </Box>
               </Grid>
               <Grid item xs={12} sm={6} md={8}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
                     <Typography variant="body2" sx={{ color: '#6B7280', mb: 0.5 }}>
                       Full Name
-                    </Typography>
-                    <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
+                        </Typography>
+                      <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
                       {studentData?.name || 'N/A'}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
                     <Typography variant="body2" sx={{ color: '#6B7280', mb: 0.5 }}>
                       Email
                     </Typography>
@@ -1041,30 +1101,30 @@ const StudentDashboard = () => {
                   </Grid>
                   <Grid item xs={12} sm={6}>
                     <Typography variant="body2" sx={{ color: '#6B7280', mb: 0.5 }}>
-                      Building
-                    </Typography>
-                    <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
+                          Building
+                        </Typography>
+                      <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
                       {buildingData?.name || 
                        (typeof studentData?.room?.building === 'string' ? studentData?.room?.building : studentData?.room?.building?.name) || 
                        'N/A'}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
                     <Typography variant="body2" sx={{ color: '#6B7280', mb: 0.5 }}>
-                      Room Number
-                    </Typography>
-                    <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
-                      {studentData?.room?.roomNumber || 'N/A'}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
+                          Room Number
+                        </Typography>
+                      <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
+                        {studentData?.room?.roomNumber || 'N/A'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
                     <Typography variant="body2" sx={{ color: '#6B7280', mb: 0.5 }}>
                       Address
-                    </Typography>
-                    <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
+                        </Typography>
+                      <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
                       {studentData?.address || 'N/A'}
-                    </Typography>
-                  </Grid>
+                      </Typography>
+                    </Grid>
                   <Grid item xs={12} sm={6}>
                     <Typography variant="body2" sx={{ color: '#6B7280', mb: 0.5 }}>
                       Gender
@@ -1073,7 +1133,7 @@ const StudentDashboard = () => {
                       {studentData?.gender || 'N/A'}
                     </Typography>
                   </Grid>
-                </Grid>
+              </Grid>
               </Grid>
             </Grid>
           ) : (
@@ -1158,7 +1218,7 @@ const StudentDashboard = () => {
         maxWidth="sm"
         PaperProps={{
           sx: {
-            background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+                  background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
             borderRadius: '16px',
             overflow: 'hidden',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
@@ -1179,7 +1239,7 @@ const StudentDashboard = () => {
             >
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <ReceiptLongIcon sx={{ mr: 1, color: '#3B82F6' }} />
-                <Typography variant="h6" sx={{ fontWeight: 600, color: '#fff' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#fff' }}>
                   Bill Details
                 </Typography>
               </Box>
@@ -1192,15 +1252,15 @@ const StudentDashboard = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="body1" sx={{ color: '#fff', fontWeight: 600 }}>
                     Bill #{selectedBill._id.substring(selectedBill._id.length - 6)}
-                  </Typography>
-                  <Chip
+                    </Typography>
+                    <Chip 
                     label={selectedBill.status || 'No Status'}
-                    sx={{
+                      sx={{ 
                       bgcolor: `${getStatusColor(selectedBill.status)}20`,
                       color: getStatusColor(selectedBill.status),
-                      fontWeight: 600,
-                    }}
-                  />
+                        fontWeight: 600,
+                      }}
+                    />
                 </Box>
                 <Typography variant="body2" sx={{ color: '#6B7280' }}>
                   Billing Period: {formatDate(selectedBill.billingPeriodStart)} - {formatDate(selectedBill.billingPeriodEnd)}
@@ -1208,39 +1268,39 @@ const StudentDashboard = () => {
                 <Typography variant="body2" sx={{ color: '#6B7280' }}>
                   Due Date: {formatDate(selectedBill.dueDate)}
                 </Typography>
-              </Box>
+                  </Box>
 
               <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.03)' }} />
 
               <Grid container spacing={1} sx={{ mb: 3 }}>
-                <Grid item xs={6}>
+                        <Grid item xs={6}>
                   <Paper sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
                     <Typography variant="body2" sx={{ color: '#6B7280', mb: 1 }}>
                       Total Amount
-                    </Typography>
+                          </Typography>
                     <Typography variant="h6" sx={{ color: '#fff', fontWeight: 600 }}>
                       ₱{selectedBill.totalAmount ? selectedBill.totalAmount.toLocaleString() : 0}
-                    </Typography>
+                          </Typography>
                   </Paper>
-                </Grid>
-                <Grid item xs={6}>
+                        </Grid>
+                        <Grid item xs={6}>
                   <Paper sx={{ p: 2, bgcolor: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px' }}>
                     <Typography variant="body2" sx={{ color: 'rgba(16, 185, 129, 0.8)', mb: 1 }}>
                       Amount Paid
-                    </Typography>
+                          </Typography>
                     <Typography variant="h6" sx={{ color: '#10B981', fontWeight: 600 }}>
                       ₱{selectedBill.amountPaid ? selectedBill.amountPaid.toLocaleString() : 0}
-                    </Typography>
+                          </Typography>
                   </Paper>
-                </Grid>
+                        </Grid>
                 <Grid item xs={12}>
                   <Paper sx={{ p: 2, bgcolor: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', mt: 1 }}>
                     <Typography variant="body2" sx={{ color: 'rgba(239, 68, 68, 0.8)', mb: 1 }}>
                       Balance Due
-                    </Typography>
+                        </Typography>
                     <Typography variant="h6" sx={{ color: '#EF4444', fontWeight: 600 }}>
                       ₱{selectedBill.balanceDue ? selectedBill.balanceDue.toLocaleString() : selectedBill.totalAmount?.toLocaleString() || 0}
-                    </Typography>
+                        </Typography>
                   </Paper>
                 </Grid>
               </Grid>
@@ -1249,7 +1309,7 @@ const StudentDashboard = () => {
                 <Box>
                   <Typography variant="body1" sx={{ color: '#fff', fontWeight: 600, mb: 2 }}>
                     Bill Items
-                  </Typography>
+                        </Typography>
                   <Box sx={{ maxHeight: '200px', overflow: 'hidden' }}>
                     {selectedBill.items.map((item, index) => (
                       <Box
@@ -1269,8 +1329,8 @@ const StudentDashboard = () => {
                           </Typography>
                           <Typography variant="caption" sx={{ color: '#6B7280' }}>
                             {item.details || 'No details provided'}
-                          </Typography>
-                        </Box>
+                        </Typography>
+                      </Box>
                         <Typography variant="body2" sx={{ color: '#fff', fontWeight: 600 }}>
                           ₱{item.amount ? item.amount.toLocaleString() : 0}
                         </Typography>
@@ -1293,18 +1353,18 @@ const StudentDashboard = () => {
               >
                 Close
               </Button>
-              <Button
-                variant="contained"
-                sx={{
-                  bgcolor: '#3B82F6',
-                  '&:hover': {
-                    bgcolor: '#2563EB',
-                  }
-                }}
-                href="/student/bill"
-              >
-                View All Bills
-              </Button>
+                      <Button 
+                        variant="contained" 
+                        sx={{ 
+                          bgcolor: '#3B82F6',
+                          '&:hover': {
+                            bgcolor: '#2563EB',
+                          }
+                        }}
+                        href="/student/bills"
+                      >
+                        View All Bills
+                      </Button>
             </DialogActions>
           </>
         )}
@@ -1342,8 +1402,8 @@ const StudentDashboard = () => {
                 <WarningIcon sx={{ mr: 1, color: '#EF4444' }} />
                 <Typography variant="h6" sx={{ fontWeight: 600, color: '#fff' }}>
                   Offense Details
-                </Typography>
-              </Box>
+                      </Typography>
+                    </Box>
               <IconButton onClick={handleCloseOffenseDialog} sx={{ color: '#6B7280' }}>
                 <CloseIcon />
               </IconButton>
@@ -1366,7 +1426,7 @@ const StudentDashboard = () => {
               <Box sx={{ mb: 3 }}>
                 <Typography variant="body1" sx={{ color: '#fff', fontWeight: 600, mb: 1 }}>
                   Offense Reason
-                </Typography>
+            </Typography>
                 <Paper sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
                   <Typography variant="body2" sx={{ color: '#fff' }}>
                     {selectedOffense.offenseReason || 'No reason provided'}
@@ -1401,7 +1461,7 @@ const StudentDashboard = () => {
         maxWidth="xs"
         PaperProps={{
           sx: {
-            background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
             borderRadius: '16px',
             overflow: 'hidden',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
@@ -1427,58 +1487,58 @@ const StudentDashboard = () => {
         </DialogTitle>
         <DialogContent sx={{ p: 0 }}>
           <List disablePadding>
-            <ListItem
+                    <ListItem 
               button
               component="a"
-              href="/student/bill"
+              href="/student/bills"
               divider
-              sx={{
+                      sx={{ 
                 py: 2,
                 borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                '&:hover': {
+                        '&:hover': {
                   bgcolor: 'rgba(255, 255, 255, 0.05)',
                 }
-              }}
-            >
-              <ListItemText
-                primary={
-                  <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
+                      }}
+                    >
+                      <ListItemText
+                        primary={
+                          <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
                     View All Bills
-                  </Typography>
-                }
-                secondary={
-                  <Typography variant="body2" sx={{ color: '#6B7280' }}>
+                          </Typography>
+                        }
+                        secondary={
+                          <Typography variant="body2" sx={{ color: '#6B7280' }}>
                     Check and pay your dormitory bills
-                  </Typography>
-                }
-              />
+                          </Typography>
+                        }
+                      />
               <ReceiptLongIcon sx={{ color: '#3B82F6' }} />
-            </ListItem>
-            <ListItem
+                    </ListItem>
+                    <ListItem 
               button
               component="a"
               href="/student/form"
               divider
-              sx={{
+                      sx={{ 
                 py: 2,
                 borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                '&:hover': {
+                        '&:hover': {
                   bgcolor: 'rgba(255, 255, 255, 0.05)',
                 }
-              }}
-            >
-              <ListItemText
-                primary={
-                  <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
+                      }}
+                    >
+                      <ListItemText
+                        primary={
+                          <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
                     Maintenance Requests
-                  </Typography>
-                }
-                secondary={
-                  <Typography variant="body2" sx={{ color: '#6B7280' }}>
+                          </Typography>
+                        }
+                        secondary={
+                          <Typography variant="body2" sx={{ color: '#6B7280' }}>
                     Submit new maintenance requests
-                  </Typography>
-                }
-              />
+                          </Typography>
+                        }
+                      />
               <EventNoteIcon sx={{ color: '#10B981' }} />
             </ListItem>
             <ListItem
@@ -1496,9 +1556,9 @@ const StudentDashboard = () => {
             >
               <ListItemText
                 primary={
-                  <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
+                        <Typography variant="body1" sx={{ color: '#fff', fontWeight: 500 }}>
                     Student FAQs
-                  </Typography>
+                        </Typography>
                 }
                 secondary={
                   <Typography variant="body2" sx={{ color: '#6B7280' }}>
@@ -1512,7 +1572,7 @@ const StudentDashboard = () => {
               button
               component="a"
               href="/student/settings"
-              sx={{
+                          sx={{ 
                 py: 2,
                 '&:hover': {
                   bgcolor: 'rgba(255, 255, 255, 0.05)',
@@ -1532,8 +1592,8 @@ const StudentDashboard = () => {
                 }
               />
               <PersonIcon sx={{ color: '#F59E0B' }} />
-            </ListItem>
-          </List>
+                    </ListItem>
+                </List>
         </DialogContent>
       </Dialog>
     </Box>

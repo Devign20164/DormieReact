@@ -5,7 +5,8 @@ const {
   logoutStaff,
   getStaffProfile,
   getAssignedForms,
-  updateFormStatus
+  updateFormStatus,
+  updateStaffPassword
 } = require('../controllers/staffController');
 const { protect } = require('../middleware/auth');
 
@@ -13,6 +14,9 @@ const { protect } = require('../middleware/auth');
 router.post('/login', loginStaff);
 router.post('/logout', protect, logoutStaff);
 router.get('/profile', protect, getStaffProfile);
+
+// Password management route
+router.put('/update-password', protect, updateStaffPassword);
 
 // Form management routes
 router.get('/forms', protect, getAssignedForms);

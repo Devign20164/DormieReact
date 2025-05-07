@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   Box,
   Typography,
@@ -23,12 +23,22 @@ import {
   Avatar,
   Card,
   InputAdornment,
+  useTheme
 } from "@mui/material";
 import { Search as SearchIcon, AccessTime as ClockIcon } from "@mui/icons-material";
 import StaffSidebar from '../components/StaffSidebar';
 import axios from "axios";
+import { ThemeContext } from '../App';
+
+// Color constants
+const EGGSHELL_WHITE = "#F0EAD6";
+const EMERALD_GREEN = "#50C878";
+const DARK_EMERALD = "#2E8B57";
 
 const StaffTenantLog = () => {
+  const { mode } = useContext(ThemeContext);
+  const theme = useTheme();
+
   // State for the list of students (initialized with empty array)
   const [students, setStudents] = useState([]);
 
@@ -112,7 +122,18 @@ const StaffTenantLog = () => {
       
       // If verification successful
       if (response.data.verified) {
-        setVerifiedStudent(response.data.student);
+        const verifiedData = response.data.student;
+        setVerifiedStudent(verifiedData);
+        
+        // Update selectedStudent with the latest data from the server
+        setSelectedStudent({
+          ...selectedStudent,
+          id: verifiedData.id || selectedStudent.id,
+          status: verifiedData.status || selectedStudent.status,
+          lastCheckIn: verifiedData.lastCheckIn || selectedStudent.lastCheckIn,
+          lastCheckOut: verifiedData.lastCheckOut || selectedStudent.lastCheckOut
+        });
+        
         setPasswordDialogOpen(false);
         setActionDialogOpen(true);
       } else {
@@ -236,8 +257,21 @@ const StaffTenantLog = () => {
     <Box sx={{ 
       display: 'flex', 
       minHeight: '100vh',
-      background: 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)',
-      color: '#fff',
+      background: mode === 'dark' 
+        ? 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)'
+        : '#FAF5EE',
+      color: mode === 'dark' ? '#fff' : '#000',
+      position: 'relative',
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'radial-gradient(circle at top right, rgba(255,255,255,0.03) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      },
     }}>
       <StaffSidebar />
       
@@ -247,12 +281,39 @@ const StaffTenantLog = () => {
         sx={{
           flexGrow: 1,
           p: 4,
-          overflowX: 'auto',
+          position: 'relative',
+          zIndex: 1,
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          transform: 'none',
         }}
       >
-        <Typography variant="h4" gutterBottom>
-          Student Log System
-        </Typography>
+        {/* Header */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 4,
+          pb: 3,
+          borderBottom: mode === 'dark' 
+            ? '1px solid rgba(255,255,255,0.03)'
+            : '1px solid #1D503A',
+        }}>
+          <Box>
+            <Typography variant="h4" sx={{ 
+              fontWeight: 600, 
+              color: mode === 'dark' ? '#fff' : '#000',
+              textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            }}>
+              Student Log System
+            </Typography>
+            <Typography variant="body2" sx={{ 
+              color: mode === 'dark' ? '#6B7280' : '#1D503A',
+              mt: 1 
+            }}>
+              Manage student check-ins and check-outs in the dormitory
+            </Typography>
+          </Box>
+        </Box>
 
         {/* Search Bar */}
         <Box sx={{ mb: 4 }}>
@@ -265,21 +326,21 @@ const StaffTenantLog = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon sx={{ color: 'rgba(255, 255, 255, 0.5)' }} />
+                  <SearchIcon sx={{ color: mode === 'dark' ? 'rgba(255, 255, 255, 0.5)' : '#1D503A' }} />
                 </InputAdornment>
               ),
               sx: {
-                color: '#fff',
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                color: mode === 'dark' ? '#fff' : '#000',
+                backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(29, 80, 58, 0.05)',
                 borderRadius: '8px',
                 '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                  borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(29, 80, 58, 0.2)',
                 },
                 '&:hover .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                  borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(29, 80, 58, 0.3)',
                 },
                 '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#3B82F6',
+                  borderColor: mode === 'dark' ? '#10B981' : '#1D503A',
                 },
               }
             }}
@@ -288,21 +349,29 @@ const StaffTenantLog = () => {
 
         {/* Student Table */}
         <Card sx={{ 
-          background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-          borderRadius: '16px',
+          background: mode === 'dark'
+            ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+            : '#FAF5EE',
+          borderRadius: '20px',
           boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-          border: '1px solid rgba(255, 255, 255, 0.03)',
+          border: mode === 'dark'
+            ? '1px solid rgba(255, 255, 255, 0.03)'
+            : '1px solid #1D503A',
           overflow: 'hidden',
         }}>
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow sx={{ 
-                  backgroundColor: 'rgba(15, 23, 42, 0.5)',
                   '& th': { 
-                    color: 'rgba(255, 255, 255, 0.7)',
+                    color: mode === 'dark' ? '#fff' : '#000',
                     fontWeight: 600,
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                    borderBottom: mode === 'dark'
+                      ? '1px solid rgba(255,255,255,0.05)'
+                      : '1px solid #1D503A',
+                    background: mode === 'dark'
+                      ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                      : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
                   }
                 }}>
                   <TableCell>Student</TableCell>
@@ -313,15 +382,18 @@ const StaffTenantLog = () => {
                 {loading ? (
                   <TableRow>
                     <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
-                      <CircularProgress />
-                      <Typography sx={{ mt: 2, color: 'rgba(255, 255, 255, 0.7)' }}>
+                      <CircularProgress sx={{ color: mode === 'dark' ? '#10B981' : '#1D503A' }} />
+                      <Typography sx={{ mt: 2, color: mode === 'dark' ? 'rgba(255, 255, 255, 0.7)' : '#1D503A' }}>
                         Loading students...
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ) : filteredStudents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={2} align="center" sx={{ color: 'rgba(255, 255, 255, 0.7)', py: 4 }}>
+                    <TableCell colSpan={2} align="center" sx={{ 
+                      color: mode === 'dark' ? 'rgba(255, 255, 255, 0.7)' : '#1D503A', 
+                      py: 4 
+                    }}>
                       No students found
                     </TableCell>
                   </TableRow>
@@ -332,16 +404,30 @@ const StaffTenantLog = () => {
                       onClick={() => handleRowClick(student)}
                       sx={{ 
                         cursor: "pointer",
-                        '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.03)' },
+                        transition: 'all 0.3s ease',
+                        '&:hover': { 
+                          backgroundColor: mode === 'dark' 
+                            ? 'rgba(16, 185, 129, 0.05)' 
+                            : 'rgba(29, 80, 58, 0.05)' 
+                        },
                         '& td': { 
-                          color: '#fff',
-                          borderBottom: '1px solid rgba(255, 255, 255, 0.03)',
+                          color: mode === 'dark' ? '#D1D5DB' : '#333',
+                          borderBottom: mode === 'dark'
+                            ? '1px solid rgba(255,255,255,0.03)'
+                            : '1px solid rgba(0, 0, 0, 0.1)',
                         }
                       }}
                     >
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <Avatar sx={{ width: 36, height: 36, bgcolor: 'rgba(59, 130, 246, 0.2)' }}>
+                          <Avatar sx={{ 
+                            width: 36, 
+                            height: 36, 
+                            bgcolor: mode === 'dark' 
+                              ? 'rgba(16, 185, 129, 0.2)' 
+                              : 'rgba(29, 80, 58, 0.2)',
+                            color: mode === 'dark' ? '#10B981' : '#1D503A'
+                          }}>
                             {student.name.charAt(0)}
                           </Avatar>
                           <Typography variant="body1">
@@ -359,10 +445,39 @@ const StaffTenantLog = () => {
         </Card>
 
         {/* Password Dialog */}
-        <Dialog open={passwordDialogOpen} onClose={() => setPasswordDialogOpen(false)}>
-          <DialogTitle>Verify Student Identity</DialogTitle>
-          <DialogContent>
-            <Typography variant="body1" sx={{ mb: 2 }}>
+        <Dialog 
+          open={passwordDialogOpen} 
+          onClose={() => setPasswordDialogOpen(false)}
+          PaperProps={{
+            sx: {
+              background: mode === 'dark'
+                ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+                : '#FAF5EE',
+              color: mode === 'dark' ? '#fff' : '#000',
+              borderRadius: '20px',
+              border: mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.03)'
+                : '1px solid #1D503A',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+            },
+          }}
+        >
+          <DialogTitle sx={{ 
+            borderBottom: mode === 'dark'
+              ? '1px solid rgba(255,255,255,0.03)'
+              : '1px solid #1D503A',
+            background: mode === 'dark'
+              ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+              : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+            color: mode === 'dark' ? '#fff' : '#1D503A',
+          }}>
+            Verify Student Identity
+          </DialogTitle>
+          <DialogContent sx={{ mt: 2 }}>
+            <Typography variant="body1" sx={{ 
+              mb: 2,
+              color: mode === 'dark' ? '#D1D5DB' : '#333',
+            }}>
               Please enter the password to verify student identity
             </Typography>
             <TextField
@@ -373,12 +488,65 @@ const StaffTenantLog = () => {
               fullWidth
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              sx={{ 
+                '& .MuiOutlinedInput-root': {
+                  color: mode === 'dark' ? '#fff' : '#000',
+                  '& fieldset': {
+                    borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(29, 80, 58, 0.3)',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: mode === 'dark' ? 'rgba(16, 185, 129, 0.5)' : 'rgba(29, 80, 58, 0.5)',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: mode === 'dark' ? '#10B981' : '#1D503A',
+                  },
+                },
+                '& .MuiInputLabel-root': {
+                  color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
+                  '&.Mui-focused': {
+                    color: mode === 'dark' ? '#10B981' : '#1D503A',
+                  },
+                },
+              }}
             />
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setPasswordDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handlePasswordSubmit} variant="contained" disabled={loading}>
-              {loading ? <CircularProgress size={24} /> : "Verify"}
+          <DialogActions sx={{ p: 2, borderTop: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(29, 80, 58, 0.2)' }}>
+            <Button 
+              onClick={() => setPasswordDialogOpen(false)} 
+              sx={{ 
+                color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
+                '&:hover': {
+                  background: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(29, 80, 58, 0.1)',
+                },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handlePasswordSubmit} 
+              variant="contained" 
+              disabled={loading}
+              sx={{
+                background: mode === 'dark'
+                  ? 'linear-gradient(90deg, #10B981 0%, #059669 100%)'
+                  : 'linear-gradient(90deg, #1D503A 0%, #0F3724 100%)',
+                color: '#fff',
+                boxShadow: mode === 'dark'
+                  ? '0 4px 12px rgba(16, 185, 129, 0.2)'
+                  : '0 4px 12px rgba(29, 80, 58, 0.2)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-1px)',
+                  boxShadow: mode === 'dark'
+                    ? '0 6px 15px rgba(16, 185, 129, 0.3)'
+                    : '0 6px 15px rgba(29, 80, 58, 0.3)',
+                  background: mode === 'dark'
+                    ? 'linear-gradient(90deg, #059669 0%, #047857 100%)'
+                    : 'linear-gradient(90deg, #0F3724 0%, #0A2A1C 100%)',
+                },
+              }}
+            >
+              {loading ? <CircularProgress size={24} sx={{ color: '#fff' }} /> : "Verify"}
             </Button>
           </DialogActions>
         </Dialog>
@@ -389,51 +557,113 @@ const StaffTenantLog = () => {
           onClose={() => setActionDialogOpen(false)}
           PaperProps={{
             sx: {
-              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-              color: '#fff',
-              borderRadius: '16px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-              border: '1px solid rgba(255, 255, 255, 0.03)',
+              background: mode === 'dark'
+                ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+                : '#FAF5EE',
+              color: mode === 'dark' ? '#fff' : '#000',
+              borderRadius: '20px',
+              border: mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.03)'
+                : '1px solid #1D503A',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
             }
           }}
         >
-          <DialogTitle>Student Check In/Out</DialogTitle>
-          <DialogContent>
+          <DialogTitle sx={{ 
+            borderBottom: mode === 'dark'
+              ? '1px solid rgba(255,255,255,0.03)'
+              : '1px solid #1D503A',
+            background: mode === 'dark'
+              ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+              : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+            color: mode === 'dark' ? '#fff' : '#1D503A',
+          }}>
+            Student Check In/Out
+          </DialogTitle>
+          <DialogContent sx={{ mt: 2 }}>
             <Box sx={{ mb: 2 }}>
-              <Typography variant="h6" gutterBottom>
+              <Typography variant="h6" gutterBottom sx={{ color: mode === 'dark' ? '#fff' : '#000' }}>
                 {selectedStudent?.name}
               </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.7 }}>
+              <Typography variant="body2" sx={{ 
+                opacity: 0.7,
+                color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
+                fontWeight: 500,
+              }}>
                 ID: {selectedStudent?.studentDormNumber}
               </Typography>
             </Box>
-            <Typography gutterBottom>
+            <Typography gutterBottom sx={{ color: mode === 'dark' ? '#D1D5DB' : '#333' }}>
               {selectedStudent?.status === "in"
                 ? "You are currently checked in. Would you like to check out?"
                 : "You are currently checked out. Would you like to check in?"}
             </Typography>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setActionDialogOpen(false)} color="primary">
+          <DialogActions sx={{ p: 2, borderTop: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(29, 80, 58, 0.2)' }}>
+            <Button 
+              onClick={() => setActionDialogOpen(false)} 
+              sx={{ 
+                color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
+                '&:hover': {
+                  background: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(29, 80, 58, 0.1)',
+                },
+              }}
+            >
               Cancel
             </Button>
             {selectedStudent?.status === "in" ? (
               <Button
                 onClick={handleCheckOut}
-                color="primary"
                 variant="contained"
                 disabled={loading}
+                sx={{
+                  background: mode === 'dark'
+                    ? 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)'
+                    : 'linear-gradient(90deg, #1D503A 0%, #0F3724 100%)',
+                  color: '#fff',
+                  boxShadow: mode === 'dark'
+                    ? '0 4px 12px rgba(239, 68, 68, 0.2)'
+                    : '0 4px 12px rgba(29, 80, 58, 0.2)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    transform: 'translateY(-1px)',
+                    boxShadow: mode === 'dark'
+                      ? '0 6px 15px rgba(239, 68, 68, 0.3)'
+                      : '0 6px 15px rgba(29, 80, 58, 0.3)',
+                    background: mode === 'dark'
+                      ? 'linear-gradient(90deg, #DC2626 0%, #B91C1C 100%)'
+                      : 'linear-gradient(90deg, #0F3724 0%, #0A2A1C 100%)',
+                  },
+                }}
               >
-                {loading ? <CircularProgress size={24} /> : "Check Out"}
+                {loading ? <CircularProgress size={24} sx={{ color: '#fff' }} /> : "Check Out"}
               </Button>
             ) : (
               <Button
                 onClick={handleCheckIn}
-                color="primary"
                 variant="contained"
                 disabled={loading}
+                sx={{
+                  background: mode === 'dark'
+                    ? 'linear-gradient(90deg, #10B981 0%, #059669 100%)'
+                    : 'linear-gradient(90deg, #1D503A 0%, #0F3724 100%)',
+                  color: '#fff',
+                  boxShadow: mode === 'dark'
+                    ? '0 4px 12px rgba(16, 185, 129, 0.2)'
+                    : '0 4px 12px rgba(29, 80, 58, 0.2)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    transform: 'translateY(-1px)',
+                    boxShadow: mode === 'dark'
+                      ? '0 6px 15px rgba(16, 185, 129, 0.3)'
+                      : '0 6px 15px rgba(29, 80, 58, 0.3)',
+                    background: mode === 'dark'
+                      ? 'linear-gradient(90deg, #059669 0%, #047857 100%)'
+                      : 'linear-gradient(90deg, #0F3724 0%, #0A2A1C 100%)',
+                  },
+                }}
               >
-                {loading ? <CircularProgress size={24} /> : "Check In"}
+                {loading ? <CircularProgress size={24} sx={{ color: '#fff' }} /> : "Check In"}
               </Button>
             )}
           </DialogActions>
@@ -444,10 +674,46 @@ const StaffTenantLog = () => {
           open={snackbar.open}
           autoHideDuration={6000}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          sx={{
+            position: 'fixed',
+            mt: 7,
+            mr: 2,
+            zIndex: 9999,
+          }}
         >
           <Alert
             onClose={() => setSnackbar({ ...snackbar, open: false })}
             severity={snackbar.severity}
+            variant="filled"
+            elevation={6}
+            sx={{ 
+              width: '100%',
+              minWidth: '300px',
+              background: snackbar.severity === 'success' 
+                ? 'linear-gradient(90deg, #10B981 0%, #059669 100%)'
+                : 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)',
+              color: '#fff',
+              '& .MuiAlert-icon': {
+                color: '#fff',
+              },
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              position: 'relative',
+              zIndex: 9999,
+              '& .MuiAlert-action': {
+                position: 'relative',
+                zIndex: 10000,
+                padding: '0 8px',
+                alignSelf: 'center',
+              },
+              '& .MuiIconButton-root': {
+                color: '#fff',
+                padding: '4px',
+                '&:hover': {
+                  background: 'rgba(255, 255, 255, 0.1)',
+                }
+              }
+            }}
           >
             {snackbar.message}
           </Alert>

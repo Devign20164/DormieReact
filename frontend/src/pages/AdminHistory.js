@@ -33,7 +33,8 @@ import {
   Edit as EditIcon,
   AccessTime as AccessTimeIcon,
   Refresh as RefreshIcon,
-  ReportProblem as OffenseIcon
+  ReportProblem as OffenseIcon,
+  MoreVert as MoreVertIcon
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -43,6 +44,11 @@ import NotificationBell from '../components/NotificationBell';
 import { useSocket } from '../context/SocketContext';
 import { format, addDays, subDays } from 'date-fns';
 import { ThemeContext } from '../App';
+
+// Color constants
+const EGGSHELL_WHITE = "#F0EAD6";
+const EMERALD_GREEN = "#50C878";
+const DARK_EMERALD = "#2E8B57";
 
 const AdminHistory = () => {
   const { mode } = useContext(ThemeContext);
@@ -366,39 +372,80 @@ const AdminHistory = () => {
   };
 
   return (
-    <Box sx={{
-      display: 'flex',
+    <Box sx={{ 
+      display: 'flex', 
       minHeight: '100vh',
-      background: 'linear-gradient(145deg, #111827 0%, #1F2937 100%)',
-      color: 'white'
+      background: mode === 'dark' 
+        ? 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)'
+        : '#FAF5EE',
+      color: mode === 'dark' ? '#fff' : '#000',
+      position: 'relative',
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'radial-gradient(circle at top right, rgba(255,255,255,0.03) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      },
     }}>
       <AdminSidebar />
-      <Box component="main" sx={{ flexGrow: 1, p: 4, transition: 'margin-left .3s ease' }}>
+
+      {/* Main content */}
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 4,
+          position: 'relative',
+          zIndex: 1,
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          transform: 'none',
+        }}
+      >
         {/* Header */}
-        <Card sx={{ 
-          p: 3, 
-          mb: 4, 
-          borderRadius: '16px',
-          background: 'rgba(17, 24, 39, 0.8)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)'
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 4,
+          pb: 3,
+          borderBottom: mode === 'dark' 
+            ? '1px solid rgba(255,255,255,0.03)'
+            : '1px solid #1D503A',
         }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" spacing={2}>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
+          <Box>
+            <Typography variant="h4" sx={{ 
+              fontWeight: 600, 
+              color: mode === 'dark' ? '#fff' : '#000',
+              textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            }}>
               {activeTab === 0 ? 'Log History' : 'Offense History'}
-        </Typography>
-            
+            </Typography>
+            <Typography variant="body2" sx={{ 
+              color: mode === 'dark' ? '#6B7280' : '#1D503A',
+              mt: 1 
+            }}>
+              {activeTab === 0 
+                ? 'View and manage student check-in/check-out records' 
+                : 'Track student offense records and disciplinary actions'}
+            </Typography>
+          </Box>
+
+          <Stack direction="row" spacing={2} alignItems="center">
             <Tabs
               value={activeTab}
               onChange={handleTabChange}
               sx={{
                 '& .MuiTabs-indicator': {
-                  backgroundColor: '#3B82F6',
+                  backgroundColor: mode === 'dark' ? '#10B981' : '#1D503A',
                 },
                 '& .MuiTab-root': {
-                  color: 'rgba(255, 255, 255, 0.6)',
+                  color: mode === 'dark' ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)',
                   '&.Mui-selected': {
-                    color: '#3B82F6',
+                    color: mode === 'dark' ? '#10B981' : '#1D503A',
                   },
                   minWidth: '100px',
                 },
@@ -408,226 +455,484 @@ const AdminHistory = () => {
               <Tab icon={<OffenseIcon />} label="Offenses" iconPosition="start" />
             </Tabs>
 
-            {activeTab === 0 && (
-              <Stack direction="row" spacing={2} alignItems="center">
-                <IconButton onClick={handlePreviousDay} sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' } }}>
-                  <PreviousIcon />
-                </IconButton>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <DatePicker
-                    label="Date"
-                    value={selectedDate}
-                    onChange={(newDate) => setSelectedDate(newDate)}
-                    renderInput={(params) => (
-          <TextField
-                        {...params}
-                        size="small"
-                        sx={{
-                          width: '140px',
-                          '& .MuiOutlinedInput-root': {
-                            bgcolor: 'rgba(255, 255, 255, 0.05)',
-                            color: '#fff',
-                            '&:hover .MuiOutlinedInput-notchedOutline': {
-                              borderColor: 'rgba(255, 255, 255, 0.2)',
-                            },
-                          },
-                          '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'rgba(255, 255, 255, 0.1)',
-                          },
-                          '& .MuiInputLabel-root': {
-                            color: 'rgba(255, 255, 255, 0.7)',
-                          },
-                        }}
-          />
-                    )}
-                  />
-                </LocalizationProvider>
-                <IconButton onClick={handleNextDay} sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' } }}>
-                  <NextIcon />
-                </IconButton>
-              </Stack>
-            )}
+            <NotificationBell userType="admin" color={mode === 'dark' ? "#10B981" : "#1D503A"} />
             
-            {activeTab === 1 && (
-              <Button
-                startIcon={<RefreshIcon />}
-                onClick={fetchOffenses}
-                sx={{
-                  bgcolor: 'rgba(255, 255, 255, 0.1)',
-                  color: '#fff',
-                  px: 2,
-                  '&:hover': {
-                    bgcolor: 'rgba(255, 255, 255, 0.15)',
-                  },
-                }}
-              >
-                Refresh Offenses
-          </Button>
-            )}
+            <IconButton sx={{ 
+              color: '#6B7280',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                color: mode === 'dark' ? '#10B981' : '#1D503A',
+                background: mode === 'dark' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(29, 80, 58, 0.1)',
+              }
+            }}>
+              <MoreVertIcon />
+            </IconButton>
           </Stack>
+        </Box>
 
-          {activeTab === 0 && (
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mt={3}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <AccessTimeIcon sx={{ color: '#3B82F6' }} />
-                <Typography sx={{ fontWeight: 600 }}>
-                  Curfew Time: 
-                  <Typography component="span" sx={{ ml: 1, color: '#3B82F6', fontWeight: 700 }}>
-                    {curfew?.curfewTime ? format(new Date(`2000-01-01T${curfew.curfewTime}`), 'hh:mm a') : 'Not Set'}
-                  </Typography>
-                </Typography>
-                <IconButton 
-                  onClick={handleEditClick}
-                  size="small"
-                  sx={{ 
-                    color: '#fff', 
-                    bgcolor: 'rgba(255, 255, 255, 0.1)',
-                    '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' }
-                  }}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Stack>
-              <Typography variant="subtitle2" sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
-                {format(selectedDate, 'MMMM dd, yyyy')}
-              </Typography>
-            </Stack>
-          )}
-        </Card>
-
-        {/* Main Content */}
-        {activeTab === 0 ? (
-          // Logs Tab
+        {/* Date selector and curfew info - only show for Logs tab */}
+        {activeTab === 0 && (
           <Card sx={{ 
             borderRadius: '16px',
-            background: 'rgba(17, 24, 39, 0.8)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            overflow: 'hidden'
+            background: mode === 'dark'
+              ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+              : '#FAF5EE',
+            border: mode === 'dark'
+              ? '1px solid rgba(255, 255, 255, 0.03)'
+              : '1px solid #1D503A',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+            p: 3,
+            mb: 4,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 2
           }}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <AccessTimeIcon sx={{ color: mode === 'dark' ? '#10B981' : '#1D503A' }} />
+              <Typography sx={{ fontWeight: 600, color: mode === 'dark' ? '#fff' : '#000' }}>
+                Curfew Time: 
+                <Typography component="span" sx={{ 
+                  ml: 1, 
+                  color: mode === 'dark' ? '#10B981' : '#1D503A', 
+                  fontWeight: 700 
+                }}>
+                  {curfew?.curfewTime ? format(new Date(`2000-01-01T${curfew.curfewTime}`), 'hh:mm a') : 'Not Set'}
+                </Typography>
+              </Typography>
+              <IconButton 
+                onClick={handleEditClick}
+                size="small"
+                sx={{ 
+                  color: mode === 'dark' ? '#fff' : '#1D503A', 
+                  bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(29, 80, 58, 0.1)',
+                  '&:hover': { 
+                    bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(29, 80, 58, 0.2)' 
+                  }
+                }}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+
+            <Stack direction="row" spacing={2} alignItems="center">
+              <IconButton 
+                onClick={handlePreviousDay} 
+                sx={{ 
+                  color: mode === 'dark' ? '#fff' : '#1D503A', 
+                  '&:hover': { 
+                    bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(29, 80, 58, 0.1)'
+                  } 
+                }}
+              >
+                <PreviousIcon />
+              </IconButton>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Date"
+                  value={selectedDate}
+                  onChange={(newDate) => setSelectedDate(newDate)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      size="small"
+                      sx={{
+                        width: '140px',
+                        '& .MuiOutlinedInput-root': {
+                          bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                          color: mode === 'dark' ? '#fff' : '#000',
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: mode === 'dark' ? 'rgba(16, 185, 129, 0.5)' : 'rgba(29, 80, 58, 0.5)',
+                          },
+                        },
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(29, 80, 58, 0.3)',
+                        },
+                        '& .MuiInputLabel-root': {
+                          color: mode === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
+                        },
+                      }}
+                    />
+                  )}
+                />
+              </LocalizationProvider>
+              <IconButton 
+                onClick={handleNextDay} 
+                sx={{ 
+                  color: mode === 'dark' ? '#fff' : '#1D503A', 
+                  '&:hover': { 
+                    bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(29, 80, 58, 0.1)'
+                  } 
+                }}
+              >
+                <NextIcon />
+              </IconButton>
+            </Stack>
+          </Card>
+        )}
+
+        {activeTab === 1 && (
+          <Card sx={{ 
+            borderRadius: '16px',
+            background: mode === 'dark'
+              ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+              : '#FAF5EE',
+            border: mode === 'dark'
+              ? '1px solid rgba(255, 255, 255, 0.03)'
+              : '1px solid #1D503A',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+            p: 3,
+            mb: 4,
+            display: 'flex',
+            justifyContent: 'flex-end'
+          }}>
+            <Button
+              startIcon={<RefreshIcon />}
+              onClick={fetchOffenses}
+              sx={{
+                bgcolor: mode === 'dark' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(29, 80, 58, 0.1)',
+                color: mode === 'dark' ? '#10B981' : '#1D503A',
+                px: 3,
+                py: 1,
+                borderRadius: '8px',
+                '&:hover': {
+                  bgcolor: mode === 'dark' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(29, 80, 58, 0.2)',
+                },
+              }}
+            >
+              Refresh Offenses
+            </Button>
+          </Card>
+        )}
+
+        {/* Main content continues... */}
+        {activeTab === 0 ? (
+          // Logs Tab
+          <TableContainer 
+            component={Paper} 
+            sx={{ 
+              background: mode === 'dark'
+                ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+                : '#FAF5EE',
+              borderRadius: '20px',
+              border: mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.03)'
+                : '1px solid #1D503A',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+              overflow: 'hidden',
+            }}
+          >
             {loading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
-                <CircularProgress sx={{ color: '#3B82F6' }} />
-        </Box>
+                <CircularProgress sx={{ color: mode === 'dark' ? '#10B981' : '#1D503A' }} />
+              </Box>
             ) : error ? (
               <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>
             ) : (
-              <TableContainer>
-                <Table>
-                  <TableHead>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ 
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      borderBottom: mode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.05)'
+                        : '1px solid #1D503A',
+                      background: mode === 'dark'
+                        ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                        : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+                    }}>Student</TableCell>
+                    <TableCell sx={{ 
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      borderBottom: mode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.05)'
+                        : '1px solid #1D503A',
+                      background: mode === 'dark'
+                        ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                        : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+                    }}>Room</TableCell>
+                    <TableCell sx={{ 
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      borderBottom: mode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.05)'
+                        : '1px solid #1D503A',
+                      background: mode === 'dark'
+                        ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                        : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+                    }}>Check-in Time</TableCell>
+                    <TableCell sx={{ 
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      borderBottom: mode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.05)'
+                        : '1px solid #1D503A',
+                      background: mode === 'dark'
+                        ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                        : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+                    }}>Check-in Status</TableCell>
+                    <TableCell sx={{ 
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      borderBottom: mode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.05)'
+                        : '1px solid #1D503A',
+                      background: mode === 'dark'
+                        ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                        : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+                    }}>Check-out Time</TableCell>
+                    <TableCell sx={{ 
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      borderBottom: mode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.05)'
+                        : '1px solid #1D503A',
+                      background: mode === 'dark'
+                        ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                        : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+                    }}>Check-out Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {logs.length === 0 ? (
                     <TableRow>
-                      <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>Student</TableCell>
-                      <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>Room</TableCell>
-                      <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>Check-in Time</TableCell>
-                      <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>Check-in Status</TableCell>
-                      <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>Check-out Time</TableCell>
-                      <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>Check-out Status</TableCell>
+                      <TableCell 
+                        colSpan={6} 
+                        align="center" 
+                        sx={{ 
+                          color: mode === 'dark' ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)', 
+                          borderBottom: mode === 'dark'
+                            ? '1px solid rgba(255,255,255,0.03)'
+                            : '1px solid rgba(0, 0, 0, 0.1)',
+                        }}
+                      >
+                        No logs found for this date
+                      </TableCell>
                     </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {logs.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ color: 'rgba(255, 255, 255, 0.6)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                          No logs found for this date
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      logs.flatMap(log => 
-                        log.entries.map((entry, entryIndex) => (
-                          <TableRow 
-                            key={`${log._id}-${entryIndex}`}
-                            onClick={() => handleRowClick(log, entry)}
-                            sx={{ 
-                              cursor: 'pointer', 
-                              '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' },
-                              borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-                            }}
-                          >
-                            <TableCell sx={{ color: '#fff', borderBottom: 'none' }}>{log.user?.name || 'Unknown'}</TableCell>
-                            <TableCell sx={{ color: '#fff', borderBottom: 'none' }}>{log.room?.roomNumber || 'N/A'}</TableCell>
-                            <TableCell sx={{ color: '#fff', borderBottom: 'none' }}>{formatTime(entry.checkInTime)}</TableCell>
-                            <TableCell sx={{ borderBottom: 'none' }}>{getStatusChip(entry.checkInStatus)}</TableCell>
-                            <TableCell sx={{ color: '#fff', borderBottom: 'none' }}>{formatTime(entry.checkOutTime)}</TableCell>
-                            <TableCell sx={{ borderBottom: 'none' }}>{getStatusChip(entry.checkOutStatus)}</TableCell>
-                          </TableRow>
-                        ))
-                      )
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                  ) : (
+                    logs.flatMap(log => 
+                      log.entries.map((entry, entryIndex) => (
+                        <TableRow 
+                          key={`${log._id}-${entryIndex}`}
+                          onClick={() => handleRowClick(log, entry)}
+                          sx={{ 
+                            cursor: 'pointer', 
+                            transition: 'all 0.3s ease',
+                            '&:hover': { 
+                              bgcolor: mode === 'dark' 
+                                ? 'rgba(16, 185, 129, 0.05)' 
+                                : 'rgba(29, 80, 58, 0.05)' 
+                            },
+                            borderBottom: mode === 'dark'
+                              ? '1px solid rgba(255,255,255,0.03)'
+                              : '1px solid rgba(0, 0, 0, 0.1)',
+                          }}
+                        >
+                          <TableCell sx={{ 
+                            color: mode === 'dark' ? '#D1D5DB' : '#333',
+                            borderBottom: 'none' 
+                          }}>
+                            {log.user?.name || 'Unknown'}
+                          </TableCell>
+                          <TableCell sx={{ 
+                            color: mode === 'dark' ? '#D1D5DB' : '#333',
+                            borderBottom: 'none' 
+                          }}>
+                            {log.room?.roomNumber || 'N/A'}
+                          </TableCell>
+                          <TableCell sx={{ 
+                            color: mode === 'dark' ? '#D1D5DB' : '#333',
+                            borderBottom: 'none' 
+                          }}>
+                            {formatTime(entry.checkInTime)}
+                          </TableCell>
+                          <TableCell sx={{ borderBottom: 'none' }}>
+                            {getStatusChip(entry.checkInStatus)}
+                          </TableCell>
+                          <TableCell sx={{ 
+                            color: mode === 'dark' ? '#D1D5DB' : '#333',
+                            borderBottom: 'none' 
+                          }}>
+                            {formatTime(entry.checkOutTime)}
+                          </TableCell>
+                          <TableCell sx={{ borderBottom: 'none' }}>
+                            {getStatusChip(entry.checkOutStatus)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )
+                  )}
+                </TableBody>
+              </Table>
             )}
-          </Card>
+          </TableContainer>
         ) : (
           // Offenses Tab
-          <Card sx={{ 
-            borderRadius: '16px',
-            background: 'rgba(17, 24, 39, 0.8)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            overflow: 'hidden'
-          }}>
+          <TableContainer 
+            component={Paper} 
+            sx={{ 
+              background: mode === 'dark'
+                ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+                : '#FAF5EE',
+              borderRadius: '20px',
+              border: mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.03)'
+                : '1px solid #1D503A',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+              overflow: 'hidden',
+            }}
+          >
             {offensesLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
-                <CircularProgress sx={{ color: '#3B82F6' }} />
+                <CircularProgress sx={{ color: mode === 'dark' ? '#10B981' : '#1D503A' }} />
               </Box>
             ) : offensesError ? (
               <Alert severity="error" sx={{ m: 2 }}>{offensesError}</Alert>
             ) : (
-              <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                      <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>Date</TableCell>
-                      <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>Student</TableCell>
-                      <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>Room</TableCell>
-                      <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>Offense Type</TableCell>
-                      <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>Reason</TableCell>
-                      <TableCell sx={{ color: 'rgba(255, 255, 255, 0.7)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>Recorded By</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                    {offenses.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ color: 'rgba(255, 255, 255, 0.6)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                          No offense records found
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ 
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      borderBottom: mode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.05)'
+                        : '1px solid #1D503A',
+                      background: mode === 'dark'
+                        ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                        : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+                    }}>Date</TableCell>
+                    <TableCell sx={{ 
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      borderBottom: mode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.05)'
+                        : '1px solid #1D503A',
+                      background: mode === 'dark'
+                        ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                        : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+                    }}>Student</TableCell>
+                    <TableCell sx={{ 
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      borderBottom: mode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.05)'
+                        : '1px solid #1D503A',
+                      background: mode === 'dark'
+                        ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                        : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+                    }}>Room</TableCell>
+                    <TableCell sx={{ 
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      borderBottom: mode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.05)'
+                        : '1px solid #1D503A',
+                      background: mode === 'dark'
+                        ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                        : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+                    }}>Offense Type</TableCell>
+                    <TableCell sx={{ 
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      borderBottom: mode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.05)'
+                        : '1px solid #1D503A',
+                      background: mode === 'dark'
+                        ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                        : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+                    }}>Reason</TableCell>
+                    <TableCell sx={{ 
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      borderBottom: mode === 'dark'
+                        ? '1px solid rgba(255,255,255,0.05)'
+                        : '1px solid #1D503A',
+                      background: mode === 'dark'
+                        ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                        : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+                    }}>Recorded By</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {offenses.length === 0 ? (
+                    <TableRow>
+                      <TableCell 
+                        colSpan={6} 
+                        align="center" 
+                        sx={{ 
+                          color: mode === 'dark' ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)', 
+                          borderBottom: mode === 'dark'
+                            ? '1px solid rgba(255,255,255,0.03)'
+                            : '1px solid rgba(0, 0, 0, 0.1)',
+                        }}
+                      >
+                        No offense records found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    offenses.map(offense => (
+                      <TableRow
+                        key={offense._id}
+                        sx={{ 
+                          transition: 'all 0.3s ease',
+                          '&:hover': { 
+                            bgcolor: mode === 'dark' 
+                              ? 'rgba(16, 185, 129, 0.05)' 
+                              : 'rgba(29, 80, 58, 0.05)' 
+                          },
+                          borderBottom: mode === 'dark'
+                            ? '1px solid rgba(255,255,255,0.03)'
+                            : '1px solid rgba(0, 0, 0, 0.1)',
+                        }}
+                      >
+                        <TableCell sx={{ 
+                          color: mode === 'dark' ? '#D1D5DB' : '#333',
+                          borderBottom: 'none' 
+                        }}>
+                          {format(new Date(offense.dateOfOffense), 'MMM dd, yyyy')}
+                        </TableCell>
+                        <TableCell sx={{ 
+                          color: mode === 'dark' ? '#D1D5DB' : '#333',
+                          borderBottom: 'none' 
+                        }}>
+                          {offense.student?.name || 'Unknown'}
+                        </TableCell>
+                        <TableCell sx={{ 
+                          color: mode === 'dark' ? '#D1D5DB' : '#333',
+                          borderBottom: 'none' 
+                        }}>
+                          {offense.student?.roomNumber || 'N/A'}
+                        </TableCell>
+                        <TableCell sx={{ borderBottom: 'none' }}>
+                          <Box sx={{ 
+                            display: 'inline-block',
+                            px: 1, 
+                            py: 0.5, 
+                            borderRadius: '4px',
+                            fontSize: '0.7rem',
+                            fontWeight: 'medium',
+                            color: 'white',
+                            background: mode === 'dark'
+                              ? offense.typeOfOffense.includes('Major')
+                                ? 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)'
+                                : offense.typeOfOffense.includes('3rd') || offense.typeOfOffense.includes('4th')
+                                  ? 'linear-gradient(90deg, #F59E0B 0%, #D97706 100%)'
+                                  : 'linear-gradient(90deg, #3B82F6 0%, #2563EB 100%)'
+                              : 'linear-gradient(90deg, #1D503A 0%, #0F3724 100%)'
+                          }}>
+                            {offense.typeOfOffense}
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ 
+                          color: mode === 'dark' ? '#D1D5DB' : '#333',
+                          borderBottom: 'none' 
+                        }}>
+                          {offense.offenseReason}
+                        </TableCell>
+                        <TableCell sx={{ 
+                          color: mode === 'dark' ? '#D1D5DB' : '#333',
+                          borderBottom: 'none' 
+                        }}>
+                          {offense.recordedBy?.name || 'Admin'}
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      offenses.map(offense => (
-                        <TableRow
-                          key={offense._id}
-                          sx={{ 
-                            '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' },
-                            borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-                          }}
-                        >
-                          <TableCell sx={{ color: '#fff', borderBottom: 'none' }}>
-                            {format(new Date(offense.dateOfOffense), 'MMM dd, yyyy')}
-                          </TableCell>
-                          <TableCell sx={{ color: '#fff', borderBottom: 'none' }}>
-                            {offense.student?.name || 'Unknown'}
-                          </TableCell>
-                          <TableCell sx={{ color: '#fff', borderBottom: 'none' }}>
-                            {offense.student?.roomNumber || 'N/A'}
-                          </TableCell>
-                          <TableCell sx={{ borderBottom: 'none' }}>
-                            {getSeverityChip(offense.typeOfOffense)}
-                          </TableCell>
-                          <TableCell sx={{ color: '#fff', borderBottom: 'none' }}>
-                            {offense.offenseReason}
-                          </TableCell>
-                          <TableCell sx={{ color: '#fff', borderBottom: 'none' }}>
-                            {offense.recordedBy?.name || 'Admin'}
-                    </TableCell>
-                  </TableRow>
-                      ))
-                    )}
-              </TableBody>
-            </Table>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </TableContainer>
-        )}
-          </Card>
         )}
 
         {/* Edit Curfew Dialog */}
@@ -636,15 +941,27 @@ const AdminHistory = () => {
           onClose={handleCloseDialog}
           PaperProps={{
             sx: {
-              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+              background: mode === 'dark'
+                ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+                : '#FAF5EE',
+              color: mode === 'dark' ? '#fff' : '#000',
+              minWidth: '400px',
               borderRadius: '20px',
-              border: '1px solid rgba(255, 255, 255, 0.03)',
+              border: mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.03)'
+                : '1px solid #1D503A',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
             }
           }}
         >
           <DialogTitle sx={{ 
-            color: 'white',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+            color: mode === 'dark' ? 'white' : '#1D503A',
+            borderBottom: mode === 'dark'
+              ? '1px solid rgba(255,255,255,0.03)'
+              : '1px solid #1D503A',
+            background: mode === 'dark'
+              ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+              : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
             p: 3
           }}>
             Update Curfew Time
@@ -661,20 +978,20 @@ const AdminHistory = () => {
                     fullWidth
                     sx={{
                       '& .MuiInputBase-root': {
-                        color: 'white',
-                        bgcolor: 'rgba(255, 255, 255, 0.05)',
+                        color: mode === 'dark' ? 'white' : '#000',
+                        bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.7)',
                       },
                       '& .MuiInputLabel-root': {
-                        color: '#9CA3AF',
+                        color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
                       },
                       '& .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(29, 80, 58, 0.3)',
                       },
                       '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                        borderColor: mode === 'dark' ? 'rgba(16, 185, 129, 0.5)' : 'rgba(29, 80, 58, 0.5)',
                       },
                       '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#10B981',
+                        borderColor: mode === 'dark' ? '#10B981' : '#1D503A',
                       },
                     }}
                   />
@@ -682,14 +999,14 @@ const AdminHistory = () => {
               />
             </LocalizationProvider>
           </DialogContent>
-          <DialogActions sx={{ p: 3 }}>
+          <DialogActions sx={{ p: 3, borderTop: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(29, 80, 58, 0.2)' }}>
             <Button 
               onClick={handleCloseDialog}
               sx={{ 
-                color: '#9CA3AF',
+                color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
                 '&:hover': {
-                  color: 'white',
-                  bgcolor: 'rgba(255, 255, 255, 0.05)',
+                  color: mode === 'dark' ? 'white' : '#000',
+                  bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(29, 80, 58, 0.1)',
                 },
                 borderRadius: '8px',
               }}
@@ -700,9 +1017,22 @@ const AdminHistory = () => {
               onClick={handleUpdateCurfew}
               variant="contained" 
               sx={{
-                bgcolor: '#10B981',
+                background: mode === 'dark'
+                  ? 'linear-gradient(90deg, #10B981 0%, #059669 100%)'
+                  : 'linear-gradient(90deg, #1D503A 0%, #0F3724 100%)',
+                color: '#fff',
+                boxShadow: mode === 'dark'
+                  ? '0 4px 12px rgba(16, 185, 129, 0.2)'
+                  : '0 4px 12px rgba(29, 80, 58, 0.2)',
+                transition: 'all 0.3s ease',
                 '&:hover': {
-                  bgcolor: '#059669',
+                  transform: 'translateY(-1px)',
+                  boxShadow: mode === 'dark'
+                    ? '0 6px 15px rgba(16, 185, 129, 0.3)'
+                    : '0 6px 15px rgba(29, 80, 58, 0.3)',
+                  background: mode === 'dark'
+                    ? 'linear-gradient(90deg, #059669 0%, #047857 100%)'
+                    : 'linear-gradient(90deg, #0F3724 0%, #0A2A1C 100%)',
                 },
                 borderRadius: '8px',
               }}
@@ -718,16 +1048,27 @@ const AdminHistory = () => {
           onClose={handleCloseStudentDialog}
           PaperProps={{
             sx: {
-              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+              background: mode === 'dark'
+                ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
+                : '#FAF5EE',
+              color: mode === 'dark' ? '#fff' : '#000',
               borderRadius: '20px',
-              border: '1px solid rgba(255, 255, 255, 0.03)',
+              border: mode === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.03)'
+                : '1px solid #1D503A',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
               minWidth: '400px'
             }
           }}
         >
           <DialogTitle sx={{ 
-            color: 'white',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+            color: mode === 'dark' ? 'white' : '#1D503A',
+            borderBottom: mode === 'dark'
+              ? '1px solid rgba(255,255,255,0.03)'
+              : '1px solid #1D503A',
+            background: mode === 'dark'
+              ? 'linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%)'
+              : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
             p: 3
           }}>
             Student Details
@@ -736,42 +1077,42 @@ const AdminHistory = () => {
             {selectedStudent && (
               <Stack spacing={2}>
                 <Box>
-                  <Typography variant="subtitle2" sx={{ color: '#9CA3AF' }}>
+                  <Typography variant="subtitle2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#1D503A' }}>
                     Student Name
                   </Typography>
-                  <Typography variant="body1" sx={{ color: 'white', fontWeight: 500 }}>
+                  <Typography variant="body1" sx={{ color: mode === 'dark' ? 'white' : '#000', fontWeight: 500 }}>
                     {selectedStudent.name}
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="subtitle2" sx={{ color: '#9CA3AF' }}>
+                  <Typography variant="subtitle2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#1D503A' }}>
                     Building
                   </Typography>
-                  <Typography variant="body1" sx={{ color: 'white', fontWeight: 500 }}>
+                  <Typography variant="body1" sx={{ color: mode === 'dark' ? 'white' : '#000', fontWeight: 500 }}>
                     {selectedStudent.buildingName || 'N/A'}
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="subtitle2" sx={{ color: '#9CA3AF' }}>
+                  <Typography variant="subtitle2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#1D503A' }}>
                     Room Number
                   </Typography>
-                  <Typography variant="body1" sx={{ color: 'white', fontWeight: 500 }}>
+                  <Typography variant="body1" sx={{ color: mode === 'dark' ? 'white' : '#000', fontWeight: 500 }}>
                     {selectedStudent.roomNumber || 'N/A'}
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="subtitle2" sx={{ color: '#9CA3AF' }}>
+                  <Typography variant="subtitle2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#1D503A' }}>
                     Father's Contact
                   </Typography>
-                  <Typography variant="body1" sx={{ color: 'white', fontWeight: 500 }}>
+                  <Typography variant="body1" sx={{ color: mode === 'dark' ? 'white' : '#000', fontWeight: 500 }}>
                     {selectedStudent.fatherContact || 'N/A'}
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="subtitle2" sx={{ color: '#9CA3AF' }}>
+                  <Typography variant="subtitle2" sx={{ color: mode === 'dark' ? '#9CA3AF' : '#1D503A' }}>
                     Mother's Contact
                   </Typography>
-                  <Typography variant="body1" sx={{ color: 'white', fontWeight: 500 }}>
+                  <Typography variant="body1" sx={{ color: mode === 'dark' ? 'white' : '#000', fontWeight: 500 }}>
                     {selectedStudent.motherContact || 'N/A'}
                   </Typography>
                 </Box>
@@ -823,15 +1164,27 @@ const AdminHistory = () => {
               </Stack>
             )}
           </DialogContent>
-          <DialogActions sx={{ p: 3, borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
+          <DialogActions sx={{ p: 3, borderTop: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(29, 80, 58, 0.2)' }}>
             <Button 
               onClick={handleCloseStudentDialog}
               variant="contained"
               sx={{
-                bgcolor: '#10B981',
+                background: mode === 'dark'
+                  ? 'linear-gradient(90deg, #3B82F6 0%, #2563EB 100%)'
+                  : 'linear-gradient(90deg, #1D503A 0%, #0F3724 100%)',
                 color: 'white',
+                boxShadow: mode === 'dark'
+                  ? '0 4px 12px rgba(59, 130, 246, 0.2)'
+                  : '0 4px 12px rgba(29, 80, 58, 0.2)',
+                transition: 'all 0.3s ease',
                 '&:hover': {
-                  bgcolor: '#059669',
+                  transform: 'translateY(-1px)',
+                  boxShadow: mode === 'dark'
+                    ? '0 6px 15px rgba(59, 130, 246, 0.3)'
+                    : '0 6px 15px rgba(29, 80, 58, 0.3)',
+                  background: mode === 'dark'
+                    ? 'linear-gradient(90deg, #2563EB 0%, #1D4ED8 100%)'
+                    : 'linear-gradient(90deg, #0F3724 0%, #0A2A1C 100%)',
                 },
               }}
             >
@@ -845,18 +1198,44 @@ const AdminHistory = () => {
           open={snackbar.open}
           autoHideDuration={6000}
           onClose={handleCloseSnackbar}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          sx={{
+            position: 'fixed',
+            mt: 7,
+            mr: 2,
+            zIndex: 9999999,
+          }}
         >
           <Alert 
             onClose={handleCloseSnackbar} 
             severity={snackbar.severity}
+            variant="filled"
+            elevation={6}
             sx={{ 
               width: '100%',
-              bgcolor: snackbar.severity === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-              color: snackbar.severity === 'success' ? '#10B981' : '#EF4444',
-              border: `1px solid ${snackbar.severity === 'success' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+              minWidth: '300px',
+              background: snackbar.severity === 'success' 
+                ? 'linear-gradient(90deg, #10B981 0%, #059669 100%)'
+                : 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)',
+              color: '#fff',
               '& .MuiAlert-icon': {
-                color: snackbar.severity === 'success' ? '#10B981' : '#EF4444'
+                color: '#fff',
+              },
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              position: 'relative',
+              zIndex: 9999999,
+              '& .MuiAlert-action': {
+                position: 'relative',
+                zIndex: 10000000,
+                padding: '0 8px',
+                alignSelf: 'center',
+              },
+              '& .MuiIconButton-root': {
+                color: '#fff',
+                padding: '4px',
+                '&:hover': {
+                  background: 'rgba(255, 255, 255, 0.1)',
+                }
               }
             }}
           >

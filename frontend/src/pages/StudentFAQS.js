@@ -152,11 +152,11 @@ const StudentFAQS = () => {
   // Handle search and filtering with useEffect
   useEffect(() => {
     const filtered = faqs.filter(faq => {
-      const matchesSearch = faq.question.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                           faq.answer.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = activeCategory === 'all' || faq.category === activeCategory;
-      return matchesSearch && matchesCategory;
-    });
+    const matchesSearch = faq.question.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          faq.answer.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = activeCategory === 'all' || faq.category === activeCategory;
+    return matchesSearch && matchesCategory;
+  });
     setFilteredFaqs(filtered);
   }, [searchTerm, activeCategory]);
 
@@ -237,8 +237,8 @@ const StudentFAQS = () => {
             py: 4,
             px: 3,
             background: 'linear-gradient(135deg, #10B981 0%, #047857 100%)',
-            display: 'flex',
-            alignItems: 'center',
+          display: 'flex', 
+          alignItems: 'center',
             '&::before': {
               content: '""',
               position: 'absolute',
@@ -254,20 +254,20 @@ const StudentFAQS = () => {
           }}
         >
           <Box sx={{ position: 'relative', zIndex: 1, width: '100%' }}>
-            <Box>
+          <Box>
               <Typography 
                 variant="h4" 
                 fontWeight="bold"
                 sx={{ color: '#fff' }}
               >
                 Dormitory FAQ
-              </Typography>
+            </Typography>
               <Typography 
                 variant="body1" 
                 sx={{ color: 'rgba(255,255,255,0.9)' }}
               >
                 Find answers to all your questions about dormitory life and policies
-              </Typography>
+            </Typography>
             </Box>
           </Box>
         </Box>
@@ -287,22 +287,22 @@ const StudentFAQS = () => {
             }}
           >
             <SearchIcon sx={{ color: 'rgba(255, 255, 255, 0.5)', mr: 1 }} />
-            <TextField
+          <TextField
               placeholder="Search for answers..."
               variant="standard"
-              fullWidth
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
+            fullWidth
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
                 disableUnderline: true,
-                sx: {
-                  color: '#fff',
+              sx: {
+                color: '#fff',
                   '&::placeholder': {
                     color: 'rgba(255, 255, 255, 0.5)',
                   }
-                }
-              }}
-            />
+              }
+            }}
+          />
           </Paper>
         </Box>
 
@@ -328,7 +328,7 @@ const StudentFAQS = () => {
               fontWeight="bold" 
               sx={{ 
                 mb: 2, 
-                display: 'flex', 
+            display: 'flex', 
                 alignItems: 'center', 
                 gap: 1,
                 color: 'rgba(255,255,255,0.9)',
@@ -428,63 +428,63 @@ const StudentFAQS = () => {
                         height: '20px',
                         minWidth: '20px',
                         fontSize: '0.7rem',
-                      }}
-                    />
+                }}
+              />
                   )}
                 </Button>
-              ))}
+            ))}
             </Stack>
           </Box>
 
           {/* FAQ Content */}
           <Box sx={{ flexGrow: 1 }}>
-            {filteredFaqs.length === 0 ? (
-              <Paper sx={{ 
-                p: 4, 
+          {filteredFaqs.length === 0 ? (
+            <Paper sx={{ 
+              p: 4, 
                 borderRadius: '8px',
-                textAlign: 'center',
+              textAlign: 'center',
                 background: 'rgba(15, 15, 15, 0.6)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
-              }}>
-                <Typography variant="h6" gutterBottom>
-                  No FAQs Found
-                </Typography>
-                <Typography variant="body2" color="rgba(255,255,255,0.7)" sx={{ mb: 3 }}>
-                  Try adjusting your search or category filter
-                </Typography>
-                <Button 
-                  variant="outlined" 
-                  onClick={() => {
-                    setSearchTerm('');
-                    setActiveCategory('all');
-                  }}
-                  sx={{
-                    borderColor: GREEN_MAIN,
-                    color: GREEN_MAIN,
-                    '&:hover': {
-                      borderColor: GREEN_DARK,
-                      backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    }
-                  }}
-                >
-                  Reset Filters
-                </Button>
-              </Paper>
-            ) : (
+            }}>
+              <Typography variant="h6" gutterBottom>
+                No FAQs Found
+              </Typography>
+              <Typography variant="body2" color="rgba(255,255,255,0.7)" sx={{ mb: 3 }}>
+                Try adjusting your search or category filter
+              </Typography>
+              <Button 
+                variant="outlined" 
+                onClick={() => {
+                  setSearchTerm('');
+                  setActiveCategory('all');
+                }}
+                sx={{
+                  borderColor: GREEN_MAIN,
+                  color: GREEN_MAIN,
+                  '&:hover': {
+                    borderColor: GREEN_DARK,
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                  }
+                }}
+              >
+                Reset Filters
+              </Button>
+            </Paper>
+          ) : (
               filteredFaqs.map((faq) => (
                 <Box 
-                  key={faq.id}
-                  sx={{
-                    mb: 2, 
+                key={faq.id}
+                sx={{
+                  mb: 2,
                     border: '1px solid rgba(255, 255, 255, 0.06)',
                     borderRadius: '8px',
-                    overflow: 'hidden',
+                  overflow: 'hidden',
                   }}
                 >
                   <Button
                     onClick={() => handlePanelChange(`panel${faq.id}`)(null, expandedPanel !== `panel${faq.id}`)}
                     fullWidth
-                    sx={{
+                  sx={{
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
@@ -495,23 +495,23 @@ const StudentFAQS = () => {
                       borderRadius: expandedPanel === `panel${faq.id}` ? '8px 8px 0 0' : '8px',
                       '&:hover': {
                         background: 'rgba(30, 30, 30, 0.6)',
-                      }
-                    }}
-                  >
+                    }
+                  }}
+                >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
                       <Typography variant="body1" fontWeight="medium">
-                        {faq.question}
-                      </Typography>
+                    {faq.question}
+                  </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 2 }}>
-                      <Chip 
-                        label={categories.find(cat => cat.id === faq.category)?.label} 
-                        size="small"
-                        sx={{
-                          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                          color: GREEN_MAIN,
-                          fontSize: '0.7rem',
-                          height: '24px',
+                  <Chip 
+                    label={categories.find(cat => cat.id === faq.category)?.label} 
+                    size="small"
+                    sx={{
+                      backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                      color: GREEN_MAIN,
+                      fontSize: '0.7rem',
+                      height: '24px',
                         }}
                       />
                       <ExpandMoreIcon 
@@ -519,8 +519,8 @@ const StudentFAQS = () => {
                           color: GREEN_MAIN,
                           transform: expandedPanel === `panel${faq.id}` ? 'rotate(180deg)' : 'rotate(0)',
                           transition: 'transform 0.3s',
-                        }} 
-                      />
+                    }}
+                  />
                     </Box>
                   </Button>
                   {expandedPanel === `panel${faq.id}` && (
@@ -531,32 +531,32 @@ const StudentFAQS = () => {
                         borderTop: '1px solid rgba(255, 255, 255, 0.06)'
                       }}
                     >
-                      <Typography variant="body2" color="rgba(255,255,255,0.8)" sx={{ lineHeight: 1.7 }}>
-                        {faq.answer}
-                      </Typography>
+                  <Typography variant="body2" color="rgba(255,255,255,0.8)" sx={{ lineHeight: 1.7 }}>
+                    {faq.answer}
+                  </Typography>
                     </Box>
                   )}
                 </Box>
-              ))
-            )}
+            ))
+          )}
 
             {/* Scroll to top button */}
             <Fade in={showScrollTop}>
               <IconButton
                 onClick={handleScrollToTop}
-                sx={{
+                  sx={{
                   position: 'fixed',
                   bottom: 20,
                   right: 20,
                   backgroundColor: GREEN_MAIN,
                   color: 'white',
-                  '&:hover': {
+                    '&:hover': {
                     backgroundColor: GREEN_DARK,
                   },
                   zIndex: 10,
                   boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                }}
-              >
+                  }}
+                >
                 <ScrollTopIcon />
               </IconButton>
             </Fade>

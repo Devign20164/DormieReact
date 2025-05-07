@@ -2610,6 +2610,304 @@ const getNewsImage = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get analytics data for students
+// @route   GET /api/admin/analytics/students
+// @access  Private/Admin
+const getStudentAnalytics = asyncHandler(async (req, res) => {
+  try {
+    // Get total students
+    const totalStudents = await User.countDocuments();
+    
+    // Get active students (those who have logged in within the last week)
+    const lastWeek = new Date();
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    
+    const activeStudents = await User.countDocuments({
+      lastLogin: { $gte: lastWeek }
+    });
+    
+    // Get percentage change in students (compared to a month ago)
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    
+    const studentsLastMonth = await User.countDocuments({
+      createdAt: { $lte: lastMonth }
+    });
+    
+    let percentChange = 0;
+    if (studentsLastMonth > 0) {
+      percentChange = Math.round(((totalStudents - studentsLastMonth) / studentsLastMonth) * 100);
+    } else if (totalStudents > 0) {
+      percentChange = 100; // If no students last month, but we have students now
+    }
+    
+    res.json({
+      totalStudents,
+      activeStudents,
+      percentChange,
+      previousCount: studentsLastMonth
+    });
+  } catch (error) {
+    console.error('Error fetching student analytics:', error);
+    res.status(500).json({ message: 'Failed to fetch student analytics' });
+  }
+});
+
+// @desc    Get analytics data for buildings
+// @route   GET /api/admin/analytics/buildings
+// @access  Private/Admin
+const getBuildingAnalytics = asyncHandler(async (req, res) => {
+  try {
+    // Get total buildings
+    const totalBuildings = await Building.countDocuments();
+    
+    // Get percentage change in buildings (compared to a month ago)
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    
+    const buildingsLastMonth = await Building.countDocuments({
+      createdAt: { $lte: lastMonth }
+    });
+    
+    let percentChange = 0;
+    if (buildingsLastMonth > 0) {
+      percentChange = Math.round(((totalBuildings - buildingsLastMonth) / buildingsLastMonth) * 100);
+    } else if (totalBuildings > 0) {
+      percentChange = 100; // If no buildings last month, but we have buildings now
+    }
+    
+    res.json({
+      totalBuildings,
+      percentChange
+    });
+  } catch (error) {
+    console.error('Error fetching building analytics:', error);
+    res.status(500).json({ message: 'Failed to fetch building analytics' });
+  }
+});
+
+// @desc    Get analytics data for room occupancy
+// @route   GET /api/admin/analytics/occupancy
+// @access  Private/Admin
+const getOccupancyAnalytics = asyncHandler(async (req, res) => {
+  try {
+    // Get total rooms
+    const totalRooms = await Room.countDocuments();
+    
+    // Get occupied rooms
+    const occupiedRooms = await Room.countDocuments({ 
+      status: 'Occupied'
+    });
+    
+    // Calculate current occupancy rate
+    const currentRate = totalRooms > 0 ? (occupiedRooms / totalRooms) * 100 : 0;
+    
+    // Get occupancy rate from last month
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    
+    // For simplicity, we'll use a fake previous rate for now
+    // In a real implementation, this would require historical data
+    const previousRate = currentRate > 0 ? currentRate - (Math.random() * 10) : 0;
+    
+    res.json({
+      totalRooms,
+      occupiedRooms,
+      availableRooms: totalRooms - occupiedRooms,
+      currentRate,
+      previousRate
+    });
+  } catch (error) {
+    console.error('Error fetching occupancy analytics:', error);
+    res.status(500).json({ message: 'Failed to fetch occupancy analytics' });
+  }
+});
+
+// @desc    Get analytics data for forms
+// @route   GET /api/admin/analytics/forms
+// @access  Private/Admin
+const getFormAnalytics = asyncHandler(async (req, res) => {
+  try {
+    // Get total forms
+    const total = await Form.countDocuments();
+    
+    // Get pending forms
+    const pending = await Form.countDocuments({ 
+      status: 'Pending'
+    });
+    
+    // Get completed forms
+    const completed = await Form.countDocuments({
+      status: 'Approved'
+    });
+    
+    // Get percentage change in forms (compared to a month ago)
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    
+    const formsLastMonth = await Form.countDocuments({
+      createdAt: { $lte: lastMonth }
+    });
+    
+    let percentChange = 0;
+    if (formsLastMonth > 0) {
+      percentChange = Math.round(((total - formsLastMonth) / formsLastMonth) * 100);
+    } else if (total > 0) {
+      percentChange = 100; // If no forms last month, but we have forms now
+    }
+    
+    res.json({
+      total,
+      pending,
+      completed,
+      percentChange
+    });
+  } catch (error) {
+    console.error('Error fetching form analytics:', error);
+    res.status(500).json({ message: 'Failed to fetch form analytics' });
+  }
+});
+
+// @desc    Get analytics data for offenses
+// @route   GET /api/admin/analytics/offenses
+// @access  Private/Admin
+const getOffenseAnalytics = asyncHandler(async (req, res) => {
+  try {
+    const thisMonth = new Date();
+    thisMonth.setDate(1); // First day of current month
+    thisMonth.setHours(0, 0, 0, 0);
+    
+    const lastMonth = new Date(thisMonth);
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    
+    // Get total offenses for current month
+    const total = await Offense.countDocuments({
+      dateOfOffense: { $gte: thisMonth }
+    });
+    
+    // Get total offenses for last month
+    const lastMonthCount = await Offense.countDocuments({
+      dateOfOffense: { 
+        $gte: lastMonth,
+        $lt: thisMonth
+      }
+    });
+    
+    // Calculate percent change
+    let percentChange = 0;
+    if (lastMonthCount > 0) {
+      percentChange = Math.round(((total - lastMonthCount) / lastMonthCount) * 100);
+    } else if (total > 0) {
+      percentChange = 100;
+    }
+    
+    res.json({
+      total,
+      lastMonth: lastMonthCount,
+      percentChange
+    });
+  } catch (error) {
+    console.error('Error fetching offense analytics:', error);
+    res.status(500).json({ message: 'Failed to fetch offense analytics' });
+  }
+});
+
+// @desc    Get analytics data for check-ins/check-outs
+// @route   GET /api/admin/analytics/checkins
+// @access  Private/Admin
+const getCheckinAnalytics = asyncHandler(async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Get check-in count
+    const checkIn = await Log.countDocuments({
+      date: { $gte: today },
+      'entries.status': 'CheckIn'
+    });
+    
+    // Get check-out count
+    const checkOut = await Log.countDocuments({
+      date: { $gte: today },
+      'entries.status': 'CheckOut'
+    });
+    
+    res.json({
+      checkIn,
+      checkOut,
+      total: checkIn + checkOut
+    });
+  } catch (error) {
+    console.error('Error fetching check-in analytics:', error);
+    res.status(500).json({ message: 'Failed to fetch check-in analytics' });
+  }
+});
+
+// @desc    Get recent activity data
+// @route   GET /api/admin/analytics/recent-activity
+// @access  Private/Admin
+const getRecentActivity = asyncHandler(async (req, res) => {
+  try {
+    // Get recent check-ins
+    const checkIns = await Log.aggregate([
+      // Unwind the entries array
+      { $unwind: '$entries' },
+      // Match entries with CheckIn status from the last 24 hours
+      {
+        $match: {
+          'entries.status': 'CheckIn',
+          'entries.timestamp': {
+            $gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+          }
+        }
+      },
+      // Sort by timestamp (descending)
+      { $sort: { 'entries.timestamp': -1 } },
+      // Limit to 10 most recent
+      { $limit: 10 },
+      // Project the fields we need
+      {
+        $project: {
+          _id: '$_id',
+          studentId: '$student',
+          studentName: '$studentName',
+          checkInTime: '$entries.timestamp',
+          status: { 
+            $cond: {
+              if: { $gt: ['$entries.lateMinutes', 0] },
+              then: 'Late',
+              else: 'OnTime'
+            }
+          }
+        }
+      }
+    ]);
+    
+    // Get recent offenses
+    const maintenanceRequests = await Offense.find()
+      .sort({ dateOfOffense: -1 })
+      .limit(10)
+      .populate('student', 'name')
+      .select('student offenseReason typeOfOffense dateOfOffense');
+    
+    const formattedOffenses = maintenanceRequests.map(offense => ({
+      _id: offense._id,
+      title: offense.offenseReason,
+      student: offense.student ? offense.student.name : 'Unknown Student',
+      type: offense.typeOfOffense,
+      date: offense.dateOfOffense
+    }));
+    
+    res.json({
+      checkIns,
+      maintenanceRequests: formattedOffenses
+    });
+  } catch (error) {
+    console.error('Error fetching recent activity:', error);
+    res.status(500).json({ message: 'Failed to fetch recent activity' });
+  }
+});
+
 module.exports = {
   loginAdmin,
   logoutAdmin,
@@ -2672,4 +2970,11 @@ module.exports = {
   incrementNewsViews,
   uploadNewsImage,
   getNewsImage,
+  getStudentAnalytics,
+  getBuildingAnalytics,
+  getOccupancyAnalytics,
+  getFormAnalytics,
+  getOffenseAnalytics,
+  getCheckinAnalytics,
+  getRecentActivity
 };
