@@ -1,3 +1,10 @@
+// Add this workaround at the very top of the file before any other imports
+// Polyfill for buffer-equal-constant-time for Node.js 24
+if (!Buffer.SlowBuffer) {
+  Buffer.SlowBuffer = Buffer;
+  Buffer.SlowBuffer.prototype = Buffer.prototype;
+}
+
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
