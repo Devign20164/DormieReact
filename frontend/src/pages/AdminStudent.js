@@ -740,38 +740,23 @@ const AdminStudent = () => {
                   }}
                 >
                   <TableCell sx={{ 
-                    color: mode === 'dark' ? '#D1D5DB' : '#333',
-                    borderBottom: '1px solid rgba(255,255,255,0.03)',
-                    ...(mode === 'light' && {
-                      borderBottom: '1px solid rgba(0,0,0,0.1)',
-                    })
+                    color: '#D1D5DB',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)'
                   }}>{student.name}</TableCell>
                   <TableCell sx={{ 
-                    color: mode === 'dark' ? '#D1D5DB' : '#333',
-                    borderBottom: '1px solid rgba(255,255,255,0.03)',
-                    ...(mode === 'light' && {
-                      borderBottom: '1px solid rgba(0,0,0,0.1)',
-                    })
+                    color: '#D1D5DB',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)'
                   }}>{student.email}</TableCell>
                   <TableCell sx={{ 
-                    color: mode === 'dark' ? '#D1D5DB' : '#333',
-                    borderBottom: '1px solid rgba(255,255,255,0.03)',
-                    ...(mode === 'light' && {
-                      borderBottom: '1px solid rgba(0,0,0,0.1)',
-                    })
+                    color: '#D1D5DB',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)'
                   }}>{student.courseYear}</TableCell>
                   <TableCell sx={{ 
-                    color: mode === 'dark' ? '#D1D5DB' : '#333',
-                    borderBottom: '1px solid rgba(255,255,255,0.03)',
-                    ...(mode === 'light' && {
-                      borderBottom: '1px solid rgba(0,0,0,0.1)',
-                    })
+                    color: '#D1D5DB',
+                    borderBottom: '1px solid rgba(255,255,255,0.03)'
                   }}>{student.studentDormNumber}</TableCell>
                   <TableCell sx={{ 
-                    borderBottom: '1px solid rgba(255,255,255,0.03)',
-                    ...(mode === 'light' && {
-                      borderBottom: '1px solid rgba(0,0,0,0.1)',
-                    })
+                    borderBottom: '1px solid rgba(255,255,255,0.03)'
                   }}>
                     <IconButton 
                       onClick={() => handleViewStudent(student)}
@@ -875,28 +860,20 @@ const AdminStudent = () => {
           onClose={() => setOpenDialog(false)}
           PaperProps={{
             sx: {
-              background: mode === 'dark'
-                ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
-                : '#FAF5EE',
-              color: mode === 'dark' ? '#fff' : '#000',
+              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+              color: '#fff',
               minWidth: '500px',
               maxHeight: '90vh',
               borderRadius: '20px',
-              border: mode === 'dark'
-                ? '1px solid rgba(255, 255, 255, 0.03)'
-                : '1px solid #1D503A',
+              border: '1px solid rgba(255, 255, 255, 0.03)',
               boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
             },
           }}
         >
           <DialogTitle sx={{ 
-            borderBottom: mode === 'dark'
-              ? '1px solid rgba(255,255,255,0.03)'
-              : '1px solid #1D503A',
-            background: mode === 'dark'
-              ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
-              : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
-            color: mode === 'dark' ? '#fff' : '#000',
+            borderBottom: '1px solid rgba(255,255,255,0.03)',
+            background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
+            color: '#fff',
           }}>
             {editingStudent ? 'Edit Student' : 'Add Student'}
           </DialogTitle>

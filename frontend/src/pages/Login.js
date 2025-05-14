@@ -37,10 +37,7 @@ const API_BASE_URL = "/api"; // Using relative path instead of hardcoded localho
 // Color constants - updated colors
 const EGGSHELL_WHITE = "#FFFFFF"; // Changed to pure white
 const BLACK = "#000000"; // New black color
-const LIGHT_GREEN = "#90EE90"; // Light green
-const EMERALD_GREEN = "#50C878";
 const DARK_EMERALD = "#2E8B57";
-const LIGHT_EMERALD = "#8FE3B6";
 const NAVY_BLUE = "#0A2647";
 const LIGHT_NAVY = "#184E77";
 
@@ -60,7 +57,7 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
       borderColor: 'rgba(10, 38, 71, 0.1)',
     },
     '&.Mui-focused fieldset': {
-      borderColor: LIGHT_GREEN,
+      borderColor: DARK_EMERALD,
     },
     '& .MuiInputAdornment-root': {
       color: '#64748b',
@@ -72,7 +69,7 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
     fontWeight: 500,
     color: '#64748b',
     '&.Mui-focused': {
-      color: LIGHT_GREEN,
+      color: DARK_EMERALD,
     },
   },
   '& .MuiInputBase-input': {
@@ -89,7 +86,7 @@ const StyledButton = styled(Button)(({ theme }) => ({
   fontSize: '1rem',
   boxShadow: 'none',
   transition: 'all 0.3s ease',
-  background: LIGHT_GREEN,
+  background: DARK_EMERALD,
   '&:hover': {
     background: DARK_EMERALD,
     opacity: 0.9,
@@ -240,7 +237,7 @@ const Login = () => {
             width: "180px",
             height: "180px",
             borderRadius: "50%",
-            background: `radial-gradient(circle, ${LIGHT_GREEN} 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${DARK_EMERALD} 0%, transparent 70%)`,
             opacity: 0.15,
             zIndex: 0,
           }}
@@ -254,7 +251,7 @@ const Login = () => {
             width: "250px",
             height: "250px",
             borderRadius: "50%",
-            background: `radial-gradient(circle, ${LIGHT_GREEN} 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${DARK_EMERALD} 0%, transparent 70%)`,
             opacity: 0.15,
             zIndex: 0,
           }}
@@ -298,7 +295,7 @@ const Login = () => {
           >
             <Box
               sx={{
-                backgroundColor: LIGHT_GREEN, // Changed to light green
+                backgroundColor: DARK_EMERALD, // Changed to light green
                 width: "60px",
                 height: "60px",
                 display: "flex",
@@ -336,19 +333,19 @@ const Login = () => {
             }}
           >
             <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2 }}>
-              <CheckCircleIcon sx={{ color: LIGHT_GREEN }} /> {/* Changed to light green */}
+              <CheckCircleIcon sx={{ color: DARK_EMERALD }} /> {/* Changed to light green */}
               <Typography variant="body1" sx={{ fontSize: "1.1rem", textAlign: "left" }}>
                 Efficient room allocation system
               </Typography>
             </Box>
             <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2 }}>
-              <CheckCircleIcon sx={{ color: LIGHT_GREEN }} /> {/* Changed to light green */}
+              <CheckCircleIcon sx={{ color: DARK_EMERALD }} /> {/* Changed to light green */}
               <Typography variant="body1" sx={{ fontSize: "1.1rem", textAlign: "left" }}>
                 Real-time maintenance request tracking
               </Typography>
             </Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <CheckCircleIcon sx={{ color: LIGHT_GREEN }} /> {/* Changed to light green */}
+              <CheckCircleIcon sx={{ color: DARK_EMERALD }} /> {/* Changed to light green */}
               <Typography variant="body1" sx={{ fontSize: "1.1rem", textAlign: "left" }}>
                 Secure access for students, staff & admin
               </Typography>
@@ -442,7 +439,7 @@ const Login = () => {
               sx={{
                 mb: 4,
                 "& .MuiTabs-indicator": {
-                  backgroundColor: LIGHT_GREEN, // Changed to light green
+                  backgroundColor: DARK_EMERALD, // Changed to light green
                   height: "3px",
                   borderRadius: "3px",
                 },
@@ -456,7 +453,7 @@ const Login = () => {
                     color: DARK_EMERALD, // Changed from NAVY_BLUE
                   },
                   "&:hover": {
-                    color: LIGHT_GREEN, // Changed to light green
+                    color: DARK_EMERALD, // Changed to light green
                   }
                 },
               }}
@@ -464,19 +461,19 @@ const Login = () => {
               <Tab 
                 label="Student" 
                 value="student" 
-                icon={<SchoolIcon sx={{ color: role === "student" ? LIGHT_GREEN : "#64748b" }} />} // Changed to light green
+                icon={<SchoolIcon sx={{ color: role === "student" ? DARK_EMERALD : "#64748b" }} />} // Changed to light green
                 iconPosition="start" 
               />
               <Tab 
                 label="Staff" 
                 value="staff" 
-                icon={<PersonIcon sx={{ color: role === "staff" ? LIGHT_GREEN : "#64748b" }} />} // Changed to light green
+                icon={<PersonIcon sx={{ color: role === "staff" ? DARK_EMERALD : "#64748b" }} />} // Changed to light green
                 iconPosition="start"
               />
               <Tab 
                 label="Admin" 
                 value="admin" 
-                icon={<AdminPanelSettingsIcon sx={{ color: role === "admin" ? LIGHT_GREEN : "#64748b" }} />} // Changed to light green
+                icon={<AdminPanelSettingsIcon sx={{ color: role === "admin" ? DARK_EMERALD : "#64748b" }} />} // Changed to light green
                 iconPosition="start"
               />
             </Tabs>
@@ -525,7 +522,7 @@ const Login = () => {
                         onClick={handlePasswordVisibility}
                         edge="end"
                       >
-                        {showPassword ? <VisibilityOffIcon sx={{ color: LIGHT_GREEN }} /> : <VisibilityIcon sx={{ color: LIGHT_GREEN }} />} {/* Changed to light green */}
+                        {showPassword ? <VisibilityOffIcon sx={{ color: DARK_EMERALD }} /> : <VisibilityIcon sx={{ color: DARK_EMERALD }} />} {/* Changed to light green */}
                       </IconButton>
                     </InputAdornment>
                   ),

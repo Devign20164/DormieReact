@@ -43,7 +43,6 @@ const GREEN_DARKER = "#047857";
 const FOREST_GREEN = "#1D503A";
 const BG_DARK = "#141414";
 const BG_DARKER = "#0A0A0A";
-const BG_LIGHT = "#FAF5EE";
 
 const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/admin-dashboard' },
@@ -70,11 +69,9 @@ const AdminSidebar = () => {
   const { mode } = useContext(ThemeContext);
 
   // Background colors based on mode
-  const bgColor = mode === 'dark' 
-    ? 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)'
-    : BG_LIGHT;
-  const textColor = mode === 'dark' ? '#fff' : '#000';
-  const textSecondary = mode === 'dark' ? '#6B7280' : FOREST_GREEN;
+  const bgColor = 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)';
+  const textColor = '#fff';
+  const textSecondary = '#6B7280';
 
   const handleToggleCollapse = () => {
       setIsCollapsed(!isCollapsed);
@@ -106,9 +103,7 @@ const AdminSidebar = () => {
           boxSizing: 'border-box',
           background: bgColor,
           color: textColor,
-          borderRight: mode === 'dark' 
-            ? '1px solid rgba(255, 255, 255, 0.03)'
-            : `1px solid ${FOREST_GREEN}`,
+          borderRight: '1px solid rgba(255, 255, 255, 0.03)',
           boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
           transition: 'all 0.3s ease',
           overflow: 'hidden',
@@ -133,9 +128,7 @@ const AdminSidebar = () => {
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'space-between',
-        borderBottom: mode === 'dark' 
-          ? '1px solid rgba(255,255,255,0.03)'
-          : `1px solid ${FOREST_GREEN}`,
+        borderBottom: '1px solid rgba(255,255,255,0.03)',
         position: 'relative',
         zIndex: 1,
       }}>
@@ -159,8 +152,8 @@ const AdminSidebar = () => {
               sx={{ 
                 fontWeight: 600, 
                 fontSize: '1.2rem',
-                color: mode === 'dark' ? '#fff' : '#000',
-                textShadow: mode === 'dark' ? '0 2px 4px rgba(0,0,0,0.2)' : 'none',
+                color: '#fff',
+                textShadow: '0 2px 4px rgba(0,0,0,0.2)',
             }}
             >
               Dormie
@@ -172,16 +165,12 @@ const AdminSidebar = () => {
           onClick={handleToggleCollapse} 
           sx={{ 
             color: GREEN_MAIN,
-            backgroundColor: mode === 'dark' 
-              ? 'rgba(16, 185, 129, 0.1)'
-              : 'rgba(16, 185, 129, 0.1)',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
             borderRadius: '8px',
             p: '6px',
             transition: 'all 0.3s ease',
             '&:hover': {
-              backgroundColor: mode === 'dark' 
-                ? 'rgba(16, 185, 129, 0.2)'
-                : 'rgba(16, 185, 129, 0.2)',
+              backgroundColor: 'rgba(16, 185, 129, 0.2)',
               transform: 'translateY(-1px)',
             }
           }}
@@ -198,9 +187,7 @@ const AdminSidebar = () => {
             display: 'flex', 
             flexDirection: 'column', 
             alignItems: 'center',
-            background: mode === 'dark'
-              ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
-              : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+            background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
             mb: 2,
             position: 'relative',
             zIndex: 1,
@@ -277,9 +264,7 @@ const AdminSidebar = () => {
                       py: 1,
                       borderRadius: '10px',
                       backgroundColor: isActive 
-                        ? mode === 'dark'
-                          ? 'rgba(16, 185, 129, 0.1)'
-                          : 'rgba(29, 80, 58, 0.1)'
+                        ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
                   : 'transparent',
                 '&:hover': {
                   background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
@@ -329,10 +314,8 @@ const AdminSidebar = () => {
       <Box 
         sx={{ 
           mt: 'auto', 
-          p: 2, 
-          borderTop: mode === 'dark' 
-            ? '1px solid rgba(255,255,255,0.05)'
-            : `1px solid rgba(29, 80, 58, 0.2)`,
+          p: 2,
+          borderTop: '1px solid rgba(255,255,255,0.03)',
           position: 'relative',
           zIndex: 1,
         }}

@@ -31,7 +31,7 @@ import 'react-toastify/dist/ReactToastify.css';
 
 // Create a context for theme management
 export const ThemeContext = createContext({
-  mode: 'light',
+  mode: 'dark',
   toggleTheme: () => {},
 });
 
@@ -101,14 +101,19 @@ const ProtectedRoute = ({ children, allowedRole }) => {
 };
 
 function App() {
-  const [mode, setMode] = useState(localStorage.getItem('themeMode') || 'light');
+  const [mode, setMode] = useState('dark');
+
+  // Force dark mode on app load
+  useEffect(() => {
+    localStorage.setItem('themeMode', 'dark');
+  }, []);
 
   const themeContextValue = useMemo(() => ({
     mode,
     toggleTheme: () => {
-      const newMode = mode === 'light' ? 'dark' : 'light';
-      setMode(newMode);
-      localStorage.setItem('themeMode', newMode);
+      // Always dark mode, toggle functionality retained but only sets dark mode
+      setMode('dark');
+      localStorage.setItem('themeMode', 'dark');
     }
   }), [mode]);
 
@@ -117,23 +122,21 @@ function App() {
       mode,
       primary: {
         main: '#3f51b5',
-        light: '#757de8',
         dark: '#002984',
         contrastText: '#fff',
       },
       secondary: {
         main: '#f50057',
-        light: '#ff4081',
         dark: '#c51162',
         contrastText: '#fff',
       },
       background: {
-        default: mode === 'light' ? '#f5f5f5' : '#121212',
-        paper: mode === 'light' ? '#ffffff' : '#1e1e1e',
+        default: '#121212',
+        paper: '#1e1e1e',
       },
       text: {
-        primary: mode === 'light' ? '#333333' : '#ffffff',
-        secondary: mode === 'light' ? '#757575' : '#b0b0b0',
+        primary: '#ffffff',
+        secondary: '#b0b0b0',
       },
       error: {
         main: '#f44336',

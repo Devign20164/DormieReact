@@ -35,7 +35,6 @@ const GREEN_DARKER = "#047857";
 const FOREST_GREEN = "#1D503A";
 const BG_DARK = "#141414";
 const BG_DARKER = "#0A0A0A";
-const BG_LIGHT = "#FAF5EE";
 
 const StaffSidebar = () => {
   const navigate = useNavigate();
@@ -50,11 +49,9 @@ const StaffSidebar = () => {
   const { mode } = useContext(ThemeContext) || { mode: 'dark' };
 
   // Background colors based on mode
-  const bgColor = mode === 'dark' 
-    ? 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)'
-    : BG_LIGHT;
-  const textColor = mode === 'dark' ? '#fff' : '#000';
-  const textSecondary = mode === 'dark' ? '#6B7280' : FOREST_GREEN;
+  const bgColor = 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)';
+  const textColor = '#fff';
+  const textSecondary = '#6B7280';
 
   // Get staff type from localStorage
   useEffect(() => {

@@ -16,6 +16,8 @@ import {
   Tooltip,
   useTheme,
   alpha,
+  Chip,
+  Button,
 } from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
@@ -30,6 +32,7 @@ import {
   BarChart as BarChartIcon,
   PieChart as PieChartIcon,
   Warning as WarningIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import AdminSidebar from '../components/AdminSidebar';
 import NotificationBell from '../components/NotificationBell';
@@ -447,12 +450,13 @@ const AdminDashboard = () => {
   return (
     <Box sx={{ 
       display: 'flex', 
-      minHeight: '100vh',
+      height: '100vh',
       background: mode === 'dark' 
         ? 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)' 
         : 'linear-gradient(145deg, #f0f9f4 0%, #e6f7ee 100%)',
       color: mode === 'dark' ? '#fff' : '#333',
       position: 'relative',
+      overflow: 'hidden',
       '&::before': {
         content: '""',
         position: 'absolute',
@@ -473,11 +477,13 @@ const AdminDashboard = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 4,
+          height: '100%',
+          overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
           position: 'relative',
           zIndex: 1,
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          transform: 'none',
+          p: { xs: 2, md: 3 },
         }}
       >
         {/* Header */}
@@ -485,8 +491,8 @@ const AdminDashboard = () => {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
-          mb: 4,
-          pb: 3,
+          mb: 3,
+          pb: 2,
           borderBottom: mode === 'dark' 
             ? '1px solid rgba(255,255,255,0.03)' 
             : '1px solid rgba(16, 185, 129, 0.1)',
@@ -533,7 +539,7 @@ const AdminDashboard = () => {
             <Typography>{error}</Typography>
           </Box>
         ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={2}>
           {statsData.map((stat, index) => (
             <Grid item xs={12} sm={6} md={3} key={index}>
               <Card sx={{ 
@@ -541,7 +547,8 @@ const AdminDashboard = () => {
                   ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
                   : 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
                 borderRadius: '20px',
-                p: 3,
+                p: 2.5,
+                height: '100%',
                 border: mode === 'dark'
                   ? '1px solid rgba(255, 255, 255, 0.03)'
                   : '1px solid rgba(16, 185, 129, 0.15)',
@@ -630,18 +637,18 @@ const AdminDashboard = () => {
         )}
 
         {/* Charts Section */}
-        <Box sx={{ mt: 4 }}>
+        <Box sx={{ mt: 3 }}>
           <Typography variant="h5" sx={{ 
             fontWeight: 600, 
             color: mode === 'dark' ? '#fff' : '#333',
-            mb: 3,
+            mb: 2,
             textShadow: mode === 'dark'
               ? '0 2px 4px rgba(0,0,0,0.2)'
               : '0 1px 2px rgba(0,0,0,0.05)',
           }}>
             Analytics Overview
           </Typography>
-          <Grid container spacing={3}>
+          <Grid container spacing={2}>
             {/* Offense History Line Graph */}
             <Grid item xs={12} md={7}>
               <Card sx={{ 
@@ -649,7 +656,7 @@ const AdminDashboard = () => {
                   ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
                   : 'linear-gradient(165deg, #ffffff 0%, #f0f9f4 100%)',
                 borderRadius: '20px',
-                p: 3,
+                p: 2.5,
                 border: mode === 'dark'
                   ? '1px solid rgba(255, 255, 255, 0.03)'
                   : '1px solid rgba(16, 185, 129, 0.15)',
@@ -663,7 +670,9 @@ const AdminDashboard = () => {
                     color: mode === 'dark' ? '#fff' : '#333', 
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 1
+                    gap: 1,
+                    fontSize: '1rem',
+                    fontWeight: 600
                   }}>
                     <BarChartIcon sx={{ color: '#EF4444' }} />
                     Offense History
@@ -694,76 +703,84 @@ const AdminDashboard = () => {
                     <CircularProgress size={30} sx={{ color: '#10B981' }} />
                   </Box>
                 ) : (
-                  <Box sx={{ height: 300, width: '100%' }}>
+                  <Box sx={{ height: 280, width: '100%' }}>
                     <Line
                       data={{
                         labels: offenseHistory.labels,
                         datasets: [
                           {
-                            label: 'Total Offenses',
+                            label: 'Offenses',
                             data: offenseHistory.data,
-                            borderColor: mode === 'dark' ? '#EF4444' : '#DC2626',
-                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                            borderWidth: 2,
-                            pointBackgroundColor: mode === 'dark' ? '#EF4444' : '#DC2626',
-                            pointBorderColor: mode === 'dark' ? '#111' : '#fff',
-                            pointRadius: 4,
-                            pointHoverRadius: 6,
                             fill: true,
-                            tension: 0.3,
-                          }
+                            backgroundColor: mode === 'dark' 
+                              ? 'rgba(239, 68, 68, 0.1)' 
+                              : 'rgba(239, 68, 68, 0.05)',
+                            borderColor: '#EF4444',
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#EF4444',
+                            pointBorderColor: mode === 'dark' ? '#141414' : '#ffffff',
+                            pointBorderWidth: 2,
+                            pointHoverRadius: 6,
+                            pointHoverBackgroundColor: '#EF4444',
+                            pointHoverBorderColor: mode === 'dark' ? '#141414' : '#ffffff',
+                            pointHoverBorderWidth: 2,
+                          },
                         ],
                       }}
                       options={{
                         responsive: true,
                         maintainAspectRatio: false,
-                        interaction: {
-                          mode: 'index',
-                          intersect: false,
-                        },
                         plugins: {
                           legend: {
                             display: false,
                           },
                           tooltip: {
-                            backgroundColor: mode === 'dark' ? 'rgba(17, 24, 39, 0.9)' : 'rgba(255, 255, 255, 0.9)',
-                            titleColor: mode === 'dark' ? '#fff' : '#111',
-                            bodyColor: mode === 'dark' ? '#9CA3AF' : '#6c757d',
-                            borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                            backgroundColor: mode === 'dark' ? '#1F2937' : '#ffffff',
+                            titleColor: mode === 'dark' ? '#F9FAFB' : '#111827',
+                            bodyColor: mode === 'dark' ? '#F3F4F6' : '#1F2937',
+                            borderColor: mode === 'dark' ? '#374151' : '#E5E7EB',
                             borderWidth: 1,
-                            padding: 10,
-                            displayColors: false,
+                            padding: 12,
+                            boxPadding: 6,
+                            usePointStyle: true,
                             callbacks: {
                               title: (tooltipItems) => {
                                 return `${tooltipItems[0].label} Offenses`;
                               },
-                              label: (context) => {
-                                return `Total: ${context.parsed.y}`;
+                              label: (tooltipItem) => {
+                                return `Count: ${tooltipItem.raw}`;
                               }
                             }
-                          }
+                          },
                         },
                         scales: {
+                          x: {
+                            grid: {
+                              color: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                              drawBorder: false,
+                            },
+                            ticks: {
+                              color: mode === 'dark' ? '#9CA3AF' : '#6B7280',
+                            }
+                          },
                           y: {
                             beginAtZero: true,
                             grid: {
                               color: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                              drawBorder: false,
                             },
                             ticks: {
-                              color: mode === 'dark' ? '#9CA3AF' : '#6c757d',
                               precision: 0,
-                              stepSize: 1,
-                            }
-                          },
-                          x: {
-                            grid: {
-                              display: false,
-                            },
-                            ticks: {
-                              color: mode === 'dark' ? '#9CA3AF' : '#6c757d',
+                              color: mode === 'dark' ? '#9CA3AF' : '#6B7280',
                             }
                           }
-                        }
+                        },
+                        elements: {
+                          line: {
+                            borderWidth: 2,
+                          },
+                        },
                       }}
                     />
                   </Box>
@@ -771,14 +788,15 @@ const AdminDashboard = () => {
               </Card>
             </Grid>
             
-            {/* Check-in/Check-out Pie Chart */}
+            {/* Today's Check-in Activity */}
             <Grid item xs={12} md={5}>
               <Card sx={{ 
                 background: mode === 'dark'
                   ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
                   : 'linear-gradient(165deg, #ffffff 0%, #f0f9f4 100%)',
                 borderRadius: '20px',
-                p: 3,
+                p: 2.5,
+                pb: 1, 
                 border: mode === 'dark'
                   ? '1px solid rgba(255, 255, 255, 0.03)'
                   : '1px solid rgba(16, 185, 129, 0.15)',
@@ -786,18 +804,22 @@ const AdminDashboard = () => {
                   ? '0 4px 20px rgba(0,0,0,0.2)'
                   : '0 4px 20px rgba(16, 185, 129, 0.08)',
                 height: '100%',
+                display: 'flex',
+                flexDirection: 'column'
               }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6" sx={{ 
                     color: mode === 'dark' ? '#fff' : '#333', 
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 1
+                    gap: 1,
+                    fontSize: '1rem',
+                    fontWeight: 600
                   }}>
                     <PieChartIcon sx={{ color: '#3B82F6' }} />
                     Today's Check-in Activity
                   </Typography>
-                  <Tooltip title="Refresh check-in data">
+                  <Tooltip title="Refresh check-in logs">
                     <IconButton 
                       size="small" 
                       onClick={fetchTodayCheckInLogs}
@@ -818,318 +840,261 @@ const AdminDashboard = () => {
                     </IconButton>
                   </Tooltip>
                 </Box>
+                
                 {(loading || checkInLogsLoading) ? (
                   <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                    <CircularProgress size={30} sx={{ color: '#3B82F6' }} />
+                    <CircularProgress size={30} sx={{ color: '#10B981' }} />
+                  </Box>
+                ) : checkInLogs.length === 0 ? (
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    alignItems: 'center',
+                    flexDirection: 'column',
+                    py: 3,
+                    flexGrow: 1,
+                    color: mode === 'dark' ? '#9CA3AF' : '#6B7280'
+                  }}>
+                    <InfoIcon sx={{ fontSize: 40, mb: 1, opacity: 0.5 }} />
+                    <Typography variant="body2">No check-in activity recorded today</Typography>
                   </Box>
                 ) : (
-                  <Box sx={{ height: 300, overflow: 'auto' }}>
-                    {checkInLogs.length > 0 ? (
-                      <List sx={{ width: '100%', p: 0 }}>
-                        {checkInLogs.slice(0, 5).map((activity, index) => (
-                          <React.Fragment key={activity._id || index}>
-                            <ListItem
-                              sx={{
-                                px: 2,
-                                py: 1.5,
-                                borderRadius: 2,
-                                mb: 1,
-                                backgroundColor: mode === 'dark' 
-                                  ? alpha(activity.checkInStatus === 'OnTime' ? '#10B981' : '#EF4444', 0.1)
-                                  : alpha(activity.checkInStatus === 'OnTime' ? '#10B981' : '#EF4444', 0.05),
-                                border: '1px solid',
-                                borderColor: mode === 'dark'
-                                  ? alpha(activity.checkInStatus === 'OnTime' ? '#10B981' : '#EF4444', 0.2)
-                                  : alpha(activity.checkInStatus === 'OnTime' ? '#10B981' : '#EF4444', 0.1),
-                              }}
-                            >
-                              <Box sx={{ 
-                                display: 'flex', 
-                                flexDirection: 'column',
-                                width: '100%' 
-                              }}>
-                                <Box sx={{ 
-                                  display: 'flex', 
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center',
-                                  mb: 0.5
-                                }}>
-                                  <Box>
-                                    <Typography
-                                      variant="subtitle2"
-                                      sx={{
-                                        fontWeight: 600,
-                                        color: mode === 'dark' ? '#fff' : '#333',
-                                      }}
-                                    >
-                                      {activity.studentName}
-                                    </Typography>
-                                    <Typography
-                                      variant="caption"
-                                      sx={{
-                                        color: mode === 'dark' ? '#9CA3AF' : '#6c757d',
-                                      }}
-                                    >
-                                      {activity.roomNumber || activity.room}
-                                    </Typography>
-                                  </Box>
-                                  <Box sx={{ 
-                                    display: 'flex', 
-                                    alignItems: 'center',
-                                    backgroundColor: mode === 'dark' 
-                                      ? alpha(activity.checkInStatus === 'OnTime' ? '#10B981' : '#EF4444', 0.2)
-                                      : alpha(activity.checkInStatus === 'OnTime' ? '#10B981' : '#EF4444', 0.1),
-                                    color: activity.checkInStatus === 'OnTime' ? '#10B981' : '#EF4444',
-                                    borderRadius: 1,
-                                    px: 1,
-                                    py: 0.2,
-                                  }}>
-                                    <CircleIcon sx={{ fontSize: 8, mr: 0.5 }} />
-                                    <Typography variant="caption">
-                                      {activity.checkInStatus}
-                                    </Typography>
-                                  </Box>
-                                </Box>
-                                <Box sx={{ 
-                                  display: 'flex', 
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center'
-                                }}>
-                                  <Typography
-                                    variant="body2"
-                                    sx={{
-                                      color: mode === 'dark' ? '#9CA3AF' : '#6c757d',
+                  <Box sx={{ 
+                    overflowY: 'auto', 
+                    maxHeight: 280,
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: mode === 'dark' ? '#3B82F60D #141414' : '#3B82F60D #ffffff',
+                    '&::-webkit-scrollbar': {
+                      width: '6px',
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      backgroundColor: mode === 'dark' ? '#141414' : '#ffffff',
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      backgroundColor: mode === 'dark' ? '#3B82F60D' : '#3B82F60D',
+                      borderRadius: '3px',
+                    },
+                    flexGrow: 1,
+                    pr: 0.5
+                  }}>
+                    <List disablePadding>
+                      {checkInLogs.map((log, index) => (
+                        <React.Fragment key={log._id || index}>
+                          <ListItem
+                            disablePadding
+                            sx={{
+                              py: 1,
+                              px: 1.5,
+                              borderRadius: '10px',
+                              mb: 1,
+                              backgroundColor: mode === 'dark' ? 'rgba(59, 130, 246, 0.05)' : 'rgba(59, 130, 246, 0.03)',
+                              '&:hover': {
+                                backgroundColor: mode === 'dark' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+                              }
+                            }}
+                          >
+                            <ListItemText
+                              primary={
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <Typography 
+                                    variant="body2" 
+                                    sx={{ 
+                                      fontWeight: 'medium',
+                                      color: mode === 'dark' ? '#fff' : '#111827'
                                     }}
                                   >
-                                    {new Date(activity.checkInTime).toLocaleTimeString([], {
+                                    {log.studentName || 'Unknown Student'}
+                                  </Typography>
+                                  <Chip
+                                    size="small"
+                                    label={log.checkInStatus || "checked-in"}
+                                    sx={{
+                                      fontSize: '0.625rem',
+                                      height: 20,
+                                      backgroundColor: 
+                                        (log.checkInStatus === 'checked-in' || log.status === 'checked-in') ? 
+                                        'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                      color: 
+                                        (log.checkInStatus === 'checked-in' || log.status === 'checked-in') ? 
+                                        '#10B981' : '#EF4444',
+                                    }}
+                                  />
+                                </Box>
+                              }
+                              secondary={
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 0.5 }}>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      color: mode === 'dark' ? '#9CA3AF' : '#6B7280'
+                                    }}
+                                  >
+                                    <RoomIcon sx={{ fontSize: 12, mr: 0.5 }} /> {log.room || log.roomNumber || 'N/A'}
+                                  </Typography>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{
+                                      color: mode === 'dark' ? '#9CA3AF' : '#6B7280'
+                                    }}
+                                  >
+                                    {new Date(log.checkInTime || log.timestamp).toLocaleTimeString([], {
                                       hour: '2-digit',
                                       minute: '2-digit'
                                     })}
                                   </Typography>
-                                  <Typography
-                                    variant="body2"
-                                    sx={{
-                                      color: activity.checkOutTime ? '#3B82F6' : (mode === 'dark' ? '#9CA3AF' : '#6c757d'),
-                                      fontStyle: 'italic'
-                                    }}
-                                  >
-                                    {activity.checkOutTime 
-                                      ? `Checked out: ${new Date(activity.checkOutTime).toLocaleTimeString([], {
-                                          hour: '2-digit', 
-                                          minute: '2-digit'
-                                        })}` 
-                                      : 'Not checked out yet'}
-                                  </Typography>
                                 </Box>
-                              </Box>
-                            </ListItem>
-                            {index < checkInLogs.slice(0, 5).length - 1 && (
-                              <Divider variant="middle" sx={{ 
-                                my: 1,
-                                borderColor: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
-                              }} />
-                            )}
-                          </React.Fragment>
-                        ))}
-                      </List>
-                    ) : (
-                      <Box sx={{ 
-                        height: '100%', 
-                        display: 'flex', 
-                        flexDirection: 'column',
-                        alignItems: 'center', 
-                        justifyContent: 'center' 
-                      }}>
-                        <Typography sx={{ 
-                          color: mode === 'dark' ? '#6B7280' : '#6c757d',
-                          textAlign: 'center'
-                        }}>
-                          No check-in activity recorded today
-                        </Typography>
-                      </Box>
-                    )}
-                    
-                    {/* Today's Summary */}
-                    <Box sx={{ 
-                      mt: 2,
-                      pt: 2,
-                      borderTop: '1px solid',
-                      borderColor: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
-                    }}>
-                      <Box sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between',
-                        px: 2
-                      }}>
-                        <Typography sx={{ 
-                          color: mode === 'dark' ? '#9CA3AF' : '#6c757d',
-                          fontSize: '0.875rem',
-                          fontWeight: 500
-                        }}>
-                          Today's Check-ins:
-                        </Typography>
-                        <Typography sx={{ 
-                          color: '#3B82F6',
-                          fontWeight: 600,
-                          fontSize: '0.875rem'
-                        }}>
-                          {analytics.checkIns.total || checkInLogs.length}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between',
-                        px: 2,
-                        mt: 1
-                      }}>
-                        <Typography sx={{ 
-                          color: mode === 'dark' ? '#9CA3AF' : '#6c757d',
-                          fontSize: '0.875rem',
-                          fontWeight: 500
-                        }}>
-                          Today's Check-outs:
-                        </Typography>
-                        <Typography sx={{ 
-                          color: '#F59E0B',
-                          fontWeight: 600,
-                          fontSize: '0.875rem'
-                        }}>
-                          {analytics.checkIns.checkOut || checkInLogs.filter(log => log.checkOutTime).length}
-                        </Typography>
-                      </Box>
-                    </Box>
+                              }
+                            />
+                          </ListItem>
+                        </React.Fragment>
+                      ))}
+                    </List>
                   </Box>
                 )}
               </Card>
             </Grid>
-          </Grid>
-        </Box>
 
-        {/* Total Offenses Bar Chart */}
-        <Box sx={{ mt: 4 }}>
-          <Grid container spacing={3}>
+            {/* Total Offenses */}
             <Grid item xs={12}>
               <Card sx={{ 
                 background: mode === 'dark'
                   ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
                   : 'linear-gradient(165deg, #ffffff 0%, #f0f9f4 100%)',
                 borderRadius: '20px',
-                p: 3,
+                p: 2.5,
                 border: mode === 'dark'
                   ? '1px solid rgba(255, 255, 255, 0.03)'
                   : '1px solid rgba(16, 185, 129, 0.15)',
                 boxShadow: mode === 'dark'
                   ? '0 4px 20px rgba(0,0,0,0.2)'
                   : '0 4px 20px rgba(16, 185, 129, 0.08)',
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  background: 'radial-gradient(circle at bottom right, rgba(239, 68, 68, 0.03) 0%, transparent 70%)',
+                  pointerEvents: 'none',
+                }
               }}>
-                <Typography variant="h6" sx={{ 
-                  color: mode === 'dark' ? '#fff' : '#333', 
-                  mb: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1
-                }}>
-                  <WarningIcon sx={{ color: '#F59E0B' }} />
-                  Total Offenses
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <WarningIcon sx={{ color: '#EF4444', mr: 1 }} />
+                  <Typography variant="h6" sx={{ 
+                    color: mode === 'dark' ? '#fff' : '#333',
+                    fontSize: '1rem',
+                    fontWeight: 600
+                  }}>
+                    Total Offenses
+                  </Typography>
+                </Box>
+                
                 {loading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                    <CircularProgress size={30} sx={{ color: '#F59E0B' }} />
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                    <CircularProgress size={30} sx={{ color: '#10B981' }} />
                   </Box>
                 ) : (
-                  <Box sx={{ 
-                    height: 250, 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    padding: 2
-                  }}>
-                    <Bar
-                      data={{
-                        labels: ['Last Month', 'Current Month'],
-                        datasets: [
-                          {
-                            label: 'Total Offenses',
-                            data: [analytics.offenses.lastMonth, analytics.offenses.total],
-                            backgroundColor: [
-                              mode === 'dark' ? 'rgba(245, 158, 11, 0.6)' : 'rgba(217, 119, 6, 0.8)',
-                              mode === 'dark' ? 'rgba(239, 68, 68, 0.6)' : 'rgba(220, 38, 38, 0.8)',
-                            ],
-                            borderColor: [
-                              mode === 'dark' ? 'rgba(245, 158, 11, 1)' : 'rgba(217, 119, 6, 1)',
-                              mode === 'dark' ? 'rgba(239, 68, 68, 1)' : 'rgba(220, 38, 38, 1)',
-                            ],
-                            borderWidth: 1,
-                            borderRadius: 6,
-                          },
-                        ],
-                      }}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            display: false,
-                          },
-                          tooltip: {
-                            callbacks: {
-                              label: (context) => {
-                                return `Total Offenses: ${context.parsed.y}`;
-                              }
-                            }
-                          }
-                        },
-                        scales: {
-                          y: {
-                            beginAtZero: true,
-                            ticks: {
-                              color: mode === 'dark' ? '#9CA3AF' : '#6c757d',
-                              precision: 0,
-                            },
-                            grid: {
-                              color: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-                            },
-                          },
-                          x: {
-                            ticks: {
-                              color: mode === 'dark' ? '#9CA3AF' : '#6c757d',
-                            },
-                            grid: {
-                              display: false,
-                            },
-                          },
-                        },
-                      }}
-                    />
-                    <Box sx={{ 
-                      display: 'flex', 
-                      width: '100%', 
-                      justifyContent: 'center',
-                      mt: 2
-                    }}>
-                      {analytics.offenses.percentChange !== 0 && (
-                        <Tooltip title={analytics.offenses.isIncrease ? 'Increased from last month' : 'Decreased from last month'}>
-                          <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            color: analytics.offenses.isIncrease ? '#EF4444' : '#10B981',
-                            bgcolor: analytics.offenses.isIncrease 
-                              ? alpha('#EF4444', mode === 'dark' ? 0.1 : 0.1) 
-                              : alpha('#10B981', mode === 'dark' ? 0.1 : 0.1),
-                            p: 0.5,
-                            px: 1,
-                            borderRadius: 1,
-                          }}>
-                            {analytics.offenses.isIncrease ? <TrendingUpIcon fontSize="small" /> : <TrendingDownIcon fontSize="small" />}
-                            <Typography variant="caption" sx={{ ml: 0.5 }}>
-                              {analytics.offenses.isIncrease ? '+' : ''}{analytics.offenses.percentChange}%
-                            </Typography>
-                          </Box>
-                        </Tooltip>
-                      )}
+                  <Stack 
+                    direction={{ xs: 'column', sm: 'row' }} 
+                    spacing={3}
+                    sx={{ 
+                      px: 1.5,
+                      py: 1,
+                      bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(239, 68, 68, 0.03)',
+                      borderRadius: 2,
+                      alignItems: { xs: 'flex-start', sm: 'center' }
+                    }}
+                  >
+                    <Box sx={{ minWidth: '20%' }}>
+                      <Typography variant="h6" sx={{ 
+                        color: '#EF4444', 
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'baseline',
+                        textShadow: '0 0 10px rgba(239, 68, 68, 0.3)'
+                      }}>
+                        {analytics.offenses.total}
+                        <Typography component="span" variant="caption" sx={{ ml: 1, color: mode === 'dark' ? '#9CA3AF' : '#6B7280' }}>
+                          total recorded
+                        </Typography>
+                      </Typography>
                     </Box>
-                  </Box>
+                    
+                    <Divider orientation="vertical" flexItem sx={{ 
+                      borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                      display: { xs: 'none', sm: 'block' }
+                    }} />
+                    <Divider sx={{ 
+                      borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                      display: { xs: 'block', sm: 'none' },
+                      width: '100%',
+                      my: 1
+                    }} />
+                    
+                    <Box>
+                      <Typography variant="body2" sx={{ 
+                        color: mode === 'dark' ? '#9CA3AF' : '#6B7280',
+                        fontWeight: 'medium',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                        Last month
+                        <Typography 
+                          component="span" 
+                          variant="body2" 
+                          sx={{ 
+                            fontWeight: 'bold',
+                            color: mode === 'dark' ? '#fff' : '#374151',
+                            ml: 1
+                          }}
+                        >
+                          {analytics.offenses.lastMonth}
+                        </Typography>
+                      </Typography>
+                    </Box>
+                    
+                    <Box>
+                      <Box sx={{ 
+                        display: 'flex',
+                        alignItems: 'center',
+                        color: analytics.offenses.isIncrease ? '#EF4444' : '#10B981',
+                        bgcolor: analytics.offenses.isIncrease 
+                          ? 'rgba(239, 68, 68, 0.1)' 
+                          : 'rgba(16, 185, 129, 0.1)',
+                        borderRadius: 1,
+                        px: 1,
+                        py: 0.5,
+                        width: 'fit-content'
+                      }}>
+                        {analytics.offenses.isIncrease ? <TrendingUpIcon fontSize="small" /> : <TrendingDownIcon fontSize="small" />}
+                        <Typography variant="caption" sx={{ fontWeight: 'medium', ml: 0.5 }}>
+                          {formatPercentChange(analytics.offenses.percentChange)}
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Box sx={{ ml: 'auto', display: { xs: 'none', md: 'block' } }}>
+                      <Button
+                        size="small"
+                        sx={{
+                          color: '#EF4444',
+                          borderColor: 'rgba(239, 68, 68, 0.5)',
+                          '&:hover': {
+                            borderColor: '#EF4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.04)',
+                          },
+                        }}
+                        variant="outlined"
+                      >
+                        View All Offenses
+                      </Button>
+                    </Box>
+                  </Stack>
                 )}
               </Card>
             </Grid>

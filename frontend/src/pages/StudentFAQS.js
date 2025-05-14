@@ -47,8 +47,6 @@ import StudentSidebar from '../components/StudentSidebar';
 const GREEN_MAIN = "#10B981";
 const GREEN_DARK = "#059669";
 const GREEN_DARKER = "#047857";
-const GREEN_LIGHT = "rgba(16, 185, 129, 0.1)";
-const GREEN_LIGHT_HOVER = "rgba(16, 185, 129, 0.2)";
 const BG_DARK = "#141414";
 const BG_DARKER = "#0A0A0A";
 const BG_GRADIENT = "linear-gradient(145deg, rgba(20, 20, 20, 0.8) 0%, rgba(10, 10, 10, 0.8) 100%)";
