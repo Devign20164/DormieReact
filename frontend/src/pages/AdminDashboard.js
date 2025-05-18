@@ -1,47 +1,37 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Typography,
-  Card,
-  Stack,
   Grid,
+  Card,
+  CardContent,
+  Avatar,
+  Button,
   IconButton,
-  Menu,
-  MenuItem,
-  List,
-  ListItem,
-  ListItemText,
   Divider,
   CircularProgress,
-  Tooltip,
-  useTheme,
-  alpha,
+  Stack,
   Chip,
-  Button,
+  Tooltip,
+  useTheme
 } from '@mui/material';
 import {
-  MoreVert as MoreVertIcon,
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
-  Circle as CircleIcon,
-  Home as HomeIcon,
-  Apartment as ApartmentIcon,
-  MeetingRoom as RoomIcon,
-  Assignment as AssignmentIcon,
-  People as PeopleIcon,
-  BarChart as BarChartIcon,
-  PieChart as PieChartIcon,
-  Warning as WarningIcon,
-  Info as InfoIcon,
+  ArrowUpward,
+  ArrowDownward,
+  People,
+  Apartment,
+  MeetingRoom,
+  Assignment,
+  Notifications,
+  MoreVert,
+  Warning,
+  AccessTime,
+  Dashboard as DashboardIcon,
+  BarChart,
+  Refresh,
+  CheckCircle
 } from '@mui/icons-material';
-import AdminSidebar from '../components/AdminSidebar';
-import NotificationBell from '../components/NotificationBell';
-import axios from 'axios';
-import { useSocket } from '../context/SocketContext';
-import { format, subDays } from 'date-fns';
-import { ThemeContext } from '../App';
-// Import Chart.js components
-import { Bar, Line } from 'react-chartjs-2';
+import { Bar, Line, Doughnut } from 'react-chartjs-2';
 import { 
   Chart as ChartJS, 
   CategoryScale, 
@@ -49,11 +39,17 @@ import {
   BarElement, 
   LineElement,
   PointElement,
+  ArcElement,
   Title, 
   Tooltip as ChartTooltip, 
   Legend,
   Filler
 } from 'chart.js';
+import AdminSidebar from '../components/AdminSidebar';
+import NotificationBell from '../components/NotificationBell';
+import axios from 'axios';
+import { useSocket } from '../context/SocketContext';
+import { format, subDays } from 'date-fns';
 
 // Register required Chart.js components
 ChartJS.register(
@@ -62,17 +58,30 @@ ChartJS.register(
   BarElement, 
   LineElement,
   PointElement,
+  ArcElement,
   Title, 
   ChartTooltip, 
   Legend,
   Filler
 );
 
+// Color constants matching AdminSidebar.js
+const GREEN_MAIN = "#10B981";
+const GREEN_DARK = "#059669";
+const GREEN_DARKER = "#047857";
+const FOREST_GREEN = "#1D503A";
+const BG_DARK = "#141414";
+const BG_DARKER = "#0A0A0A";
+
 const AdminDashboard = () => {
   const userData = JSON.parse(localStorage.getItem('userData') || '{}');
   const theme = useTheme();
-  const { mode } = useContext(ThemeContext);
   const socket = useSocket();
+  const isDarkMode = true; // Always use dark mode for this design
+  
+  // Add refs for charts
+  const offenseChartRef = useRef(null);
+  const roomChartRef = useRef(null);
 
   // State for analytics data
   const [loading, setLoading] = useState(true);
@@ -128,6 +137,18 @@ const AdminDashboard = () => {
   // Add a state for check-in logs
   const [checkInLogs, setCheckInLogs] = useState([]);
   const [checkInLogsLoading, setCheckInLogsLoading] = useState(false);
+  
+  // Clean up charts on re-render to avoid Canvas reuse error
+  useEffect(() => {
+    return () => {
+      if (offenseChartRef.current && offenseChartRef.current.destroy) {
+        offenseChartRef.current.destroy();
+      }
+      if (roomChartRef.current && roomChartRef.current.destroy) {
+        roomChartRef.current.destroy();
+      }
+    };
+  }, []);
 
   // Fetch analytics data
   useEffect(() => {
@@ -251,7 +272,7 @@ const AdminDashboard = () => {
     };
     
     fetchData();
-  }, []);  // Remove socket dependency to avoid multiple fetches
+  }, []); 
   
   // Set up real-time socket updates in a separate effect
   useEffect(() => {
@@ -300,46 +321,6 @@ const AdminDashboard = () => {
   const formatPercentChange = (value) => {
     return value > 0 ? `+${value}%` : `${value}%`;
   };
-
-  // Create analytics cards data
-  const statsData = [
-    { 
-      title: 'Total Students', 
-      count: analytics.students.totalStudents, 
-      trend: formatPercentChange(analytics.students.percentChange), 
-      isIncrease: analytics.students.isIncrease,
-      icon: <PeopleIcon />,
-      color: '#8B5CF6',
-      subtext: `${analytics.students.activeStudents} active residents`
-    },
-    { 
-      title: 'Total Buildings', 
-      count: analytics.buildings.totalBuildings, 
-      trend: formatPercentChange(analytics.buildings.percentChange), 
-      isIncrease: analytics.buildings.isIncrease,
-      icon: <ApartmentIcon />,
-      color: '#3B82F6',
-      subtext: `${analytics.buildings.totalBuildings} dormitory buildings`
-    },
-    { 
-      title: 'Total Rooms', 
-      count: analytics.rooms.totalRooms, 
-      trend: formatPercentChange(analytics.rooms.percentChange), 
-      isIncrease: analytics.rooms.isIncrease,
-      icon: <RoomIcon />,
-      color: '#10B981',
-      subtext: `${analytics.rooms.occupiedRooms} occupied, ${analytics.rooms.availableRooms} available`
-    },
-    { 
-      title: 'Total Forms', 
-      count: analytics.forms.total, 
-      trend: formatPercentChange(analytics.forms.percentChange), 
-      isIncrease: analytics.forms.isIncrease,
-      icon: <AssignmentIcon />,
-      color: '#F59E0B',
-      subtext: `${analytics.forms.completed} completed, ${analytics.forms.pending} pending`
-    },
-  ];
 
   // Add a function to fetch check-in logs for the current day
   const fetchTodayCheckInLogs = async () => {
@@ -447,31 +428,57 @@ const AdminDashboard = () => {
     }
   };
 
+  // Define the stat cards data
+  const statCards = [
+    {
+      title: 'Total Students',
+      value: analytics.students.totalStudents,
+      change: analytics.students.percentChange,
+      isPositive: analytics.students.isIncrease,
+      icon: <People />,
+      color: GREEN_MAIN,
+      subtext: `${analytics.students.activeStudents} active residents`
+    },
+    {
+      title: 'Buildings',
+      value: analytics.buildings.totalBuildings,
+      change: analytics.buildings.percentChange,
+      isPositive: analytics.buildings.isIncrease,
+      icon: <Apartment />,
+      color: GREEN_MAIN,
+      subtext: `${analytics.buildings.totalBuildings} dormitory buildings`
+    },
+    {
+      title: 'Rooms',
+      value: analytics.rooms.totalRooms,
+      change: analytics.rooms.percentChange,
+      isPositive: analytics.rooms.isIncrease,
+      icon: <MeetingRoom />,
+      color: GREEN_MAIN,
+      subtext: `${analytics.rooms.occupancyRate}% occupancy rate`
+    },
+    {
+      title: 'Service Requests',
+      value: analytics.forms.total,
+      change: analytics.forms.percentChange,
+      isPositive: analytics.forms.isIncrease,
+      icon: <Assignment />,
+      color: GREEN_MAIN,
+      subtext: `${analytics.forms.pending} pending requests`
+    }
+  ];
+
   return (
     <Box sx={{ 
       display: 'flex', 
       height: '100vh',
-      background: mode === 'dark' 
-        ? 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)' 
-        : 'linear-gradient(145deg, #f0f9f4 0%, #e6f7ee 100%)',
-      color: mode === 'dark' ? '#fff' : '#333',
+      background: 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)',
+      color: '#fff',
       position: 'relative',
       overflow: 'hidden',
-      '&::before': {
-        content: '""',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: mode === 'dark'
-          ? 'radial-gradient(circle at top right, rgba(255,255,255,0.03) 0%, transparent 70%)'
-          : 'radial-gradient(circle at top right, rgba(16, 185, 129, 0.05) 0%, transparent 80%)',
-        pointerEvents: 'none',
-      },
     }}>
       <AdminSidebar />
-
+      
       {/* Main content */}
       <Box
         component="main"
@@ -481,6 +488,7 @@ const AdminDashboard = () => {
           overflow: 'auto',
           display: 'flex',
           flexDirection: 'column',
+          alignItems: 'center', // Center horizontally
           position: 'relative',
           zIndex: 1,
           p: { xs: 2, md: 3 },
@@ -491,615 +499,252 @@ const AdminDashboard = () => {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
-          mb: 3,
-          pb: 2,
-          borderBottom: mode === 'dark' 
-            ? '1px solid rgba(255,255,255,0.03)' 
-            : '1px solid rgba(16, 185, 129, 0.1)',
+          mb: 4,
+          pb: 3,
+          borderBottom: '1px solid rgba(255,255,255,0.03)',
+          width: '100%',
+          maxWidth: '1400px',
+          mx: 'auto',
         }}>
           <Box>
             <Typography variant="h4" sx={{ 
               fontWeight: 600, 
-              color: mode === 'dark' ? '#fff' : '#333',
-              textShadow: mode === 'dark' 
-                ? '0 2px 4px rgba(0,0,0,0.2)' 
-                : '0 1px 2px rgba(0,0,0,0.1)',
+              color: '#fff',
+              textShadow: '0 2px 4px rgba(0,0,0,0.2)',
             }}>
-              Welcome back, {userData.name || 'Admin'}
+              Admin Dashboard
             </Typography>
-            <Typography variant="body2" sx={{ 
-              color: mode === 'dark' ? '#6B7280' : '#6c757d', 
-              mt: 1 
-            }}>
-              Here's what's happening with your dormitory today.
+            <Typography variant="body2" sx={{ color: '#6B7280', mt: 1 }}>
+              Welcome back, {userData.name || 'Admin'} | {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </Typography>
           </Box>
+          
           <Stack direction="row" spacing={1}>
-            <NotificationBell userType="admin" color="#10B981" />
-            <IconButton sx={{ 
-              color: mode === 'dark' ? '#6B7280' : '#6c757d',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                color: '#10B981',
-                background: 'rgba(16, 185, 129, 0.1)',
-              }
-            }}>
-              <MoreVertIcon />
-            </IconButton>
+            <NotificationBell userType="admin" color={GREEN_MAIN} />
           </Stack>
         </Box>
-
-        {/* Stats Grid */}
+        
+        {/* Loading/Error State */}
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-            <CircularProgress size={40} sx={{ color: '#10B981' }} />
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <CircularProgress sx={{ color: GREEN_MAIN }} />
           </Box>
         ) : error ? (
-          <Box sx={{ textAlign: 'center', my: 4, color: '#EF4444' }}>
+          <Box sx={{ 
+            p: 3, 
+            bgcolor: 'rgba(239, 68, 68, 0.1)', 
+            borderRadius: 2,
+            color: '#EF4444',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            width: '100%',
+            maxWidth: '1400px',
+            mx: 'auto',
+          }}>
+            <Warning color="error" />
             <Typography>{error}</Typography>
           </Box>
         ) : (
-        <Grid container spacing={2}>
-          {statsData.map((stat, index) => (
-            <Grid item xs={12} sm={6} md={3} key={index}>
-              <Card sx={{ 
-                background: mode === 'dark'
-                  ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
-                  : 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
-                borderRadius: '20px',
-                p: 2.5,
-                height: '100%',
-                border: mode === 'dark'
-                  ? '1px solid rgba(255, 255, 255, 0.03)'
-                  : '1px solid rgba(16, 185, 129, 0.15)',
-                boxShadow: mode === 'dark'
-                  ? '0 4px 20px rgba(0,0,0,0.2)'
-                  : '0 4px 20px rgba(16, 185, 129, 0.08)',
-                transition: 'all 0.3s ease',
-                position: 'relative',
-                overflow: 'hidden',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: mode === 'dark'
-                    ? '0 8px 25px rgba(0,0,0,0.3)'
-                    : '0 8px 25px rgba(16, 185, 129, 0.12)',
-                },
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '5px',
-                  height: '100%',
-                  background: stat.color,
-                  borderTopLeftRadius: '20px',
-                  borderBottomLeftRadius: '20px',
-                }
-              }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Typography variant="body2" sx={{ 
-                    color: mode === 'dark' ? '#6B7280' : '#6c757d', 
-                    mb: 1 
-                  }}>
-                    {stat.title}
-                  </Typography>
-                  <Box sx={{ 
-                    color: stat.color,
-                    backgroundColor: mode === 'dark' 
-                      ? 'rgba(0, 0, 0, 0.3)' 
-                      : alpha(stat.color, 0.1),
-                    p: 0.5,
-                    borderRadius: '50%',
-                  }}>
-                    {stat.icon}
-                  </Box>
-                </Box>
-                
-                <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="h4" sx={{ 
-                    fontWeight: 700, 
-                    color: mode === 'dark' ? '#fff' : '#333',
-                    textShadow: mode === 'dark'
-                      ? '0 2px 4px rgba(0,0,0,0.2)'
-                      : '0 1px 2px rgba(0,0,0,0.05)',
-                  }}>
-                    {stat.count}
-                  </Typography>
-                  <Tooltip title={`${stat.isIncrease ? 'Increased' : 'Decreased'} by ${stat.trend.replace('+', '').replace('-', '')}`}>
-                    <Box sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      color: stat.isIncrease ? '#10B981' : '#EF4444',
-                      bgcolor: stat.isIncrease 
-                        ? alpha('#10B981', mode === 'dark' ? 0.1 : 0.1) 
-                        : alpha('#EF4444', mode === 'dark' ? 0.1 : 0.1),
-                      p: 0.5,
-                      px: 1,
-                      borderRadius: 1,
-                    }}>
-                      {stat.isIncrease ? <TrendingUpIcon fontSize="small" /> : <TrendingDownIcon fontSize="small" />}
-                      <Typography variant="caption" sx={{ ml: 0.5 }}>
-                        {stat.trend}
-                      </Typography>
-                    </Box>
-                  </Tooltip>
-                </Box>
-                
-                <Typography variant="caption" sx={{ 
-                  color: mode === 'dark' ? '#9CA3AF' : '#6c757d'
-                }}>
-                  {stat.subtext}
-                </Typography>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-        )}
-
-        {/* Charts Section */}
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="h5" sx={{ 
-            fontWeight: 600, 
-            color: mode === 'dark' ? '#fff' : '#333',
-            mb: 2,
-            textShadow: mode === 'dark'
-              ? '0 2px 4px rgba(0,0,0,0.2)'
-              : '0 1px 2px rgba(0,0,0,0.05)',
-          }}>
-            Analytics Overview
-          </Typography>
-          <Grid container spacing={2}>
-            {/* Offense History Line Graph */}
-            <Grid item xs={12} md={7}>
-              <Card sx={{ 
-                background: mode === 'dark'
-                  ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
-                  : 'linear-gradient(165deg, #ffffff 0%, #f0f9f4 100%)',
-                borderRadius: '20px',
-                p: 2.5,
-                border: mode === 'dark'
-                  ? '1px solid rgba(255, 255, 255, 0.03)'
-                  : '1px solid rgba(16, 185, 129, 0.15)',
-                boxShadow: mode === 'dark'
-                  ? '0 4px 20px rgba(0,0,0,0.2)'
-                  : '0 4px 20px rgba(16, 185, 129, 0.08)',
-                height: '100%',
-              }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" sx={{ 
-                    color: mode === 'dark' ? '#fff' : '#333', 
+          <Box sx={{ width: '100%', maxWidth: '1400px', mx: 'auto' }}>
+            {/* Stat Cards Row - width 100% */}
+            <Grid container spacing={2.5} sx={{ mb: 2, width: '100%', mx: 'auto' }}>
+              {statCards.map((stat, index) => (
+                <Grid item xs={12} sm={6} md={3} sx={{ flex: 1, minWidth: 0 }} key={index}>
+                  <Card sx={{
+                    background: 'linear-gradient(135deg, #18181b 60%, #10B981 100%)',
+                    borderRadius: '18px',
+                    boxShadow: '0 2px 12px 0 rgba(16,185,129,0.10)',
+                    p: 0,
+                    height: '100%',
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    fontSize: '1rem',
-                    fontWeight: 600
-                  }}>
-                    <BarChartIcon sx={{ color: '#EF4444' }} />
-                    Offense History
-                  </Typography>
-                  <Tooltip title="Refresh offense history">
-                    <IconButton 
-                      size="small" 
-                      onClick={fetchOffenseHistory}
-                      disabled={offenseHistoryLoading}
-                      sx={{ 
-                        color: '#EF4444',
-                        '&:hover': {
-                          backgroundColor: mode === 'dark' 
-                            ? 'rgba(239, 68, 68, 0.1)' 
-                            : 'rgba(239, 68, 68, 0.05)',
-                        }
-                      }}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-                      </svg>
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-                {(loading || offenseHistoryLoading) ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                    <CircularProgress size={30} sx={{ color: '#10B981' }} />
-                  </Box>
-                ) : (
-                  <Box sx={{ height: 280, width: '100%' }}>
-                    <Line
-                      data={{
-                        labels: offenseHistory.labels,
-                        datasets: [
-                          {
-                            label: 'Offenses',
-                            data: offenseHistory.data,
-                            fill: true,
-                            backgroundColor: mode === 'dark' 
-                              ? 'rgba(239, 68, 68, 0.1)' 
-                              : 'rgba(239, 68, 68, 0.05)',
-                            borderColor: '#EF4444',
-                            tension: 0.4,
-                            pointRadius: 4,
-                            pointBackgroundColor: '#EF4444',
-                            pointBorderColor: mode === 'dark' ? '#141414' : '#ffffff',
-                            pointBorderWidth: 2,
-                            pointHoverRadius: 6,
-                            pointHoverBackgroundColor: '#EF4444',
-                            pointHoverBorderColor: mode === 'dark' ? '#141414' : '#ffffff',
-                            pointHoverBorderWidth: 2,
-                          },
-                        ],
-                      }}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            display: false,
-                          },
-                          tooltip: {
-                            backgroundColor: mode === 'dark' ? '#1F2937' : '#ffffff',
-                            titleColor: mode === 'dark' ? '#F9FAFB' : '#111827',
-                            bodyColor: mode === 'dark' ? '#F3F4F6' : '#1F2937',
-                            borderColor: mode === 'dark' ? '#374151' : '#E5E7EB',
-                            borderWidth: 1,
-                            padding: 12,
-                            boxPadding: 6,
-                            usePointStyle: true,
-                            callbacks: {
-                              title: (tooltipItems) => {
-                                return `${tooltipItems[0].label} Offenses`;
-                              },
-                              label: (tooltipItem) => {
-                                return `Count: ${tooltipItem.raw}`;
-                              }
-                            }
-                          },
-                        },
-                        scales: {
-                          x: {
-                            grid: {
-                              color: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-                              drawBorder: false,
-                            },
-                            ticks: {
-                              color: mode === 'dark' ? '#9CA3AF' : '#6B7280',
-                            }
-                          },
-                          y: {
-                            beginAtZero: true,
-                            grid: {
-                              color: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-                              drawBorder: false,
-                            },
-                            ticks: {
-                              precision: 0,
-                              color: mode === 'dark' ? '#9CA3AF' : '#6B7280',
-                            }
-                          }
-                        },
-                        elements: {
-                          line: {
-                            borderWidth: 2,
-                          },
-                        },
-                      }}
-                    />
-                  </Box>
-                )}
-              </Card>
-            </Grid>
-            
-            {/* Today's Check-in Activity */}
-            <Grid item xs={12} md={5}>
-              <Card sx={{ 
-                background: mode === 'dark'
-                  ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
-                  : 'linear-gradient(165deg, #ffffff 0%, #f0f9f4 100%)',
-                borderRadius: '20px',
-                p: 2.5,
-                pb: 1, 
-                border: mode === 'dark'
-                  ? '1px solid rgba(255, 255, 255, 0.03)'
-                  : '1px solid rgba(16, 185, 129, 0.15)',
-                boxShadow: mode === 'dark'
-                  ? '0 4px 20px rgba(0,0,0,0.2)'
-                  : '0 4px 20px rgba(16, 185, 129, 0.08)',
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column'
-              }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" sx={{ 
-                    color: mode === 'dark' ? '#fff' : '#333', 
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    fontSize: '1rem',
-                    fontWeight: 600
-                  }}>
-                    <PieChartIcon sx={{ color: '#3B82F6' }} />
-                    Today's Check-in Activity
-                  </Typography>
-                  <Tooltip title="Refresh check-in logs">
-                    <IconButton 
-                      size="small" 
-                      onClick={fetchTodayCheckInLogs}
-                      disabled={checkInLogsLoading}
-                      sx={{ 
-                        color: '#3B82F6',
-                        '&:hover': {
-                          backgroundColor: mode === 'dark' 
-                            ? 'rgba(59, 130, 246, 0.1)' 
-                            : 'rgba(59, 130, 246, 0.05)',
-                        }
-                      }}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-                      </svg>
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-                
-                {(loading || checkInLogsLoading) ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                    <CircularProgress size={30} sx={{ color: '#10B981' }} />
-                  </Box>
-                ) : checkInLogs.length === 0 ? (
-                  <Box sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    alignItems: 'center',
                     flexDirection: 'column',
-                    py: 3,
-                    flexGrow: 1,
-                    color: mode === 'dark' ? '#9CA3AF' : '#6B7280'
+                    justifyContent: 'center',
+                    border: '1px solid #2e2e2e',
                   }}>
-                    <InfoIcon sx={{ fontSize: 40, mb: 1, opacity: 0.5 }} />
-                    <Typography variant="body2">No check-in activity recorded today</Typography>
-                  </Box>
-                ) : (
-                  <Box sx={{ 
-                    overflowY: 'auto', 
-                    maxHeight: 280,
-                    scrollbarWidth: 'thin',
-                    scrollbarColor: mode === 'dark' ? '#3B82F60D #141414' : '#3B82F60D #ffffff',
-                    '&::-webkit-scrollbar': {
-                      width: '6px',
-                    },
-                    '&::-webkit-scrollbar-track': {
-                      backgroundColor: mode === 'dark' ? '#141414' : '#ffffff',
-                    },
-                    '&::-webkit-scrollbar-thumb': {
-                      backgroundColor: mode === 'dark' ? '#3B82F60D' : '#3B82F60D',
-                      borderRadius: '3px',
-                    },
-                    flexGrow: 1,
-                    pr: 0.5
-                  }}>
-                    <List disablePadding>
-                      {checkInLogs.map((log, index) => (
-                        <React.Fragment key={log._id || index}>
-                          <ListItem
-                            disablePadding
-                            sx={{
-                              py: 1,
-                              px: 1.5,
-                              borderRadius: '10px',
-                              mb: 1,
-                              backgroundColor: mode === 'dark' ? 'rgba(59, 130, 246, 0.05)' : 'rgba(59, 130, 246, 0.03)',
-                              '&:hover': {
-                                backgroundColor: mode === 'dark' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
-                              }
-                            }}
-                          >
-                            <ListItemText
-                              primary={
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                  <Typography 
-                                    variant="body2" 
-                                    sx={{ 
-                                      fontWeight: 'medium',
-                                      color: mode === 'dark' ? '#fff' : '#111827'
-                                    }}
-                                  >
-                                    {log.studentName || 'Unknown Student'}
-                                  </Typography>
-                                  <Chip
-                                    size="small"
-                                    label={log.checkInStatus || "checked-in"}
-                                    sx={{
-                                      fontSize: '0.625rem',
-                                      height: 20,
-                                      backgroundColor: 
-                                        (log.checkInStatus === 'checked-in' || log.status === 'checked-in') ? 
-                                        'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                      color: 
-                                        (log.checkInStatus === 'checked-in' || log.status === 'checked-in') ? 
-                                        '#10B981' : '#EF4444',
-                                    }}
-                                  />
-                                </Box>
-                              }
-                              secondary={
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 0.5 }}>
-                                  <Typography
-                                    variant="caption"
-                                    sx={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      color: mode === 'dark' ? '#9CA3AF' : '#6B7280'
-                                    }}
-                                  >
-                                    <RoomIcon sx={{ fontSize: 12, mr: 0.5 }} /> {log.room || log.roomNumber || 'N/A'}
-                                  </Typography>
-                                  <Typography
-                                    variant="caption"
-                                    sx={{
-                                      color: mode === 'dark' ? '#9CA3AF' : '#6B7280'
-                                    }}
-                                  >
-                                    {new Date(log.checkInTime || log.timestamp).toLocaleTimeString([], {
-                                      hour: '2-digit',
-                                      minute: '2-digit'
-                                    })}
-                                  </Typography>
-                                </Box>
-                              }
-                            />
-                          </ListItem>
-                        </React.Fragment>
-                      ))}
-                    </List>
-                  </Box>
-                )}
-              </Card>
+                    <CardContent sx={{ p: 2.5, display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <Box sx={{
+                          bgcolor: 'rgba(255,255,255,0.07)',
+                          borderRadius: '12px',
+                          width: 40,
+                          height: 40,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          mr: 1,
+                        }}>
+                          {stat.icon}
+                        </Box>
+                      </Box>
+                      <Typography variant="h4" sx={{ fontWeight: 800, color: '#fff', mb: 0.5, fontSize: 32 }}>
+                        {stat.value.toLocaleString()}
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>
+                        {stat.title === 'Total Students' ? 'Total amount of students' : stat.subtext}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
             </Grid>
-
-            {/* Total Offenses */}
-            <Grid item xs={12}>
-              <Card sx={{ 
-                background: mode === 'dark'
-                  ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
-                  : 'linear-gradient(165deg, #ffffff 0%, #f0f9f4 100%)',
-                borderRadius: '20px',
-                p: 2.5,
-                border: mode === 'dark'
-                  ? '1px solid rgba(255, 255, 255, 0.03)'
-                  : '1px solid rgba(16, 185, 129, 0.15)',
-                boxShadow: mode === 'dark'
-                  ? '0 4px 20px rgba(0,0,0,0.2)'
-                  : '0 4px 20px rgba(16, 185, 129, 0.08)',
-                position: 'relative',
-                overflow: 'hidden',
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
+            {/* Main Content Grid - Offense Trend full width, Room Occupancy on right */}
+            <Grid container spacing={2.5} sx={{ width: '100%', mx: 'auto' }}>
+              {/* Offense Trend (Line Chart) - take most of the width */}
+              <Grid item xs={12} md={9} sx={{ flex: 3, minWidth: 0 }}>
+                <Card sx={{
+                  background: 'linear-gradient(135deg, #141414 60%, #1D503A 100%)',
+                  borderRadius: '20px',
+                  border: '1px solid #2e2e2e',
+                  boxShadow: '0 4px 20px rgba(16,185,129,0.10)',
                   height: '100%',
-                  background: 'radial-gradient(circle at bottom right, rgba(239, 68, 68, 0.03) 0%, transparent 70%)',
-                  pointerEvents: 'none',
-                }
-              }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <WarningIcon sx={{ color: '#EF4444', mr: 1 }} />
-                  <Typography variant="h6" sx={{ 
-                    color: mode === 'dark' ? '#fff' : '#333',
-                    fontSize: '1rem',
-                    fontWeight: 600
-                  }}>
-                    Total Offenses
-                  </Typography>
-                </Box>
-                
-                {loading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                    <CircularProgress size={30} sx={{ color: '#10B981' }} />
-                  </Box>
-                ) : (
-                  <Stack 
-                    direction={{ xs: 'column', sm: 'row' }} 
-                    spacing={3}
-                    sx={{ 
-                      px: 1.5,
-                      py: 1,
-                      bgcolor: mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(239, 68, 68, 0.03)',
-                      borderRadius: 2,
-                      alignItems: { xs: 'flex-start', sm: 'center' }
-                    }}
-                  >
-                    <Box sx={{ minWidth: '20%' }}>
-                      <Typography variant="h6" sx={{ 
-                        color: '#EF4444', 
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'baseline',
-                        textShadow: '0 0 10px rgba(239, 68, 68, 0.3)'
-                      }}>
-                        {analytics.offenses.total}
-                        <Typography component="span" variant="caption" sx={{ ml: 1, color: mode === 'dark' ? '#9CA3AF' : '#6B7280' }}>
-                          total recorded
-                        </Typography>
+                }}>
+                  <CardContent sx={{ p: 3 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#fff', mb: 2 }}>
+                      Offense Trend
+                    </Typography>
+                    <Box sx={{ height: 300 }}>
+                      <Line
+                        ref={chart => { offenseChartRef.current = chart; }}
+                        data={{
+                          labels: offenseHistory.labels,
+                          datasets: [
+                            {
+                              label: 'Offenses',
+                              data: offenseHistory.data,
+                              fill: true,
+                              backgroundColor: 'rgba(16, 185, 129, 0.10)',
+                              borderColor: GREEN_MAIN,
+                              tension: 0.4,
+                              pointRadius: 4,
+                              pointBackgroundColor: GREEN_MAIN,
+                              pointBorderColor: BG_DARKER,
+                              pointBorderWidth: 2,
+                              pointHoverRadius: 6,
+                              pointHoverBackgroundColor: GREEN_MAIN,
+                              pointHoverBorderColor: BG_DARKER,
+                            },
+                          ],
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                              backgroundColor: BG_DARK,
+                              titleColor: '#fff',
+                              bodyColor: '#94A3B8',
+                              borderColor: 'rgba(255, 255, 255, 0.1)',
+                              borderWidth: 1,
+                              padding: 12,
+                              boxPadding: 6,
+                              usePointStyle: true,
+                              callbacks: {
+                                title: (tooltipItems) => tooltipItems[0].label,
+                                label: (context) => `Offenses: ${context.parsed.y}`,
+                              },
+                            },
+                          },
+                          scales: {
+                            x: {
+                              grid: { display: false },
+                              ticks: { color: '#6B7280' },
+                            },
+                            y: {
+                              beginAtZero: true,
+                              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                              ticks: { color: '#6B7280' },
+                            },
+                          },
+                        }}
+                      />
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+              {/* Room Occupancy (Doughnut Chart + Legend) */}
+              <Grid item xs={12} md={3} sx={{ flex: 1, minWidth: 0 }}>
+                <Card
+                  sx={{
+                    background: 'linear-gradient(135deg, #18181b 60%, #1D503A 100%)',
+                    borderRadius: '20px',
+                    border: '1px solid #2e2e2e',
+                    boxShadow: '0 6px 32px 0 rgba(16,185,129,0.10)',
+                    p: 0,
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <CardContent sx={{ width: '100%', p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <MeetingRoom sx={{ color: GREEN_MAIN, fontSize: 28 }} />
+                      <Typography variant="h6" sx={{ fontWeight: 700, color: '#fff' }}>
+                        Room Occupancy
                       </Typography>
                     </Box>
-                    
-                    <Divider orientation="vertical" flexItem sx={{ 
-                      borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-                      display: { xs: 'none', sm: 'block' }
-                    }} />
-                    <Divider sx={{ 
-                      borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-                      display: { xs: 'block', sm: 'none' },
-                      width: '100%',
-                      my: 1
-                    }} />
-                    
-                    <Box>
-                      <Typography variant="body2" sx={{ 
-                        color: mode === 'dark' ? '#9CA3AF' : '#6B7280',
-                        fontWeight: 'medium',
-                        display: 'flex',
-                        alignItems: 'center'
-                      }}>
-                        Last month
-                        <Typography 
-                          component="span" 
-                          variant="body2" 
-                          sx={{ 
-                            fontWeight: 'bold',
-                            color: mode === 'dark' ? '#fff' : '#374151',
-                            ml: 1
-                          }}
-                        >
-                          {analytics.offenses.lastMonth}
-                        </Typography>
-                      </Typography>
-                    </Box>
-                    
-                    <Box>
-                      <Box sx={{ 
-                        display: 'flex',
-                        alignItems: 'center',
-                        color: analytics.offenses.isIncrease ? '#EF4444' : '#10B981',
-                        bgcolor: analytics.offenses.isIncrease 
-                          ? 'rgba(239, 68, 68, 0.1)' 
-                          : 'rgba(16, 185, 129, 0.1)',
-                        borderRadius: 1,
-                        px: 1,
-                        py: 0.5,
-                        width: 'fit-content'
-                      }}>
-                        {analytics.offenses.isIncrease ? <TrendingUpIcon fontSize="small" /> : <TrendingDownIcon fontSize="small" />}
-                        <Typography variant="caption" sx={{ fontWeight: 'medium', ml: 0.5 }}>
-                          {formatPercentChange(analytics.offenses.percentChange)}
+                    <Box sx={{ position: 'relative', width: 180, height: 180, mb: 2 }}>
+                      <Doughnut
+                        data={{
+                          labels: ['Occupied', 'Available'],
+                          datasets: [
+                            {
+                              data: [analytics.rooms.occupiedRooms, analytics.rooms.availableRooms],
+                              backgroundColor: [GREEN_MAIN, '#374151'],
+                              borderWidth: 0,
+                              hoverOffset: 5,
+                            },
+                          ],
+                        }}
+                        options={{
+                          cutout: '75%',
+                          plugins: { legend: { display: false } },
+                        }}
+                      />
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          textAlign: 'center',
+                        }}
+                      >
+                        <Typography variant="h4" sx={{ fontWeight: 800, color: '#fff', textShadow: '0 2px 8px #0008' }}>
+                          {analytics.rooms.occupancyRate}%
                         </Typography>
                       </Box>
                     </Box>
-
-                    <Box sx={{ ml: 'auto', display: { xs: 'none', md: 'block' } }}>
-                      <Button
-                        size="small"
-                        sx={{
-                          color: '#EF4444',
-                          borderColor: 'rgba(239, 68, 68, 0.5)',
-                          '&:hover': {
-                            borderColor: '#EF4444',
-                            backgroundColor: 'rgba(239, 68, 68, 0.04)',
-                          },
-                        }}
-                        variant="outlined"
-                      >
-                        View All Offenses
-                      </Button>
+                    {/* Legend centered under the chart */}
+                    <Box sx={{ width: '100%', mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 1.5 }}>
+                        <Box sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: GREEN_MAIN }} />
+                        <Typography variant="body2" sx={{ color: '#fff', ml: 1 }}>
+                          Occupied
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: '#fff', fontWeight: 700, ml: 2 }}>
+                          {analytics.rooms.occupiedRooms}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: '#374151' }} />
+                        <Typography variant="body2" sx={{ color: '#fff', ml: 1 }}>
+                          Available
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: '#fff', fontWeight: 700, ml: 2 }}>
+                          {analytics.rooms.availableRooms}
+                        </Typography>
+                      </Box>
                     </Box>
-                  </Stack>
-                )}
-              </Card>
+                  </CardContent>
+                </Card>
+              </Grid>
             </Grid>
-          </Grid>
-        </Box>
+          </Box>
+        )}
       </Box>
     </Box>
   );

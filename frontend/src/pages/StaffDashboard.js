@@ -1,84 +1,174 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
   Card,
-  Stack,
+  CardContent,
   Grid,
-  IconButton,
-  List,
-  ListItem,
-  ListItemText,
+  Stack,
+  CircularProgress,
+  useTheme
 } from '@mui/material';
 import {
-  MoreVert as MoreVertIcon,
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
-  Circle as CircleIcon,
+  Warning as WarningIcon,
   AssignmentTurnedIn as AssignmentsIcon,
+  Assignment as AssignmentIcon
 } from '@mui/icons-material';
+import { Bar, Line, Doughnut } from 'react-chartjs-2';
+import { 
+  Chart as ChartJS, 
+  CategoryScale, 
+  LinearScale, 
+  BarElement, 
+  LineElement,
+  PointElement,
+  ArcElement,
+  Title, 
+  Tooltip as ChartTooltip, 
+  Legend,
+  Filler
+} from 'chart.js';
 import StaffSidebar from '../components/StaffSidebar';
 import NotificationBell from '../components/NotificationBell';
+import { format, subDays, startOfWeek, endOfWeek } from 'date-fns';
+import axios from 'axios';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale, 
+  LinearScale, 
+  BarElement, 
+  LineElement,
+  PointElement,
+  ArcElement,
+  Title, 
+  ChartTooltip, 
+  Legend,
+  Filler
+);
+
+// Color constants
+const BLUE_MAIN = "#3B82F6";
+const BLUE_DARK = "#2563EB";
+const BLUE_DARKER = "#1D4ED8";
+
+// Color constants for task status using blue shades
+const STATUS_COLORS = {
+  Completed: '#3B82F6', // Primary blue for completed tasks
+  'In Progress': '#2563EB', // Darker blue for in-progress tasks
+  Assigned: '#1E40AF', // Deepest blue for assigned tasks
+};
 
 const StaffDashboard = () => {
   const [userData, setUserData] = useState({});
-  const [statsData, setStatsData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [performanceData, setPerformanceData] = useState({ 
+    labels: [], 
+    data: [],
+    total: 0,
+    trend: 0 
+  });
+  const [taskDistribution, setTaskDistribution] = useState({
+    labels: ['Completed', 'In Progress', 'Assigned'],
+    data: [0, 0, 0]
+  });
+  const theme = useTheme();
 
-  // Get user data from localStorage on mount
+  // Add refs for charts
+  const performanceChartRef = useRef(null);
+  const taskChartRef = useRef(null);
+
+  // Function to fetch weekly performance data
+  const fetchWeeklyPerformance = async (staffId) => {
+    try {
+      // Get start and end of current week
+      const now = new Date();
+      const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Start from Monday
+      const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+
+      const response = await axios.get('/api/staff/performance', {
+        params: {
+          staffId,
+          startDate: format(weekStart, 'yyyy-MM-dd'),
+          endDate: format(weekEnd, 'yyyy-MM-dd')
+        }
+      });
+
+      const weeklyData = response.data;
+      
+      // Calculate the trend (percentage change from last week)
+      const trend = weeklyData.trend || 0;
+      
+      // Update performance data with actual values
+      setPerformanceData({
+        labels: weeklyData.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        data: weeklyData.data || [0, 0, 0, 0, 0, 0, 0],
+        total: weeklyData.total || 0,
+        trend
+      });
+
+    } catch (err) {
+      console.error('Error fetching weekly performance:', err);
+    }
+  };
+
+  // Function to fetch forms and update task distribution
+  const fetchFormsData = async () => {
+    try {
+      const response = await axios.get('/api/staff/forms');
+      const forms = response.data.forms;
+      const stats = response.data.stats;
+
+      // Update task distribution
+      setTaskDistribution({
+        labels: ['Completed', 'In Progress', 'Assigned'],
+        data: [
+          stats.completed || 0,
+          stats.inProgress || 0,
+          stats.assigned || 0
+        ]
+      });
+
+    } catch (err) {
+      console.error('Error fetching forms data:', err);
+      setError('Failed to load task distribution data');
+    }
+  };
+
+  // Clean up charts on unmount
+  useEffect(() => {
+    return () => {
+      if (performanceChartRef.current && performanceChartRef.current.destroy) {
+        performanceChartRef.current.destroy();
+      }
+      if (taskChartRef.current && taskChartRef.current.destroy) {
+        taskChartRef.current.destroy();
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const storedUserData = JSON.parse(localStorage.getItem('userData') || '{}');
     setUserData(storedUserData);
     
-    // Set stats based on staff type
-    if (storedUserData.typeOfStaff === 'Cleaner') {
-      setStatsData([
-        { title: 'Completed Tasks', count: '45', trend: '+8%', isIncrease: true },
-        { title: 'Pending Tasks', count: '12', trend: '-5%', isIncrease: false },
-        { title: 'Response Time', count: '28m', trend: '-10%', isIncrease: true },
-        { title: 'Satisfaction Rate', count: '96%', trend: '+2%', isIncrease: true },
-      ]);
-    } else if (storedUserData.typeOfStaff === 'Maintenance') {
-      setStatsData([
-        { title: 'Repairs Done', count: '32', trend: '+12%', isIncrease: true },
-        { title: 'Pending Repairs', count: '15', trend: '-3%', isIncrease: false },
-        { title: 'Avg. Completion Time', count: '3.5h', trend: '-15%', isIncrease: true },
-        { title: 'Parts Used', count: '87', trend: '+5%', isIncrease: false },
-      ]);
-    } else if (storedUserData.typeOfStaff === 'Security') {
-      setStatsData([
-        { title: 'Active Logs', count: '56', trend: '+7%', isIncrease: true },
-        { title: 'Incidents', count: '3', trend: '-25%', isIncrease: true },
-        { title: 'Patrol Rounds', count: '24', trend: '+8%', isIncrease: true },
-        { title: 'Visitor Passes', count: '142', trend: '+12%', isIncrease: true },
-      ]);
-    } else {
-      // Default stats
-      setStatsData([
-        { title: 'Completed Tasks', count: '38', trend: '+10%', isIncrease: true },
-        { title: 'Pending Tasks', count: '14', trend: '-2%', isIncrease: false },
-        { title: 'Response Time', count: '30m', trend: '-8%', isIncrease: true },
-        { title: 'Satisfaction Rate', count: '92%', trend: '+3%', isIncrease: true },
-      ]);
+    // Fetch actual performance data
+    if (storedUserData._id) {
+      fetchWeeklyPerformance(storedUserData._id);
     }
+
+    fetchFormsData();
+    setLoading(false);
   }, []);
 
   return (
     <Box sx={{ 
       display: 'flex', 
-      minHeight: '100vh',
+      height: '100vh',
       background: 'linear-gradient(145deg, #0A0A0A 0%, #141414 100%)',
       color: '#fff',
       position: 'relative',
-      '&::before': {
-        content: '""',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'radial-gradient(circle at top right, rgba(255,255,255,0.03) 0%, transparent 70%)',
-        pointerEvents: 'none',
-      },
+      overflow: 'hidden',
     }}>
       <StaffSidebar />
 
@@ -87,11 +177,14 @@ const StaffDashboard = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 4,
+          height: '100%',
+          overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
           position: 'relative',
           zIndex: 1,
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          transform: 'none',
+          p: { xs: 2, md: 3 },
         }}
       >
         {/* Header */}
@@ -102,6 +195,9 @@ const StaffDashboard = () => {
           mb: 4,
           pb: 3,
           borderBottom: '1px solid rgba(255,255,255,0.03)',
+          width: '100%',
+          maxWidth: '1400px',
+          mx: 'auto',
         }}>
           <Box>
             <Typography variant="h4" sx={{ 
@@ -109,176 +205,273 @@ const StaffDashboard = () => {
               color: '#fff',
               textShadow: '0 2px 4px rgba(0,0,0,0.2)',
             }}>
-              Welcome back, {userData.name || 'Staff'}
+              Staff Dashboard
             </Typography>
             <Typography variant="body2" sx={{ color: '#6B7280', mt: 1 }}>
-              Here's what's happening with your assignments today.
+              Welcome back, {userData.name || 'Staff'} | {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </Typography>
           </Box>
+          
           <Stack direction="row" spacing={1}>
-            <NotificationBell userType="staff" color="#3B82F6" />
-            <IconButton sx={{ 
-              color: '#6B7280',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                color: '#3B82F6',
-                background: 'rgba(59, 130, 246, 0.1)',
-              }
-            }}>
-              <MoreVertIcon />
-            </IconButton>
+            <NotificationBell userType="staff" color={BLUE_MAIN} />
           </Stack>
         </Box>
 
-        {/* Stats Grid */}
-        <Grid container spacing={3}>
-          {statsData.map((stat, index) => (
-            <Grid item xs={12} sm={6} md={3} key={index}>
-              <Card sx={{ 
-                background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-                borderRadius: '20px',
-                p: 3,
-                border: '1px solid rgba(255, 255, 255, 0.03)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 8px 25px rgba(0,0,0,0.3)',
-                },
-              }}>
-                <Typography variant="body2" sx={{ color: '#6B7280', mb: 1 }}>
-                  {stat.title}
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Typography variant="h4" sx={{ 
-                    fontWeight: 600, 
-                    color: '#fff',
-                    textShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                  }}>
-                    {stat.count}
-                  </Typography>
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    color: stat.isIncrease ? '#3B82F6' : '#EF4444',
-                    bgcolor: stat.isIncrease ? 'rgba(59, 130, 246, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                    p: 0.5,
-                    px: 1,
-                    borderRadius: 1,
-                  }}>
-                    {stat.isIncrease ? <TrendingUpIcon fontSize="small" /> : <TrendingDownIcon fontSize="small" />}
-                    <Typography variant="caption" sx={{ ml: 0.5 }}>
-                      {stat.trend}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-
-        {/* Recent Activity */}
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h5" sx={{ 
-            fontWeight: 600, 
-            color: '#fff',
-            mb: 3,
-            textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+        {/* Loading/Error State */}
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <CircularProgress sx={{ color: BLUE_MAIN }} />
+          </Box>
+        ) : error ? (
+          <Box sx={{ 
+            p: 3, 
+            bgcolor: 'rgba(239, 68, 68, 0.1)', 
+            borderRadius: 2,
+            color: '#EF4444',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            width: '100%',
           }}>
-            Recent Activity
-          </Typography>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={7}>
-              <Card sx={{ 
-                background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-                borderRadius: '20px',
-                p: 3,
-                border: '1px solid rgba(255, 255, 255, 0.03)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-                height: '100%',
-              }}>
-                <Typography variant="h6" sx={{ color: '#fff', mb: 2 }}>
-                  Recent Assignments
-                </Typography>
-                <List>
-                  {[1, 2, 3, 4, 5].map((item) => (
-                    <ListItem 
-                      key={item}
-                      sx={{ 
-                        px: 0, 
-                        borderBottom: item < 5 ? '1px solid rgba(255,255,255,0.03)' : 'none',
-                        py: 1,
-                      }}
-                    >
-                      <ListItemText
-                        primary={`Assignment #${item}0${item}`}
-                        secondary={`${item % 2 === 0 ? 'Room cleaning' : 'Maintenance request'} - ${new Date().toLocaleDateString()}`}
-                        primaryTypographyProps={{
-                          color: '#fff',
+            <WarningIcon color="error" />
+            <Typography>{error}</Typography>
+          </Box>
+        ) : (
+          <Box sx={{ width: '100%', maxWidth: '1400px', mx: 'auto' }}>
+            {/* Charts Grid */}
+            <Grid container spacing={2.5} sx={{ width: '100%', mx: 'auto' }}>
+              {/* Performance Chart */}
+              <Grid item xs={12} md={9} sx={{ flex: 3, minWidth: 0 }}>
+                <Card sx={{ 
+                  background: 'linear-gradient(135deg, #141414 60%, #1D4ED8 100%)',
+                  borderRadius: '16px',
+                  border: '1px solid #2e2e2e',
+                  boxShadow: '0 4px 20px rgba(59,130,246,0.10)',
+                  height: '100%',
+                }}>
+                  <CardContent sx={{ p: 2 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#fff', mb: 2 }}>
+                      Weekly Performance
+                    </Typography>
+                    <Box sx={{ height: 300, position: 'relative' }}>
+                      <Line
+                        data={{
+                          labels: performanceData.labels,
+                          datasets: [
+                            {
+                              label: 'Tasks Completed',
+                              data: performanceData.data,
+                              borderColor: BLUE_MAIN,
+                              backgroundColor: 'rgba(59,130,246,0.1)',
+                              fill: true,
+                              tension: 0.4,
+                            }
+                          ]
                         }}
-                        secondaryTypographyProps={{
-                          color: '#6B7280',
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                            legend: {
+                              display: false
+                            },
+                            tooltip: {
+                              backgroundColor: '#1F2937',
+                              titleColor: '#F3F4F6',
+                              bodyColor: '#D1D5DB',
+                              borderColor: 'rgba(255,255,255,0.1)',
+                              borderWidth: 1,
+                              padding: 12,
+                              displayColors: false,
+                              callbacks: {
+                                title: (items) => items[0].label,
+                                label: (item) => `Completed: ${item.raw} tasks`
+                              }
+                            }
+                          },
+                          scales: {
+                            y: {
+                              grid: {
+                                color: 'rgba(255,255,255,0.1)',
+                              },
+                              ticks: {
+                                color: '#6B7280',
+                                callback: (value) => Math.round(value)
+                              },
+                              beginAtZero: true
+                            },
+                            x: {
+                              grid: {
+                                display: false
+                              },
+                              ticks: {
+                                color: '#6B7280',
+                              }
+                            }
+                          }
                         }}
                       />
-                      <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        color: item === 1 ? '#3B82F6' : '#6B7280',
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Task Distribution */}
+              <Grid item xs={12} md={3} sx={{ flex: 1, minWidth: 0 }}>
+                <Card sx={{ 
+                  background: 'linear-gradient(135deg, #18181b 60%, #1D4ED8 100%)',
+                  borderRadius: '16px',
+                  border: '1px solid #2e2e2e',
+                  boxShadow: '0 4px 20px rgba(59,130,246,0.10)',
+                  height: '100%',
+                }}>
+                  <CardContent sx={{ p: 2 }}>
+                    <Typography variant="h6" sx={{ 
+                      fontWeight: 700, 
+                      color: '#fff', 
+                      mb: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}>
+                      <AssignmentIcon sx={{ fontSize: 20, color: '#3B82F6' }} />
+                      Task Distribution
+                    </Typography>
+                    <Box sx={{ 
+                      height: 300, 
+                      position: 'relative', 
+                      display: 'flex', 
+                      justifyContent: 'center', 
+                      alignItems: 'center',
+                      p: 2
+                    }}>
+                      <Doughnut
+                        data={{
+                          labels: taskDistribution.labels,
+                          datasets: [{
+                            data: taskDistribution.data,
+                            backgroundColor: [
+                              STATUS_COLORS.Completed,
+                              STATUS_COLORS['In Progress'],
+                              STATUS_COLORS.Assigned
+                            ],
+                            borderWidth: 0,
+                            hoverOffset: 4,
+                            hoverBackgroundColor: [
+                              '#60A5FA', // Lighter blue for hover on completed
+                              '#3B82F6', // Primary blue for hover on in-progress
+                              '#2563EB', // Darker blue for hover on assigned
+                            ]
+                          }]
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                            legend: {
+                              position: 'bottom',
+                              labels: {
+                                color: '#FFFFFF',
+                                padding: 20,
+                                font: {
+                                  size: 12,
+                                  weight: '500',
+                                  family: 'Inter, sans-serif',
+                                },
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                boxWidth: 8,
+                                boxHeight: 8,
+                                generateLabels: (chart) => {
+                                  const datasets = chart.data.datasets;
+                                  return chart.data.labels.map((label, i) => ({
+                                    text: label,
+                                    fillStyle: datasets[0].backgroundColor[i],
+                                    strokeStyle: datasets[0].backgroundColor[i],
+                                    hidden: false,
+                                    index: i,
+                                    fontColor: '#FFFFFF',
+                                    color: '#FFFFFF',
+                                    textColor: '#FFFFFF'
+                                  }));
+                                }
+                              }
+                            },
+                            tooltip: {
+                              backgroundColor: '#1F2937',
+                              titleColor: '#FFFFFF',
+                              bodyColor: '#FFFFFF',
+                              borderColor: 'rgba(59,130,246,0.1)',
+                              borderWidth: 1,
+                              padding: 12,
+                              displayColors: true,
+                              boxWidth: 10,
+                              boxHeight: 10,
+                              usePointStyle: true,
+                              titleFont: {
+                                size: 14,
+                                weight: '600',
+                                family: 'Inter, sans-serif',
+                              },
+                              bodyFont: {
+                                size: 12,
+                                weight: '500',
+                                family: 'Inter, sans-serif',
+                              },
+                              callbacks: {
+                                label: (context) => {
+                                  const value = context.raw || 0;
+                                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                  const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                  return ` ${context.label}: ${value} (${percentage}%)`;
+                                }
+                              }
+                            }
+                          },
+                          cutout: '75%',
+                          animation: {
+                            animateScale: true,
+                            animateRotate: true
+                          }
+                        }}
+                      />
+                      {/* Center text showing total tasks */}
+                      <Box sx={{
+                        position: 'absolute',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        background: 'rgba(24, 24, 27, 0.8)',
+                        borderRadius: '50%',
+                        width: '120px',
+                        height: '120px',
+                        backdropFilter: 'blur(4px)',
+                        top: '25%',
+                        transform: 'translateY(-10%)'
                       }}>
-                        <CircleIcon sx={{ fontSize: 10, mr: 0.5 }} />
-                        <Typography variant="caption">
-                          {item === 1 ? 'New' : 'Viewed'}
+                        <Typography variant="h4" sx={{ 
+                          color: '#3B82F6',
+                          fontWeight: 700,
+                          textShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        }}>
+                          {taskDistribution.data.reduce((a, b) => a + b, 0)}
+                        </Typography>
+                        <Typography variant="body2" sx={{ 
+                          color: '#9CA3AF',
+                          fontWeight: 500
+                        }}>
+                          Total Tasks
                         </Typography>
                       </Box>
-                    </ListItem>
-                  ))}
-                </List>
-              </Card>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
             </Grid>
-            <Grid item xs={12} md={5}>
-              <Card sx={{ 
-                background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
-                borderRadius: '20px',
-                p: 3,
-                border: '1px solid rgba(255, 255, 255, 0.03)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-                height: '100%',
-              }}>
-                <Typography variant="h6" sx={{ color: '#fff', mb: 2 }}>
-                  Task Statistics
-                </Typography>
-                <List>
-                  {["Today", "This Week", "This Month"].map((period, index) => (
-                    <ListItem
-                      key={period}
-                      sx={{ 
-                        px: 0, 
-                        borderBottom: index < 2 ? '1px solid rgba(255,255,255,0.03)' : 'none',
-                        py: 1,
-                      }}
-                    >
-                      <ListItemText
-                        primary={`${period}`}
-                        secondary={`${index === 0 ? '3' : index === 1 ? '18' : '47'} assignments`}
-                        primaryTypographyProps={{
-                          color: '#fff',
-                        }}
-                        secondaryTypographyProps={{
-                          color: '#6B7280',
-                        }}
-                      />
-                      <Box>
-                        <Typography variant="h6" sx={{ color: '#3B82F6' }}>
-                          {index === 0 ? '100%' : index === 1 ? '94%' : '89%'}
-                        </Typography>
-                      </Box>
-                    </ListItem>
-                  ))}
-                </List>
-              </Card>
-            </Grid>
-          </Grid>
-        </Box>
+          </Box>
+        )}
       </Box>
     </Box>
   );

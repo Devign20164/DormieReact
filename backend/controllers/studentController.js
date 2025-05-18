@@ -1785,6 +1785,11 @@ const checkInStudent = asyncHandler(async (req, res) => {
       return res.status(400).json({ message: 'Student is not assigned to a room' });
     }
 
+    // Check if last action was check-out
+    if (student.lastAction === 'check-in') {
+      return res.status(400).json({ message: 'Must check out before checking in again' });
+    }
+
     // Get current date at midnight for log entry
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1831,8 +1836,9 @@ const checkInStudent = asyncHandler(async (req, res) => {
     log.entries.push(newEntry);
     await log.save();
 
-    // Update student status
+    // Update student status and lastAction
     student.status = 'in';
+    student.lastAction = 'check-in';
     student.lastCheckIn = checkInTime;
     await student.save();
 
@@ -1869,8 +1875,10 @@ const checkInStudent = asyncHandler(async (req, res) => {
 
     res.json({
       message: 'Student checked in successfully',
-      log: log,
-      status: checkInTime > curfewDateTime ? 'Late' : 'OnTime'
+      status: student.status,
+      lastAction: student.lastAction,
+      lastCheckIn: student.lastCheckIn,
+      log: log
     });
   } catch (error) {
     console.error('Check-in error:', error);
@@ -1893,6 +1901,11 @@ const checkOutStudent = asyncHandler(async (req, res) => {
 
     if (!student.room) {
       return res.status(400).json({ message: 'Student is not assigned to a room' });
+    }
+
+    // Check if last action was check-in
+    if (student.lastAction === 'check-out') {
+      return res.status(400).json({ message: 'Must check in before checking out' });
     }
 
     // Get current date at midnight for log entry
@@ -1931,8 +1944,9 @@ const checkOutStudent = asyncHandler(async (req, res) => {
 
     await log.save();
 
-    // Update student status
+    // Update student status and lastAction
     student.status = 'out';
+    student.lastAction = 'check-out';
     student.lastCheckOut = checkOutTime;
     await student.save();
 
@@ -1969,8 +1983,10 @@ const checkOutStudent = asyncHandler(async (req, res) => {
 
     res.json({
       message: 'Student checked out successfully',
-      log: log,
-      status: checkOutTime > curfewDateTime ? 'Late' : 'OnTime'
+      status: student.status,
+      lastAction: student.lastAction,
+      lastCheckOut: student.lastCheckOut,
+      log: log
     });
   } catch (error) {
     console.error('Check-out error:', error);
@@ -2160,6 +2176,35 @@ const getStudentOffenses = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get a student by ID
+// @route   GET /api/students/:id
+// @access  Private
+const getStudentById = asyncHandler(async (req, res) => {
+  try {
+    const student = await Student.findById(req.params.id)
+      .select('-password')
+      .populate({
+        path: 'room',
+        populate: {
+          path: 'building',
+          select: 'name'
+        }
+      });
+
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    res.json(student);
+  } catch (error) {
+    console.error('Error fetching student:', error);
+    res.status(500).json({ 
+      message: 'Error fetching student',
+      error: error.message 
+    });
+  }
+});
+
 // Export all controllers
 module.exports = {
   loginStudent,
@@ -2196,5 +2241,6 @@ module.exports = {
   getStudentNews,
   getStudentNewsById,
   updateStudentPassword,
-  getStudentOffenses
+  getStudentOffenses,
+  getStudentById
 }; 

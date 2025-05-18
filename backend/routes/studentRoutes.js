@@ -38,7 +38,8 @@ const {
   getStudentNews,
   getStudentNewsById,
   updateStudentPassword,
-  getStudentOffenses
+  getStudentOffenses,
+  getStudentById
 } = require('../controllers/studentController');
 const Form = require('../models/FormModel');
 const path = require('path');
@@ -52,6 +53,7 @@ router.put('/update-password', protect, updateStudentPassword);
 
 // Student management routes
 router.get('/', protect, getAllStudents);
+router.get('/:id', protect, getStudentById);
 router.post('/', protect, createStudent);
 router.put('/:id', protect, updateStudent);
 router.delete('/:id', protect, deleteStudent);

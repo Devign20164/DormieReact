@@ -162,6 +162,15 @@ const StaffTenantLog = () => {
     
     setLoading(true);
     try {
+      // First fetch the latest student data
+      const studentResponse = await fetch(`/api/students/${selectedStudent.id}`);
+      const latestStudentData = await studentResponse.json();
+      
+      // Check if the student's last action was check-out
+      if (latestStudentData.lastAction !== 'check-out') {
+        throw new Error('You must check out before checking in again');
+      }
+
       const response = await fetch(`/api/students/${selectedStudent.id}/check-in`, {
         method: 'POST',
         headers: {
@@ -174,9 +183,16 @@ const StaffTenantLog = () => {
         throw new Error(error.message || 'Failed to check in');
       }
 
+      const updatedData = await response.json();
+
       setStudents(students.map(student =>
         student.id === selectedStudent.id
-          ? { ...student, status: 'in', lastCheckIn: new Date().toISOString() }
+          ? { 
+              ...student, 
+              status: updatedData.status || 'in',
+              lastAction: 'check-in',
+              lastCheckIn: updatedData.lastCheckIn || new Date().toISOString()
+            }
           : student
       ));
 
@@ -203,6 +219,15 @@ const StaffTenantLog = () => {
     
     setLoading(true);
     try {
+      // First fetch the latest student data
+      const studentResponse = await fetch(`/api/students/${selectedStudent.id}`);
+      const latestStudentData = await studentResponse.json();
+      
+      // Check if the student's last action was check-in
+      if (latestStudentData.lastAction !== 'check-in') {
+        throw new Error('You must check in before checking out');
+      }
+
       const response = await fetch(`/api/students/${selectedStudent.id}/check-out`, {
         method: 'POST',
         headers: {
@@ -215,9 +240,16 @@ const StaffTenantLog = () => {
         throw new Error(error.message || 'Failed to check out');
       }
 
+      const updatedData = await response.json();
+
       setStudents(students.map(student =>
         student.id === selectedStudent.id
-          ? { ...student, status: 'out', lastCheckOut: new Date().toISOString() }
+          ? { 
+              ...student, 
+              status: updatedData.status || 'out',
+              lastAction: 'check-out',
+              lastCheckOut: updatedData.lastCheckOut || new Date().toISOString()
+            }
           : student
       ));
 

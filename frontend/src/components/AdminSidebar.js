@@ -314,7 +314,7 @@ const AdminSidebar = () => {
       <Box 
         sx={{ 
           mt: 'auto', 
-          p: 2,
+          p: 2, 
           borderTop: '1px solid rgba(255,255,255,0.03)',
           position: 'relative',
           zIndex: 1,

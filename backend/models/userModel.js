@@ -91,6 +91,22 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    status: {
+      type: String,
+      enum: ['in', 'out'],
+      default: 'out'
+    },
+    lastAction: {
+      type: String,
+      enum: ['check-in', 'check-out'],
+      default: 'check-out'
+    },
+    lastCheckIn: {
+      type: Date
+    },
+    lastCheckOut: {
+      type: Date
+    },
   },
   {
     timestamps: true,

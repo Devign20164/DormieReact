@@ -266,7 +266,7 @@ const StudentSidebar = () => {
                       py: 1,
                       borderRadius: '10px',
                       backgroundColor: isActive 
-                        ? 'rgba(16, 185, 129, 0.1)'
+                          ? 'rgba(16, 185, 129, 0.1)'
                   : 'transparent',
                 '&:hover': {
                   background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
@@ -316,7 +316,7 @@ const StudentSidebar = () => {
       <Box 
         sx={{ 
         mt: 'auto', 
-          p: 2,
+          p: 2, 
           borderTop: '1px solid rgba(255,255,255,0.03)',
           position: 'relative',
           zIndex: 1,
