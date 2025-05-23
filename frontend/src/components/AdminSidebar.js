@@ -46,7 +46,9 @@ const BG_DARKER = "#0A0A0A";
 
 const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/admin-dashboard' },
-  { text: 'Students', icon: <PeopleIcon />, path: '/admin/students' },
+  { text: 'Applicants', icon: <PeopleIcon />, path: '/admin/applicants' },
+  { text: 'Students', icon: <SchoolIcon />, path: '/admin/students' },
+  { text: 'Archives', icon: <HistoryIcon />, path: '/admin/archives' },
   { text: 'Buildings', icon: <BuildingIcon />, path: '/admin/buildings' },
   { text: 'Staff', icon: <StaffIcon />, path: '/admin/staff' },
   { text: 'Forms', icon: <FormsIcon />, path: '/admin/forms' },

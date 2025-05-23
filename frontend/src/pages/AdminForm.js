@@ -1909,22 +1909,40 @@ const AdminForm = () => {
                   )}
                   
                   {selectedForm.status === 'Approved' && !selectedForm.staff && (
-                    <Button
-                      variant="contained"
-                      onClick={() => handleOpenAssignmentDialog(selectedForm)}
-                      disabled={statusLoading}
-                      startIcon={<PersonIcon />}
-                      sx={{
-                        bgcolor: 'rgba(139, 92, 246, 0.1)',
-                        color: '#8B5CF6',
-                        borderColor: 'rgba(139, 92, 246, 0.5)',
-                        '&:hover': {
-                          bgcolor: 'rgba(139, 92, 246, 0.2)',
-                        }
-                      }}
-                    >
-                      {statusLoading ? <CircularProgress size={24} color="inherit" /> : 'Assign Staff'}
-                    </Button>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        variant="contained"
+                        onClick={() => handleOpenAssignmentDialog(selectedForm)}
+                        disabled={statusLoading}
+                        startIcon={<PersonIcon />}
+                        sx={{
+                          bgcolor: 'rgba(139, 92, 246, 0.1)',
+                          color: '#8B5CF6',
+                          borderColor: 'rgba(139, 92, 246, 0.5)',
+                          '&:hover': {
+                            bgcolor: 'rgba(139, 92, 246, 0.2)',
+                          }
+                        }}
+                      >
+                        {statusLoading ? <CircularProgress size={24} color="inherit" /> : 'Assign Staff'}
+                      </Button>
+                      <Button
+                        variant="contained"
+                        onClick={() => handleStatusChange(selectedForm._id, 'Rejected')}
+                        disabled={statusLoading}
+                        startIcon={<CancelIcon />}
+                        sx={{
+                          bgcolor: 'rgba(239, 68, 68, 0.1)',
+                          color: '#EF4444',
+                          borderColor: 'rgba(239, 68, 68, 0.5)',
+                          '&:hover': {
+                            bgcolor: 'rgba(239, 68, 68, 0.2)',
+                          }
+                        }}
+                      >
+                        {statusLoading ? <CircularProgress size={24} color="inherit" /> : 'Reject'}
+                      </Button>
+                    </Box>
                   )}
                 </Box>
               </DialogActions>

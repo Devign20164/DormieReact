@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -28,7 +28,11 @@ import {
   Tabs,
   Tab,
   Grid,
-  useTheme
+  useTheme,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -178,6 +182,14 @@ const AdminReport = () => {
     staff: false,
     offenses: false
   });
+
+  // Add new filter states
+  const [buildingFilter, setBuildingFilter] = useState('all'); // 'all', 'Male', 'Female'
+  const [roomStatusFilter, setRoomStatusFilter] = useState('all'); // 'all', 'Available', 'Occupied'
+  const [roomTypeFilter, setRoomTypeFilter] = useState('all'); // 'all', 'Single', 'Double'
+  const [formTypeFilter, setFormTypeFilter] = useState('all'); // 'all', 'Repair', 'Cleaning', 'Maintenance'
+  const [billStatusFilter, setBillStatusFilter] = useState('all'); // 'all', 'Pending', 'Paid', 'Overdue'
+  const [offenseTypeFilter, setOffenseTypeFilter] = useState('all'); // 'all', '1st Offense', '2nd Offense', etc.
 
   // Fetch all students
   const fetchStudents = async () => {
@@ -804,7 +816,7 @@ const AdminReport = () => {
         break;
       
       case 2: // Buildings
-        const buildingsData = allBuildings.map(building => ({
+        const buildingsData = filteredBuildings.map(building => ({
           Name: building.name,
           Type: building.type || '',
           NumberOfRooms: building.rooms?.length || 0,
@@ -814,7 +826,7 @@ const AdminReport = () => {
         break;
       
       case 3: // Rooms
-        const roomsData = allRooms.map(room => ({
+        const roomsData = filteredRooms.map(room => ({
           RoomNumber: room.roomNumber,
           Building: room.buildingName || '',
           Type: room.type || '',
@@ -826,7 +838,7 @@ const AdminReport = () => {
         break;
       
       case 4: // Forms
-        const formsData = allForms.map(form => ({
+        const formsData = filteredForms.map(form => ({
           FormID: form._id?.substring(0, 8) || '',
           Student: form.student?.name || form.studentName || '',
           Type: form.formType || form.type || '',
@@ -837,7 +849,7 @@ const AdminReport = () => {
         break;
       
       case 5: // Bills
-        const billsData = allBills.map(bill => ({
+        const billsData = filteredBills.map(bill => ({
           BillID: bill._id?.substring(0, 8) || '',
           Student: bill.student?.name || '',
           Description: bill.notes || `Bill for ${formatDate(bill.billingPeriodStart)}` || '',
@@ -864,7 +876,7 @@ const AdminReport = () => {
         break;
       
       case 7: // Offenses
-        const offensesData = allOffenses.map(offense => ({
+        const offensesData = filteredOffenses.map(offense => ({
           Date: offense.dateOfOffense || offense.createdAt || '',
           Student: offense.studentName || '',
           Reason: offense.offenseReason || '',
@@ -898,6 +910,35 @@ const AdminReport = () => {
         }
     }
   };
+
+  // Filter functions
+  const filteredBuildings = useMemo(() => {
+    if (buildingFilter === 'all') return allBuildings;
+    return allBuildings.filter(building => building.type === buildingFilter);
+  }, [allBuildings, buildingFilter]);
+
+  const filteredRooms = useMemo(() => {
+    return allRooms.filter(room => {
+      const matchesStatus = roomStatusFilter === 'all' || room.status === roomStatusFilter;
+      const matchesType = roomTypeFilter === 'all' || room.type === roomTypeFilter;
+      return matchesStatus && matchesType;
+    });
+  }, [allRooms, roomStatusFilter, roomTypeFilter]);
+
+  const filteredForms = useMemo(() => {
+    if (formTypeFilter === 'all') return allForms;
+    return allForms.filter(form => form.formType === formTypeFilter);
+  }, [allForms, formTypeFilter]);
+
+  const filteredBills = useMemo(() => {
+    if (billStatusFilter === 'all') return allBills;
+    return allBills.filter(bill => bill.status === billStatusFilter);
+  }, [allBills, billStatusFilter]);
+
+  const filteredOffenses = useMemo(() => {
+    if (offenseTypeFilter === 'all') return allOffenses;
+    return allOffenses.filter(offense => offense.typeOfOffense === offenseTypeFilter);
+  }, [allOffenses, offenseTypeFilter]);
 
   return (
     <Box sx={{
@@ -1495,20 +1536,41 @@ const AdminReport = () => {
               borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'center'
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 2
             }}>
               <Typography variant="h6" sx={{ color: '#fff' }}>All Buildings</Typography>
-              <Button
-                variant="contained"
-                startIcon={<DownloadIcon />}
-                onClick={handleExportCSV}
-                sx={{
-                  bgcolor: 'rgba(255, 255, 255, 0.1)',
-                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' }
-                }}
-              >
-                Export CSV
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <FormControl size="small" sx={{ minWidth: 120 }}>
+                  <InputLabel sx={{ color: '#9CA3AF' }}>Building Type</InputLabel>
+                  <Select
+                    value={buildingFilter}
+                    onChange={(e) => setBuildingFilter(e.target.value)}
+                    sx={{
+                      color: '#fff',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(255, 255, 255, 0.1)'
+                      }
+                    }}
+                  >
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="Male">Male</MenuItem>
+                    <MenuItem value="Female">Female</MenuItem>
+                  </Select>
+                </FormControl>
+                <Button
+                  variant="contained"
+                  startIcon={<DownloadIcon />}
+                  onClick={handleExportCSV}
+                  sx={{
+                    bgcolor: 'rgba(255, 255, 255, 0.1)',
+                    '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' }
+                  }}
+                >
+                  Export CSV
+                </Button>
+              </Box>
             </Box>
             {loadingCategory.buildings ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -1526,7 +1588,7 @@ const AdminReport = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {allBuildings.map((building) => (
+                    {filteredBuildings.map((building) => (
                       <TableRow key={building._id}>
                         <TableCell sx={{ color: '#fff' }}>{building.name}</TableCell>
                         <TableCell sx={{ color: '#fff' }}>{building.type || 'N/A'}</TableCell>
@@ -1540,7 +1602,7 @@ const AdminReport = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {allBuildings.length === 0 && (
+                    {filteredBuildings.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={4} align="center" sx={{ color: '#9CA3AF' }}>
                           No buildings found
@@ -1568,20 +1630,58 @@ const AdminReport = () => {
               borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'center'
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 2
             }}>
               <Typography variant="h6" sx={{ color: '#fff' }}>All Rooms</Typography>
-              <Button
-                variant="contained"
-                startIcon={<DownloadIcon />}
-                onClick={handleExportCSV}
-                sx={{
-                  bgcolor: 'rgba(255, 255, 255, 0.1)',
-                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' }
-                }}
-              >
-                Export CSV
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <FormControl size="small" sx={{ minWidth: 120 }}>
+                  <InputLabel sx={{ color: '#9CA3AF' }}>Status</InputLabel>
+                  <Select
+                    value={roomStatusFilter}
+                    onChange={(e) => setRoomStatusFilter(e.target.value)}
+                    sx={{
+                      color: '#fff',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(255, 255, 255, 0.1)'
+                      }
+                    }}
+                  >
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="Available">Available</MenuItem>
+                    <MenuItem value="Occupied">Occupied</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: 120 }}>
+                  <InputLabel sx={{ color: '#9CA3AF' }}>Type</InputLabel>
+                  <Select
+                    value={roomTypeFilter}
+                    onChange={(e) => setRoomTypeFilter(e.target.value)}
+                    sx={{
+                      color: '#fff',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(255, 255, 255, 0.1)'
+                      }
+                    }}
+                  >
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="Single">Single</MenuItem>
+                    <MenuItem value="Double">Double</MenuItem>
+                  </Select>
+                </FormControl>
+                <Button
+                  variant="contained"
+                  startIcon={<DownloadIcon />}
+                  onClick={handleExportCSV}
+                  sx={{
+                    bgcolor: 'rgba(255, 255, 255, 0.1)',
+                    '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' }
+                  }}
+                >
+                  Export CSV
+                </Button>
+              </Box>
             </Box>
             {loadingCategory.rooms ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -1601,7 +1701,7 @@ const AdminReport = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {allRooms.map((room) => (
+                    {filteredRooms.map((room) => (
                       <TableRow key={room._id}>
                         <TableCell sx={{ color: '#fff' }}>{room.roomNumber}</TableCell>
                         <TableCell sx={{ color: '#fff' }}>{room.buildingName || 'N/A'}</TableCell>
@@ -1625,7 +1725,7 @@ const AdminReport = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {allRooms.length === 0 && (
+                    {filteredRooms.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={6} align="center" sx={{ color: '#9CA3AF' }}>
                           No rooms found
@@ -1653,20 +1753,42 @@ const AdminReport = () => {
               borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'center'
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 2
             }}>
               <Typography variant="h6" sx={{ color: '#fff' }}>All Forms</Typography>
-              <Button
-                variant="contained"
-                startIcon={<DownloadIcon />}
-                onClick={handleExportCSV}
-                sx={{
-                  bgcolor: 'rgba(255, 255, 255, 0.1)',
-                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' }
-                }}
-              >
-                Export CSV
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <FormControl size="small" sx={{ minWidth: 120 }}>
+                  <InputLabel sx={{ color: '#9CA3AF' }}>Form Type</InputLabel>
+                  <Select
+                    value={formTypeFilter}
+                    onChange={(e) => setFormTypeFilter(e.target.value)}
+                    sx={{
+                      color: '#fff',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(255, 255, 255, 0.1)'
+                      }
+                    }}
+                  >
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="Repair">Repair</MenuItem>
+                    <MenuItem value="Cleaning">Cleaning</MenuItem>
+                    <MenuItem value="Maintenance">Maintenance</MenuItem>
+                  </Select>
+                </FormControl>
+                <Button
+                  variant="contained"
+                  startIcon={<DownloadIcon />}
+                  onClick={handleExportCSV}
+                  sx={{
+                    bgcolor: 'rgba(255, 255, 255, 0.1)',
+                    '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' }
+                  }}
+                >
+                  Export CSV
+                </Button>
+              </Box>
             </Box>
             {loadingCategory.forms ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -1685,7 +1807,7 @@ const AdminReport = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {allForms.map((form) => (
+                    {filteredForms.map((form) => (
                       <TableRow key={form._id}>
                         <TableCell sx={{ color: '#fff' }}>{form._id.substring(0, 8)}...</TableCell>
                         <TableCell sx={{ color: '#fff' }}>
@@ -1708,7 +1830,7 @@ const AdminReport = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {allForms.length === 0 && (
+                    {filteredForms.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={5} align="center" sx={{ color: '#9CA3AF' }}>
                           No forms found
@@ -1736,20 +1858,42 @@ const AdminReport = () => {
               borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'center'
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 2
             }}>
               <Typography variant="h6" sx={{ color: '#fff' }}>All Bills</Typography>
-              <Button
-                variant="contained"
-                startIcon={<DownloadIcon />}
-                onClick={handleExportCSV}
-                sx={{
-                  bgcolor: 'rgba(255, 255, 255, 0.1)',
-                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' }
-                }}
-              >
-                Export CSV
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <FormControl size="small" sx={{ minWidth: 120 }}>
+                  <InputLabel sx={{ color: '#9CA3AF' }}>Status</InputLabel>
+                  <Select
+                    value={billStatusFilter}
+                    onChange={(e) => setBillStatusFilter(e.target.value)}
+                    sx={{
+                      color: '#fff',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(255, 255, 255, 0.1)'
+                      }
+                    }}
+                  >
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="Pending">Pending</MenuItem>
+                    <MenuItem value="Paid">Paid</MenuItem>
+                    <MenuItem value="Overdue">Overdue</MenuItem>
+                  </Select>
+                </FormControl>
+                <Button
+                  variant="contained"
+                  startIcon={<DownloadIcon />}
+                  onClick={handleExportCSV}
+                  sx={{
+                    bgcolor: 'rgba(255, 255, 255, 0.1)',
+                    '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' }
+                  }}
+                >
+                  Export CSV
+                </Button>
+              </Box>
             </Box>
             {loadingCategory.bills ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -1769,7 +1913,7 @@ const AdminReport = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {allBills.map((bill) => (
+                    {filteredBills.map((bill) => (
                       <TableRow key={bill._id}>
                         <TableCell sx={{ color: '#fff' }}>{bill._id.substring(0, 8)}...</TableCell>
                         <TableCell sx={{ color: '#fff' }}>
@@ -1802,7 +1946,7 @@ const AdminReport = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {allBills.length === 0 && (
+                    {filteredBills.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={6} align="center" sx={{ color: '#9CA3AF' }}>
                           No bills found
@@ -1895,20 +2039,45 @@ const AdminReport = () => {
               borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'center'
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 2
             }}>
               <Typography variant="h6" sx={{ color: '#fff' }}>Offense History</Typography>
-              <Button
-                variant="contained"
-                startIcon={<DownloadIcon />}
-                onClick={handleExportCSV}
-                sx={{
-                  bgcolor: 'rgba(255, 255, 255, 0.1)',
-                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' }
-                }}
-              >
-                Export CSV
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <InputLabel sx={{ color: '#9CA3AF' }}>Offense Type</InputLabel>
+                  <Select
+                    value={offenseTypeFilter}
+                    onChange={(e) => setOffenseTypeFilter(e.target.value)}
+                    sx={{
+                      color: '#fff',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(255, 255, 255, 0.1)'
+                      }
+                    }}
+                  >
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="1st Offense">1st Offense</MenuItem>
+                    <MenuItem value="2nd Offense">2nd Offense</MenuItem>
+                    <MenuItem value="3rd Offense">3rd Offense</MenuItem>
+                    <MenuItem value="4th Offense">4th Offense</MenuItem>
+                    <MenuItem value="Minor Offense">Minor Offense</MenuItem>
+                    <MenuItem value="Major Offense">Major Offense</MenuItem>
+                  </Select>
+                </FormControl>
+                <Button
+                  variant="contained"
+                  startIcon={<DownloadIcon />}
+                  onClick={handleExportCSV}
+                  sx={{
+                    bgcolor: 'rgba(255, 255, 255, 0.1)',
+                    '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' }
+                  }}
+                >
+                  Export CSV
+                </Button>
+              </Box>
             </Box>
             {loadingCategory.offenses ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -1927,7 +2096,7 @@ const AdminReport = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {allOffenses.map((offense) => (
+                    {filteredOffenses.map((offense) => (
                       <TableRow key={offense._id}>
                         <TableCell sx={{ color: '#fff' }}>
                           {formatDate(offense.dateOfOffense || offense.createdAt)}
@@ -1948,7 +2117,7 @@ const AdminReport = () => {
                         <TableCell sx={{ color: '#fff' }}>{offense.recordedByName || 'Admin'}</TableCell>
                       </TableRow>
                     ))}
-                    {allOffenses.length === 0 && (
+                    {filteredOffenses.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={5} align="center" sx={{ color: '#9CA3AF' }}>
                           No offenses found

@@ -2022,6 +2022,17 @@ const StudentForm = () => {
           {/* Day Columns */}
           {days.map((date, dayIndex) => {
             const dayForms = getFormsForDate(date);
+            // Find the first bookable hour for this day
+            const minBookingTime = new Date(Date.now() + 2 * 60 * 60 * 1000);
+            let firstBookableHour = null;
+            for (let hour = 0; hour < 24; hour++) {
+              const slotDateTime = new Date(date);
+              slotDateTime.setHours(hour, 0, 0, 0);
+              if (slotDateTime >= minBookingTime) {
+                firstBookableHour = hour;
+                break;
+              }
+            }
 
             return (
               <Box 
@@ -2033,27 +2044,36 @@ const StudentForm = () => {
                 }}
               >
                 {/* Hour Lines and Clickable Time Slots */}
-                {hours.map((hour) => (
-                  <Box
-                    key={hour}
-                    sx={{
-                      position: 'absolute',
-                      top: `${hour * 50}px`,
-                      left: 0,
-                      right: 0,
-                      height: '50px',
-                      borderTop: '1px solid rgba(255,255,255,0.05)',
-                      cursor: 'pointer',
-                      '&:hover': {
-                        background: 'rgba(59, 130, 246, 0.05)',
-                      },
-                      '&:active': {
-                        background: 'rgba(59, 130, 246, 0.1)',
-                      },
-                    }}
-                    onClick={() => handleTimeSlotClick(date, hour)}
-                  />
-                ))}
+                {hours.map((hour) => {
+                  const slotDateTime = new Date(date);
+                  slotDateTime.setHours(hour, 0, 0, 0);
+                  const isTooEarly = slotDateTime < minBookingTime;
+                  const isFirstBookable = hour === firstBookableHour;
+                  return (
+                    <Box
+                      key={hour}
+                      sx={{
+                        position: 'absolute',
+                        top: `${hour * 50}px`,
+                        left: 0,
+                        right: 0,
+                        height: '50px',
+                        borderTop: '1px solid rgba(255,255,255,0.05)',
+                        cursor: isTooEarly ? 'not-allowed' : 'pointer',
+                        pointerEvents: isTooEarly ? 'none' : 'auto',
+                        borderLeft: isFirstBookable ? '4px solid #22C55E' : undefined,
+                        background: isFirstBookable ? 'rgba(34,197,94,0.08)' : undefined,
+                        '&:hover': {
+                          background: !isTooEarly ? 'rgba(59, 130, 246, 0.05)' : undefined,
+                        },
+                        '&:active': {
+                          background: !isTooEarly ? 'rgba(59, 130, 246, 0.1)' : undefined,
+                        },
+                      }}
+                      onClick={!isTooEarly ? () => handleTimeSlotClick(date, hour) : undefined}
+                    />
+                  );
+                })}
 
                 {/* Current time indicator */}
                 {isToday(date) && (
@@ -2815,6 +2835,7 @@ const StudentForm = () => {
                       <DateTimePicker
                         value={newForm.preferredStartTime}
                         onChange={(newValue) => setNewForm({ ...newForm, preferredStartTime: newValue })}
+                        minDateTime={new Date(Date.now() + 2 * 60 * 60 * 1000)}
                         renderInput={(params) => (
                           <TextField
                             {...params}
@@ -2868,6 +2889,7 @@ const StudentForm = () => {
                       <DateTimePicker
                         value={newForm.preferredEndTime}
                         onChange={(newValue) => setNewForm({ ...newForm, preferredEndTime: newValue })}
+                        minDateTime={new Date(Date.now() + 2 * 60 * 60 * 1000)}
                         renderInput={(params) => (
                           <TextField
                             {...params}

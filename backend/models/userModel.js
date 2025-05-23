@@ -14,6 +14,80 @@ const userSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
+    // Physical Attributes
+    height: {
+      type: Number, // in centimeters
+      required: true,
+    },
+    weight: {
+      type: Number, // in kilograms
+      required: true,
+    },
+    age: {
+      type: Number,
+      required: true,
+      min: [16, 'Age must be at least 16 years old'],
+      max: [100, 'Age cannot exceed 100 years']
+    },
+    // Citizenship and Religion
+    citizenshipStatus: {
+      type: String,
+      required: true
+    },
+    religion: {
+      type: String,
+      required: true
+    },
+    // Medical Information
+    medicalHistory: {
+      type: String,
+      required: false // Optional field
+    },
+    // Emergency Contact
+    emergencyContact: {
+      name: {
+        type: String,
+        required: true
+      },
+      number: {
+        type: String,
+        required: true,
+        validate: {
+          validator: function(v) {
+            return /^\+?[\d\s-]{10,}$/.test(v);
+          },
+          message: props => `${props.value} is not a valid phone number!`
+        }
+      }
+    },
+    // Application Information
+    dateOfApplication: {
+      type: Date,
+      default: null
+    },
+    // Dormitory Preferences
+    preferences: {
+      buildingPreference: {
+        type: String,
+        required: true,
+        enum: ['Male Building', 'Female Building']
+      },
+      occupancyPreference: {
+        type: String,
+        required: true,
+        enum: ['Single Occupancy', 'Double Occupancy']
+      }
+    },
+    studentStatus: {
+      type: String,
+      enum: ['Active', 'Inactive'],
+      default: 'Active'
+    },
+    approvalStatus: {
+      type: String,
+      enum: ['Approved', 'Declined', 'Pending'],
+      default: 'Pending'
+    },
     contactInfo: {
       type: String,
     },
@@ -60,11 +134,11 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
+      required: false,
+      default: 'Password123' // Default password for new applications
     },
     profilePicture: {
       type: String,
-      default: "default-profile.png",
     },
     role: {
       type: String,

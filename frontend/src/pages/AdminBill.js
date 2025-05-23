@@ -161,6 +161,14 @@ const AdminBill = () => {
     }, 0);
   };
 
+  // Format currency in PHP
+  const formatCurrency = (amount) => {
+    return `₱${parseFloat(amount).toLocaleString('en-PH', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })}`;
+  };
+
   // Calculate overdue amount
   const calculateOverdueAmount = () => {
     return bills
@@ -868,7 +876,7 @@ const AdminBill = () => {
                 Billing Records
               </Typography>
               <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 0.5 }}>
-                {filteredBills.length} bills {searchQuery ? 'found' : 'total'} • ${calculateTotalBillAmount().toFixed(2)} total amount
+                {filteredBills.length} bills {searchQuery ? 'found' : 'total'} • {formatCurrency(calculateTotalBillAmount())} total amount
               </Typography>
             </Box>
             
@@ -1125,11 +1133,11 @@ const AdminBill = () => {
                         }}
                       >
                         <Typography variant="body2" sx={{ fontWeight: 700, color: '#fff', fontSize: '0.9rem' }}>
-                          ${totalAmount.toFixed(2)}
+                          {formatCurrency(totalAmount)}
                         </Typography>
                         <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
                           <Typography variant="caption" sx={{ color: '#10B981', fontSize: '0.7rem' }}>
-                            Rent: ${parseFloat(bill.rentalFee || 0).toFixed(2)}
+                            Rent: {formatCurrency(parseFloat(bill.rentalFee || 0))}
                           </Typography>
                           {(parseFloat(bill.waterFee || 0) + parseFloat(bill.electricityFee || 0)) > 0 && (
                             <Typography variant="caption" sx={{ color: '#94A3B8', fontSize: '0.7rem' }}>
@@ -1138,7 +1146,7 @@ const AdminBill = () => {
                           )}
                           {parseFloat(bill.waterFee || 0) > 0 && (
                             <Typography variant="caption" sx={{ color: '#3B82F6', fontSize: '0.7rem' }}>
-                              Utilities: ${(parseFloat(bill.waterFee || 0) + parseFloat(bill.electricityFee || 0)).toFixed(2)}
+                              Utilities: {formatCurrency(parseFloat(bill.waterFee || 0) + parseFloat(bill.electricityFee || 0))}
                             </Typography>
                           )}
                         </Stack>
@@ -2358,10 +2366,10 @@ const AdminBill = () => {
                       <Grid item xs={12} md={6}>
                         <Typography variant="body2" sx={{ color: '#9CA3AF' }}>Total Amount</Typography>
                         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                          ${(parseFloat(selectedBill.rentalFee || 0) + 
+                          {formatCurrency(parseFloat(selectedBill.rentalFee || 0) + 
                             parseFloat(selectedBill.waterFee || 0) + 
                             parseFloat(selectedBill.electricityFee || 0) +
-                            (selectedBill.otherFees || []).reduce((sum, fee) => sum + parseFloat(fee.amount || 0), 0)).toFixed(2)}
+                            (selectedBill.otherFees || []).reduce((sum, fee) => sum + parseFloat(fee.amount || 0), 0))}
                         </Typography>
                       </Grid>
                     </Grid>
@@ -2551,7 +2559,7 @@ const AdminBill = () => {
                               </Typography>
                             </TableCell>
                             <TableCell align="right" sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px 16px', color: '#fff' }}>
-                              ${parseFloat(selectedBill.rentalFee || 0).toFixed(2)}
+                              {formatCurrency(parseFloat(selectedBill.rentalFee || 0))}
                             </TableCell>
                           </TableRow>
                           
@@ -2561,7 +2569,7 @@ const AdminBill = () => {
                                 <Typography variant="body2" sx={{ color: '#fff' }}>Water Fee</Typography>
                               </TableCell>
                               <TableCell align="right" sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px 16px', color: '#fff' }}>
-                                ${parseFloat(selectedBill.waterFee || 0).toFixed(2)}
+                                {formatCurrency(parseFloat(selectedBill.waterFee || 0))}
                               </TableCell>
                             </TableRow>
                           )}
@@ -2572,7 +2580,7 @@ const AdminBill = () => {
                                 <Typography variant="body2" sx={{ color: '#fff' }}>Electricity Fee</Typography>
                               </TableCell>
                               <TableCell align="right" sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px 16px', color: '#fff' }}>
-                                ${parseFloat(selectedBill.electricityFee || 0).toFixed(2)}
+                                {formatCurrency(parseFloat(selectedBill.electricityFee || 0))}
                               </TableCell>
                             </TableRow>
                           )}
@@ -2583,7 +2591,7 @@ const AdminBill = () => {
                                 <Typography variant="body2" sx={{ color: '#fff' }}>{fee.description || 'Additional Fee'}</Typography>
                               </TableCell>
                               <TableCell align="right" sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px 16px', color: '#fff' }}>
-                                ${parseFloat(fee.amount || 0).toFixed(2)}
+                                {formatCurrency(parseFloat(fee.amount || 0))}
                               </TableCell>
                             </TableRow>
                           ))}
@@ -2603,10 +2611,10 @@ const AdminBill = () => {
                               color: '#fff'
                             }}>
                               <Typography variant="subtitle1" sx={{ color: '#fff' }}>
-                                ${(parseFloat(selectedBill.rentalFee || 0) + 
+                                {formatCurrency(parseFloat(selectedBill.rentalFee || 0) + 
                                   parseFloat(selectedBill.waterFee || 0) + 
                                   parseFloat(selectedBill.electricityFee || 0) +
-                                  (selectedBill.otherFees || []).reduce((sum, fee) => sum + parseFloat(fee.amount || 0), 0)).toFixed(2)}
+                                  (selectedBill.otherFees || []).reduce((sum, fee) => sum + parseFloat(fee.amount || 0), 0))}
                               </Typography>
                             </TableCell>
                           </TableRow>

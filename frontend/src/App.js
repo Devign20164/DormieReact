@@ -12,6 +12,8 @@ import AdminHistory from './pages/AdminHistory';
 import AdminReport from './pages/AdminReport';
 import AdminNews from './pages/AdminNews';
 import AdminSettings from './pages/AdminSettings';
+import AdminApplicants from './pages/AdminApplicants';
+import AdminArchives from './pages/AdminArchives';
 import StaffDashboard from './pages/StaffDashboard';
 import StaffTenantLog from './pages/StaffTenantLog';
 import StaffAssignment from './pages/StaffAssignment';
@@ -238,6 +240,15 @@ function App() {
           />
 
           <Route 
+            path="/admin/archives" 
+            element={
+              <ProtectedRoute allowedRole="admin">
+                <AdminArchives />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
             path="/admin/messages" 
             element={
               <ProtectedRoute allowedRole="admin">
@@ -314,6 +325,15 @@ function App() {
             element={
               <ProtectedRoute allowedRole="admin">
                 <AdminSettings />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/admin/applicants" 
+            element={
+              <ProtectedRoute allowedRole="admin">
+                <AdminApplicants />
               </ProtectedRoute>
             } 
           />

@@ -30,6 +30,7 @@ import LockIcon from "@mui/icons-material/Lock";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { styled, useTheme } from '@mui/material/styles';
+import ApplicationForm from '../components/ApplicationForm';
 
 // API Base URL - change this to match your backend
 const API_BASE_URL = "/api"; // Using relative path instead of hardcoded localhost
@@ -94,6 +95,22 @@ const StyledButton = styled(Button)(({ theme }) => ({
   },
 }));
 
+const ApplyButton = styled(Button)(({ theme }) => ({
+  borderRadius: '8px',
+  padding: '12px 0',
+  textTransform: 'none',
+  fontWeight: 600,
+  fontSize: '1rem',
+  boxShadow: 'none',
+  transition: 'all 0.3s ease',
+  background: NAVY_BLUE,
+  marginTop: '16px',
+  '&:hover': {
+    background: LIGHT_NAVY,
+    boxShadow: '0 4px 8px rgba(10, 38, 71, 0.2)',
+  },
+}));
+
 // Validation schema
 const validationSchema = yup.object({
   identifier: yup.string().required("This field is required"),
@@ -109,6 +126,7 @@ const Login = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isApplicationOpen, setIsApplicationOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -193,6 +211,14 @@ const Login = () => {
       }
     },
   });
+
+  const handleApplyClick = () => {
+    setIsApplicationOpen(true);
+  };
+
+  const handleApplicationClose = () => {
+    setIsApplicationOpen(false);
+  };
 
   return (
     <Box
@@ -530,29 +556,39 @@ const Login = () => {
                 sx={{ mb: 3 }}
               />
               
-              <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
-                <SecurityIcon sx={{ color: "#64748b", mr: 1, fontSize: 16 }} />
-                <Typography variant="caption" color="#64748b">
-                  Secure encrypted login
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
+                <Box sx={{ display: "flex", alignItems: "center" }}>
+                  <SecurityIcon sx={{ color: "#64748b", mr: 1, fontSize: 16 }} />
+                  <Typography variant="caption" color="#64748b">
+                    Secure encrypted login
+                  </Typography>
+                </Box>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: DARK_EMERALD,
+                    cursor: 'pointer',
+                    '&:hover': {
+                      textDecoration: 'underline',
+                    },
+                  }}
+                  onClick={handleApplyClick}
+                >
+                  Apply Here
                 </Typography>
               </Box>
               
-              <StyledButton
-                type="submit"
-                fullWidth
-                disabled={loading}
-                sx={{
-                  py: 1.5,
-                  fontSize: "1rem",
-                  color: "white", // Ensuring text is white for better contrast
-                }}
-              >
-                {loading ? (
-                  <CircularProgress size={24} sx={{ color: "#fff" }} />
-                ) : (
-                  "Sign In"
-                )}
-              </StyledButton>
+              <Box sx={{ mt: 3 }}>
+                <StyledButton
+                  fullWidth
+                  variant="contained"
+                  onClick={formik.handleSubmit}
+                  disabled={loading}
+                  startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
+                >
+                  {loading ? "Logging in..." : "Login"}
+                </StyledButton>
+              </Box>
             </form>
           </Box>
           
@@ -568,6 +604,21 @@ const Login = () => {
           </Box>
         </Box>
       </Box>
+
+      <Box sx={{ mt: 2, textAlign: 'center' }}>
+        <ApplyButton
+          fullWidth
+          variant="contained"
+          onClick={handleApplyClick}
+        >
+          Apply for Dormitory
+        </ApplyButton>
+      </Box>
+
+      <ApplicationForm
+        open={isApplicationOpen}
+        onClose={handleApplicationClose}
+      />
     </Box>
   );
 };

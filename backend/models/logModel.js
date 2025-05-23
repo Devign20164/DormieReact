@@ -95,7 +95,8 @@ logSchema.pre('findOne', function(next) {
 
 // Add method to check if user can check in
 logSchema.methods.canCheckIn = function () {
-  return this.entries.length < 2;
+  // Always return true to allow infinite check-ins
+  return true;
 };
 
 // Add method to check if user can check out

@@ -89,6 +89,8 @@ const AdminBuilding = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [openRoomsDialog, setOpenRoomsDialog] = useState(false);
   const [selectedBuilding, setSelectedBuilding] = useState(null);
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [openEditRoomDialog, setOpenEditRoomDialog] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     type: 'Male',
@@ -96,7 +98,7 @@ const AdminBuilding = () => {
   const [roomFormData, setRoomFormData] = useState({
     roomNumber: '',
     type: 'Single',
-    price: '',
+    price: '8000', // Default price for Single room
   });
   const [rooms, setRooms] = useState([]);
   const [roomLoading, setRoomLoading] = useState(false);
@@ -107,6 +109,11 @@ const AdminBuilding = () => {
   const [roomToDelete, setRoomToDelete] = useState(null);
   const { socket, isConnected } = useSocket();
   const [statsData, setStatsData] = useState(initialStatsData);
+  const [editRoomFormData, setEditRoomFormData] = useState({
+    type: '',
+    price: '',
+    roomNumber: ''
+  });
 
   // Fetch all buildings
   const fetchBuildings = async () => {
@@ -267,7 +274,7 @@ const AdminBuilding = () => {
       
       setRooms([...rooms, response.data]);
       setOpenAddRoomDialog(false);
-      setRoomFormData({ roomNumber: '', type: 'Single', price: '' });
+      setRoomFormData({ roomNumber: '', type: 'Single', price: '8000' });
       toast.success('Room created successfully');
     } catch (error) {
       const message = error.response?.data?.message || 'Error creating room';
@@ -310,6 +317,64 @@ const AdminBuilding = () => {
   const handleDeleteRoomCancel = () => {
     setRoomDeleteDialogOpen(false);
     setRoomToDelete(null);
+  };
+
+  // Handle room type change
+  const handleRoomTypeChange = (event) => {
+    const type = event.target.value;
+    const price = type === 'Single' ? '8000' : '12000';
+    setRoomFormData({
+      ...roomFormData,
+      type,
+      price,
+    });
+  };
+
+  // Handle opening edit room dialog
+  const handleOpenEditRoomDialog = (room) => {
+    setSelectedRoom(room);
+    setEditRoomFormData({
+      type: room.type,
+      price: room.type === 'Single' ? '8000' : '12000',
+      roomNumber: room.roomNumber
+    });
+    setOpenEditRoomDialog(true);
+  };
+
+  // Handle edit room type change
+  const handleEditRoomTypeChange = (event) => {
+    const type = event.target.value;
+    const price = type === 'Single' ? '8000' : '12000';
+    setEditRoomFormData({
+      ...editRoomFormData,
+      type,
+      price
+    });
+  };
+
+  // Handle edit room submission
+  const handleEditRoomSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const response = await axios.put(
+        `/api/admin/buildings/${selectedBuilding._id}/rooms/${selectedRoom._id}`,
+        editRoomFormData
+      );
+      
+      // Update rooms list with edited room
+      setRooms(rooms.map(room => 
+        room._id === selectedRoom._id ? response.data : room
+      ));
+      
+      setOpenEditRoomDialog(false);
+      toast.success('Room updated successfully');
+    } catch (error) {
+      const message = error.response?.data?.message || 'Error updating room';
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Socket.IO event handlers
@@ -923,7 +988,7 @@ const AdminBuilding = () => {
                         <TableCell sx={{ 
                           color: '#D1D5DB',
                           borderBottom: '1px solid rgba(255,255,255,0.03)',
-                        }}>${room.price}</TableCell>
+                        }}>Php {room.price.toLocaleString()}</TableCell>
                         <TableCell sx={{ 
                           borderBottom: '1px solid rgba(255,255,255,0.03)',
                         }}>
@@ -967,6 +1032,25 @@ const AdminBuilding = () => {
                         <TableCell sx={{ 
                           borderBottom: '1px solid rgba(255,255,255,0.03)',
                         }}>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Tooltip title={room.status === 'Available' ? 'Edit room' : 'Cannot edit occupied room'}>
+                              <span>
+                                <IconButton
+                                  onClick={() => room.status === 'Available' && handleOpenEditRoomDialog(room)}
+                                  disabled={room.status !== 'Available'}
+                                  sx={{ 
+                                    color: room.status === 'Available' ? '#10B981' : 'rgba(16, 185, 129, 0.3)',
+                                    transition: 'all 0.3s ease',
+                                    '&:hover': room.status === 'Available' ? {
+                                      background: 'rgba(16, 185, 129, 0.1)',
+                                      transform: 'translateY(-1px)',
+                                    } : {},
+                                  }}
+                                >
+                                  <EditIcon />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
                           {room.status === 'Occupied' ? (
                             <Tooltip title="Cannot delete occupied room">
                               <span>
@@ -995,6 +1079,7 @@ const AdminBuilding = () => {
                               <DeleteIcon />
                             </IconButton>
                           )}
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1091,7 +1176,7 @@ const AdminBuilding = () => {
                     required
                     name="type"
                     value={roomFormData.type}
-                    onChange={(e) => setRoomFormData({ ...roomFormData, type: e.target.value })}
+                    onChange={handleRoomTypeChange}
                     sx={{
                       color: '#fff',
                       '& .MuiOutlinedInput-notchedOutline': {
@@ -1116,30 +1201,17 @@ const AdminBuilding = () => {
                   required
                   name="price"
                   label="Price"
-                  type="number"
-                  value={roomFormData.price}
-                  onChange={(e) => setRoomFormData({ ...roomFormData, price: Number(e.target.value) })}
-                  inputProps={{ min: "0" }}
+                  type="text"
+                  value={`Php ${parseInt(roomFormData.price).toLocaleString()}`}
+                  disabled
                   fullWidth
                   sx={{ 
                     '& .MuiOutlinedInput-root': {
                       color: '#fff',
-                      '& fieldset': {
-                        borderColor: 'rgba(255,255,255,0.1)',
-                      },
-                      '&:hover fieldset': {
-                        borderColor: 'rgba(16, 185, 129, 0.5)',
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#10B981',
-                      },
                     },
                     '& .MuiInputLabel-root': {
-                      color: '#9CA3AF',
-                      '&.Mui-focused': {
-                        color: '#10B981',
-                      },
-                    },
+                      color: '#10B981',
+                    }
                   }}
                 />
               </Box>
@@ -1335,6 +1407,142 @@ const AdminBuilding = () => {
               }}
             >
               Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Edit Room Dialog */}
+        <Dialog
+          open={openEditRoomDialog}
+          onClose={() => setOpenEditRoomDialog(false)}
+          PaperProps={{
+            sx: {
+              background: 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)',
+              color: '#fff',
+              borderRadius: '20px',
+              border: '1px solid rgba(255, 255, 255, 0.03)',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+              minWidth: '500px',
+            },
+          }}
+        >
+          <DialogTitle sx={{ 
+            borderBottom: '1px solid rgba(255,255,255,0.03)',
+            background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)',
+          }}>
+            Edit Room
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, 1fr)', mt: 2 }}>
+              <TextField
+                required
+                autoFocus
+                name="roomNumber"
+                label="Room Number"
+                value={editRoomFormData.roomNumber}
+                onChange={(e) => setEditRoomFormData({ ...editRoomFormData, roomNumber: e.target.value })}
+                fullWidth
+                sx={{ 
+                  '& .MuiOutlinedInput-root': {
+                    color: '#fff',
+                    '& fieldset': {
+                      borderColor: 'rgba(255,255,255,0.1)',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'rgba(16, 185, 129, 0.5)',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: '#10B981',
+                    },
+                  },
+                  '& .MuiInputLabel-root': {
+                    color: '#9CA3AF',
+                    '&.Mui-focused': {
+                      color: '#10B981',
+                    },
+                  },
+                }}
+              />
+              <FormControl fullWidth>
+                <InputLabel sx={{ 
+                  color: '#9CA3AF',
+                  '&.Mui-focused': {
+                    color: '#10B981',
+                  },
+                }}>
+                  Type
+                </InputLabel>
+                <Select
+                  required
+                  name="type"
+                  value={editRoomFormData.type}
+                  onChange={handleEditRoomTypeChange}
+                  sx={{
+                    color: '#fff',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255,255,255,0.1)',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(16, 185, 129, 0.5)',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#10B981',
+                    },
+                    '& .MuiSvgIcon-root': {
+                      color: '#9CA3AF',
+                    },
+                  }}
+                >
+                  <MenuItem value="Single">Single</MenuItem>
+                  <MenuItem value="Double">Double</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                name="price"
+                label="Price"
+                type="text"
+                value={`Php ${parseInt(editRoomFormData.price).toLocaleString()}`}
+                disabled
+                fullWidth
+                sx={{ 
+                  '& .MuiOutlinedInput-root': {
+                    color: '#fff',
+                  },
+                  '& .MuiInputLabel-root': {
+                    color: '#10B981',
+                  }
+                }}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.03)' }}>
+            <Button 
+              onClick={() => setOpenEditRoomDialog(false)}
+              sx={{ 
+                color: '#9CA3AF',
+                '&:hover': {
+                  background: 'rgba(255,255,255,0.05)',
+                },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditRoomSubmit}
+              variant="contained"
+              disabled={loading}
+              sx={{
+                background: 'linear-gradient(90deg, #10B981 0%, #059669 100%)',
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-1px)',
+                  boxShadow: '0 6px 15px rgba(16, 185, 129, 0.3)',
+                  background: 'linear-gradient(90deg, #059669 0%, #047857 100%)',
+                },
+              }}
+            >
+              {loading ? <CircularProgress size={24} color="inherit" /> : 'Update Room'}
             </Button>
           </DialogActions>
         </Dialog>

@@ -49,6 +49,9 @@ const AdminStudent = () => {
   const { mode } = useContext(ThemeContext);
   const theme = useTheme();
 
+  // Add search state
+  const [searchTerm, setSearchTerm] = useState('');
+
   // State for student management
   const [students, setStudents] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
@@ -171,14 +174,19 @@ const AdminStudent = () => {
   // CRUD Operations
   const fetchStudents = useCallback(async () => {
     try {
-      const response = await fetch('/api/students/');
+      const response = await fetch('/api/admin/students');
       if (!response.ok) {
         const text = await response.text();
         console.error('Error response:', text);
         throw new Error('Failed to fetch students');
       }
       const data = await response.json();
-      setStudents(data);
+      // Filter for Approved and Active students only
+      const filteredStudents = data.filter(student => 
+        student.approvalStatus === 'Approved' && 
+        student.studentStatus === 'Active'
+      );
+      setStudents(filteredStudents);
     } catch (error) {
       console.error('Fetch error:', error);
       showSnackbar('Error fetching students', 'error');
@@ -358,24 +366,27 @@ const AdminStudent = () => {
 
   const handleDeleteConfirm = async () => {
     try {
-      const response = await fetch(`/api/students/${studentToDelete._id}`, {
-        method: 'DELETE',
+      const response = await fetch(`/api/admin/students/${studentToDelete._id}/studentStatus`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          studentStatus: 'Inactive'
+        }),
       });
 
       if (response.ok) {
-        // Remove the deleted student from the list
+        // Update the student's status in the local state
         setStudents(students.filter(s => s._id !== studentToDelete._id));
-        setSnackbar({ open: true, message: 'Student deleted successfully', severity: 'success' });
+        setSnackbar({ open: true, message: 'Student status changed to inactive', severity: 'success' });
       } else {
         const data = await response.json();
-        setSnackbar({ open: true, message: data.message || 'Error deleting student', severity: 'error' });
+        setSnackbar({ open: true, message: data.message || 'Error updating student status', severity: 'error' });
       }
     } catch (error) {
-      console.error('Delete error:', error);
-      setSnackbar({ open: true, message: 'Error deleting student', severity: 'error' });
+      console.error('Status update error:', error);
+      setSnackbar({ open: true, message: 'Error updating student status', severity: 'error' });
     } finally {
       setDeleteDialogOpen(false);
       setStudentToDelete(null);
@@ -571,6 +582,14 @@ const AdminStudent = () => {
     }
   };
 
+  // Filter students based on search term
+  const filteredStudents = students.filter(student => 
+    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.studentDormNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.courseYear?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <Box sx={{ 
       display: 'flex', 
@@ -633,34 +652,59 @@ const AdminStudent = () => {
           </Box>
           <Stack direction="row" spacing={2}>
             <NotificationBell userType="admin" color="#10B981" />
-              <IconButton sx={{ 
-                color: '#6B7280',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  color: '#10B981',
-                  background: 'rgba(16, 185, 129, 0.1)',
-                }
-              }}>
-                <MoreVertIcon />
-              </IconButton>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => handleOpenDialog()}
-              sx={{
-                background: 'linear-gradient(90deg, #10B981 0%, #059669 100%)',
-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  transform: 'translateY(-1px)',
-                  boxShadow: '0 6px 15px rgba(16, 185, 129, 0.3)',
-                  background: 'linear-gradient(90deg, #059669 0%, #047857 100%)',
-                },
-              }}
-            >
-              Add Student
-            </Button>
+            <IconButton sx={{ 
+              color: '#6B7280',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                color: '#10B981',
+                background: 'rgba(16, 185, 129, 0.1)',
+              }
+            }}>
+              <MoreVertIcon />
+            </IconButton>
           </Stack>
+        </Box>
+
+        {/* Search Bar */}
+        <Box sx={{ mb: 3 }}>
+          <TextField
+            fullWidth
+            placeholder="Search by name, email, ID, or course year..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <Box component="span" sx={{ 
+                  color: mode === 'dark' ? '#6B7280' : '#1D503A',
+                  mr: 1 
+                }}>
+                  🔍
+                </Box>
+              ),
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.7)',
+                borderRadius: '12px',
+                '& fieldset': {
+                  borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(29, 80, 58, 0.5)',
+                },
+                '&:hover fieldset': {
+                  borderColor: mode === 'dark' ? 'rgba(16, 185, 129, 0.5)' : 'rgba(29, 80, 58, 0.8)',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: mode === 'dark' ? '#10B981' : '#1D503A',
+                }
+              },
+              '& .MuiInputBase-input': {
+                color: mode === 'dark' ? '#fff' : '#000',
+                '&::placeholder': {
+                  color: mode === 'dark' ? '#6B7280' : '#1D503A',
+                  opacity: 0.7,
+                }
+              }
+            }}
+          />
         </Box>
 
         {/* Student Table */}
@@ -729,77 +773,92 @@ const AdminStudent = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {students.map((student) => (
-                <TableRow 
-                  key={student._id}
-                  sx={{
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      background: mode === 'dark' ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.02)',
-                    },
-                  }}
-                >
-                  <TableCell sx={{ 
-                    color: '#D1D5DB',
-                    borderBottom: '1px solid rgba(255,255,255,0.03)'
-                  }}>{student.name}</TableCell>
-                  <TableCell sx={{ 
-                    color: '#D1D5DB',
-                    borderBottom: '1px solid rgba(255,255,255,0.03)'
-                  }}>{student.email}</TableCell>
-                  <TableCell sx={{ 
-                    color: '#D1D5DB',
-                    borderBottom: '1px solid rgba(255,255,255,0.03)'
-                  }}>{student.courseYear}</TableCell>
-                  <TableCell sx={{ 
-                    color: '#D1D5DB',
-                    borderBottom: '1px solid rgba(255,255,255,0.03)'
-                  }}>{student.studentDormNumber}</TableCell>
-                  <TableCell sx={{ 
-                    borderBottom: '1px solid rgba(255,255,255,0.03)'
-                  }}>
-                    <IconButton 
-                      onClick={() => handleViewStudent(student)}
-                      sx={{ 
-                        color: '#3B82F6',
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                          background: 'rgba(59, 130, 246, 0.1)',
-                          transform: 'translateY(-1px)',
-                        },
-                      }}
-                    >
-                      <VisibilityIcon />
-                    </IconButton>
-                    <IconButton 
-                      onClick={() => handleOpenDialog(student)} 
-                      sx={{ 
-                        color: '#10B981',
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                          background: 'rgba(16, 185, 129, 0.1)',
-                          transform: 'translateY(-1px)',
-                        },
-                      }}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton 
-                      onClick={() => handleDeleteClick(student)}
-                      sx={{ 
-                        color: '#EF4444',
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                          background: 'rgba(239, 68, 68, 0.1)',
-                          transform: 'translateY(-1px)',
-                        },
-                      }}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
+              {filteredStudents.length > 0 ? (
+                filteredStudents.map((student) => (
+                  <TableRow 
+                    key={student._id}
+                    sx={{
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        background: mode === 'dark' ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.02)',
+                      },
+                    }}
+                  >
+                    <TableCell sx={{ color: '#D1D5DB' }}>{student.name}</TableCell>
+                    <TableCell sx={{ color: '#D1D5DB' }}>{student.email}</TableCell>
+                    <TableCell sx={{ color: '#D1D5DB' }}>{student.courseYear}</TableCell>
+                    <TableCell sx={{ color: '#D1D5DB' }}>{student.studentDormNumber}</TableCell>
+                    <TableCell>
+                      <IconButton 
+                        onClick={() => handleViewStudent(student)}
+                        sx={{ 
+                          color: '#3B82F6',
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            background: 'rgba(59, 130, 246, 0.1)',
+                            transform: 'translateY(-1px)',
+                          },
+                        }}
+                      >
+                        <VisibilityIcon />
+                      </IconButton>
+                      <IconButton 
+                        onClick={() => handleOpenDialog(student)} 
+                        sx={{ 
+                          color: '#10B981',
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            transform: 'translateY(-1px)',
+                          },
+                        }}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton 
+                        onClick={() => handleDeleteClick(student)}
+                        sx={{ 
+                          color: '#EF4444',
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            transform: 'translateY(-1px)',
+                          },
+                        }}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} sx={{ textAlign: 'center', py: 8 }}>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      alignItems: 'center',
+                      gap: 2 
+                    }}>
+                      <Typography variant="h6" sx={{ 
+                        color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
+                        fontWeight: 500 
+                      }}>
+                        No students found
+                      </Typography>
+                      <Typography variant="body2" sx={{ 
+                        color: mode === 'dark' ? '#6B7280' : '#2D3748',
+                        maxWidth: '400px',
+                        textAlign: 'center' 
+                      }}>
+                        {searchTerm 
+                          ? "No students match your search criteria. Try adjusting your search terms."
+                          : "There are no approved and active students in the system."}
+                      </Typography>
+                    </Box>
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </TableContainer>
@@ -1375,7 +1434,7 @@ const AdminStudent = () => {
                         ) : (
                           rooms.map(room => (
                             <MenuItem key={room._id} value={room._id}>
-                              {room.roomNumber} ({room.type === 'Single' ? 'Single Room' : 'Double Room'}) - ${room.price}
+                              {room.roomNumber} ({room.type === 'Single' ? 'Single Room' : 'Double Room'}) - ₱{room.price}
                             </MenuItem>
                           ))
                         )}
@@ -1600,12 +1659,12 @@ const AdminStudent = () => {
             sx: {
               background: mode === 'dark'
                 ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
-                : '#FAF5EE', // Eggshell white
-              color: mode === 'dark' ? '#fff' : '#1D503A', // Dark emerald green text
+                : '#FAF5EE',
+              color: mode === 'dark' ? '#fff' : '#1D503A',
               borderRadius: '20px',
               border: mode === 'dark'
                 ? '1px solid rgba(255, 255, 255, 0.03)'
-                : '1px solid #1D503A', // Dark emerald green border
+                : '1px solid #1D503A',
               boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
               minWidth: '400px',
             },
@@ -1616,25 +1675,25 @@ const AdminStudent = () => {
             sx={{ 
               borderBottom: mode === 'dark'
                 ? '1px solid rgba(255,255,255,0.03)'
-                : '1px solid #1D503A', // Dark emerald green border
+                : '1px solid #1D503A',
               background: mode === 'dark'
                 ? 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)'
-                : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)', // Emerald green gradient
+                : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
               py: 2,
               display: 'flex',
               alignItems: 'center',
               gap: 1,
-              color: mode === 'dark' ? '#fff' : '#1D503A', // Dark emerald green text
+              color: mode === 'dark' ? '#fff' : '#1D503A',
             }}
           >
             <DeleteIcon sx={{ color: mode === 'dark' ? '#EF4444' : '#1D503A' }} />
             <Box component="span" sx={{ color: mode === 'dark' ? '#fff' : '#1D503A' }}>
-              Confirm Delete
+              Deactivate Student
             </Box>
           </DialogTitle>
           <DialogContent sx={{ mt: 2 }}>
             <Box sx={{ color: mode === 'dark' ? '#D1D5DB' : '#1D503A', fontSize: '1rem' }}>
-              Are you sure you want to delete <Box component="span" sx={{ color: mode === 'dark' ? '#EF4444' : '#1D503A', fontWeight: 500 }}>{studentToDelete?.name}</Box>?
+              Are you sure you want to deactivate <Box component="span" sx={{ color: mode === 'dark' ? '#EF4444' : '#1D503A', fontWeight: 500 }}>{studentToDelete?.name}</Box>?
             </Box>
             <Box 
               sx={{ 
@@ -1643,7 +1702,7 @@ const AdminStudent = () => {
                 fontSize: '0.875rem'
               }}
             >
-              This action cannot be undone.
+              This will change their status to inactive. They will no longer have access to the system.
             </Box>
           </DialogContent>
           <DialogActions sx={{ p: 2, borderTop: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(29, 80, 58, 0.2)' }}>
@@ -1683,7 +1742,7 @@ const AdminStudent = () => {
                 },
               }}
             >
-              Delete
+              Deactivate
             </Button>
           </DialogActions>
         </Dialog>
@@ -1856,7 +1915,7 @@ const AdminStudent = () => {
                               color: mode === 'dark' ? '#fff' : '#000',
                               fontWeight: 400
                             }}>
-                              ${studentRoom.price}
+                              ₱{studentRoom.price}
                             </Typography>
                           </Grid>
                         </>

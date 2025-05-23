@@ -68,7 +68,13 @@ const {
   getFormAnalytics,
   getOffenseAnalytics,
   getCheckinAnalytics,
-  getRecentActivity
+  getRecentActivity,
+  getApplicants,
+  getBuildings,
+  getRooms,
+  approveApplicant,
+  declineApplicant,
+  updateStudentStatus
 } = require('../controllers/adminController');
 
 const { protect } = require('../middleware/auth');
@@ -85,6 +91,7 @@ router.post('/update-password', protect, updateAdminPassword);
 
 // Student management routes
 router.get('/students', protect, getAllStudents);
+router.put('/students/:id/studentStatus', protect, updateStudentStatus);
 router.get('/students/:studentId/offenses', protect, getStudentOffenses);
 router.post('/students/:studentId/offenses', protect, createStudentOffense);
 router.get('/offenses', protect, getAllOffenses);
@@ -114,7 +121,7 @@ router.delete('/buildings/:buildingId', protect, deleteBuilding);
 router.get('/buildings/:buildingId/rooms', protect, getRoomsByBuilding);
 router.post('/buildings/:buildingId/rooms', protect, createRoom);
 router.get('/rooms/:roomId', protect, getRoomById);
-router.put('/rooms/:roomId', protect, updateRoom);
+router.put('/buildings/:buildingId/rooms/:roomId', protect, updateRoom);
 router.delete('/rooms/:roomId', protect, deleteRoom);
 
 // Staff Management Routes
@@ -171,5 +178,20 @@ router.get('/analytics/forms', protect, getFormAnalytics);
 router.get('/analytics/offenses', protect, getOffenseAnalytics);
 router.get('/analytics/checkins', protect, getCheckinAnalytics);
 router.get('/analytics/recent-activity', protect, getRecentActivity);
+
+// Get all applicants
+router.get('/applicants', getApplicants);
+
+// Get buildings by type
+router.get('/buildings', getBuildings);
+
+// Get available rooms by building and type
+router.get('/rooms', getRooms);
+
+// Approve applicant
+router.post('/applicants/:id/approve', approveApplicant);
+
+// Decline applicant
+router.post('/applicants/:id/decline', declineApplicant);
 
 module.exports = router;

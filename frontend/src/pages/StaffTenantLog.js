@@ -35,6 +35,171 @@ const EGGSHELL_WHITE = "#F0EAD6";
 const EMERALD_GREEN = "#50C878";
 const DARK_EMERALD = "#2E8B57";
 
+const PasswordDialog = ({ open, onClose, student, onVerify, onImageError }) => {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const theme = useTheme();
+  const mode = theme.palette.mode;
+
+  return (
+    <Dialog 
+      open={open} 
+      onClose={onClose}
+      PaperProps={{
+        sx: {
+          backgroundColor: mode === 'dark' ? '#1a1a1a' : '#fff',
+          color: mode === 'dark' ? '#fff' : '#333',
+          minWidth: '320px',
+          borderRadius: '12px',
+          padding: '16px'
+        }
+      }}
+    >
+      <DialogTitle sx={{ 
+        borderBottom: mode === 'dark'
+          ? '1px solid rgba(255,255,255,0.03)'
+          : '1px solid #1D503A',
+        background: mode === 'dark'
+          ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+          : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+        color: mode === 'dark' ? '#fff' : '#1D503A',
+        textAlign: 'center',
+        pb: 2
+      }}>
+        Verify Student Identity
+      </DialogTitle>
+      <DialogContent sx={{ mt: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center',
+          mb: 3
+        }}>
+          {/* Profile Picture */}
+          <Box
+            sx={{
+              width: 120,
+              height: 120,
+              borderRadius: '50%',
+              overflow: 'hidden',
+              mb: 2,
+              border: mode === 'dark' 
+                ? '3px solid rgba(16, 185, 129, 0.3)'
+                : '3px solid rgba(29, 80, 58, 0.3)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            }}
+          >
+            <img
+              src={student?.profilePicture ? 
+                (student.profilePicture.startsWith('/uploads/') ? 
+                  student.profilePicture : 
+                  `/uploads/${student.profilePicture}`
+                ) : null}
+              alt={student?.name}
+              onError={onImageError}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+          </Box>
+          
+          {/* Student Details */}
+          <Typography variant="h6" sx={{ 
+            color: mode === 'dark' ? '#fff' : '#000',
+            textAlign: 'center',
+            mb: 0.5
+          }}>
+            {student?.name}
+          </Typography>
+          <Typography variant="body2" sx={{ 
+            color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
+            textAlign: 'center',
+            mb: 2
+          }}>
+            ID: {student?.studentDormNumber}
+          </Typography>
+        </Box>
+
+        <Typography variant="body1" sx={{ 
+          mb: 2,
+          color: mode === 'dark' ? '#D1D5DB' : '#333',
+          textAlign: 'center'
+        }}>
+          Please enter the password to verify student identity
+        </Typography>
+        <TextField
+          autoFocus
+          margin="dense"
+          label="Password"
+          type="password"
+          fullWidth
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          sx={{ 
+            '& .MuiOutlinedInput-root': {
+              color: mode === 'dark' ? '#fff' : '#000',
+              '& fieldset': {
+                borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(29, 80, 58, 0.3)',
+              },
+              '&:hover fieldset': {
+                borderColor: mode === 'dark' ? 'rgba(16, 185, 129, 0.5)' : 'rgba(29, 80, 58, 0.5)',
+              },
+              '&.Mui-focused fieldset': {
+                borderColor: mode === 'dark' ? '#10B981' : '#1D503A',
+              },
+            },
+            '& .MuiInputLabel-root': {
+              color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
+              '&.Mui-focused': {
+                color: mode === 'dark' ? '#10B981' : '#1D503A',
+              },
+            },
+          }}
+        />
+      </DialogContent>
+      <DialogActions sx={{ 
+        p: 2, 
+        borderTop: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(29, 80, 58, 0.2)',
+        justifyContent: 'center'
+      }}>
+        <Button 
+          onClick={onClose}
+          sx={{ 
+            color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
+            '&:hover': {
+              background: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(29, 80, 58, 0.1)',
+            },
+          }}
+        >
+          Cancel
+        </Button>
+        <Button 
+          onClick={() => onVerify(password)}
+          variant="contained"
+          sx={{
+            background: mode === 'dark'
+              ? 'linear-gradient(90deg, #10B981 0%, #059669 100%)'
+              : 'linear-gradient(90deg, #1D503A 0%, #0F3724 100%)',
+            color: '#fff',
+            boxShadow: mode === 'dark'
+              ? '0 4px 12px rgba(16, 185, 129, 0.2)'
+              : '0 4px 12px rgba(29, 80, 58, 0.2)',
+            '&:hover': {
+              background: mode === 'dark'
+                ? 'linear-gradient(90deg, #059669 0%, #047857 100%)'
+                : 'linear-gradient(90deg, #0F3724 0%, #0A2A1C 100%)',
+            },
+          }}
+        >
+          Verify
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 const StaffTenantLog = () => {
   const { mode } = useContext(ThemeContext);
   const theme = useTheme();
@@ -76,6 +241,7 @@ const StaffTenantLog = () => {
           status: student.status || "out",
           lastCheckIn: student.lastCheckIn || null,
           lastCheckOut: student.lastCheckOut || null,
+          profilePicture: student.profilePicture,
           password: "password123", // In a real app, handle auth properly
         }));
         
@@ -131,7 +297,8 @@ const StaffTenantLog = () => {
           id: verifiedData.id || selectedStudent.id,
           status: verifiedData.status || selectedStudent.status,
           lastCheckIn: verifiedData.lastCheckIn || selectedStudent.lastCheckIn,
-          lastCheckOut: verifiedData.lastCheckOut || selectedStudent.lastCheckOut
+          lastCheckOut: verifiedData.lastCheckOut || selectedStudent.lastCheckOut,
+          profilePicture: verifiedData.profilePicture
         });
         
         setPasswordDialogOpen(false);
@@ -283,6 +450,12 @@ const StaffTenantLog = () => {
       minute: "2-digit",
       hour12: true,
     });
+  };
+
+  // Handle image loading errors
+  const handleImageError = (e) => {
+    console.log('Profile picture failed to load');
+    e.target.style.display = 'none';
   };
 
   return (
@@ -477,111 +650,13 @@ const StaffTenantLog = () => {
         </Card>
 
         {/* Password Dialog */}
-        <Dialog 
+        <PasswordDialog
           open={passwordDialogOpen} 
           onClose={() => setPasswordDialogOpen(false)}
-          PaperProps={{
-            sx: {
-              background: mode === 'dark'
-                ? 'linear-gradient(145deg, #141414 0%, #0A0A0A 100%)'
-                : '#FAF5EE',
-              color: mode === 'dark' ? '#fff' : '#000',
-              borderRadius: '20px',
-              border: mode === 'dark'
-                ? '1px solid rgba(255, 255, 255, 0.03)'
-                : '1px solid #1D503A',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-            },
-          }}
-        >
-          <DialogTitle sx={{ 
-            borderBottom: mode === 'dark'
-              ? '1px solid rgba(255,255,255,0.03)'
-              : '1px solid #1D503A',
-            background: mode === 'dark'
-              ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
-              : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
-            color: mode === 'dark' ? '#fff' : '#1D503A',
-          }}>
-            Verify Student Identity
-          </DialogTitle>
-          <DialogContent sx={{ mt: 2 }}>
-            <Typography variant="body1" sx={{ 
-              mb: 2,
-              color: mode === 'dark' ? '#D1D5DB' : '#333',
-            }}>
-              Please enter the password to verify student identity
-            </Typography>
-            <TextField
-              autoFocus
-              margin="dense"
-              label="Password"
-              type="password"
-              fullWidth
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              sx={{ 
-                '& .MuiOutlinedInput-root': {
-                  color: mode === 'dark' ? '#fff' : '#000',
-                  '& fieldset': {
-                    borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(29, 80, 58, 0.3)',
-                  },
-                  '&:hover fieldset': {
-                    borderColor: mode === 'dark' ? 'rgba(16, 185, 129, 0.5)' : 'rgba(29, 80, 58, 0.5)',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: mode === 'dark' ? '#10B981' : '#1D503A',
-                  },
-                },
-                '& .MuiInputLabel-root': {
-                  color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
-                  '&.Mui-focused': {
-                    color: mode === 'dark' ? '#10B981' : '#1D503A',
-                  },
-                },
-              }}
-            />
-          </DialogContent>
-          <DialogActions sx={{ p: 2, borderTop: mode === 'dark' ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(29, 80, 58, 0.2)' }}>
-            <Button 
-              onClick={() => setPasswordDialogOpen(false)} 
-              sx={{ 
-                color: mode === 'dark' ? '#9CA3AF' : '#1D503A',
-                '&:hover': {
-                  background: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(29, 80, 58, 0.1)',
-                },
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handlePasswordSubmit} 
-              variant="contained" 
-              disabled={loading}
-              sx={{
-                background: mode === 'dark'
-                  ? 'linear-gradient(90deg, #10B981 0%, #059669 100%)'
-                  : 'linear-gradient(90deg, #1D503A 0%, #0F3724 100%)',
-                color: '#fff',
-                boxShadow: mode === 'dark'
-                  ? '0 4px 12px rgba(16, 185, 129, 0.2)'
-                  : '0 4px 12px rgba(29, 80, 58, 0.2)',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  transform: 'translateY(-1px)',
-                  boxShadow: mode === 'dark'
-                    ? '0 6px 15px rgba(16, 185, 129, 0.3)'
-                    : '0 6px 15px rgba(29, 80, 58, 0.3)',
-                  background: mode === 'dark'
-                    ? 'linear-gradient(90deg, #059669 0%, #047857 100%)'
-                    : 'linear-gradient(90deg, #0F3724 0%, #0A2A1C 100%)',
-                },
-              }}
-            >
-              {loading ? <CircularProgress size={24} sx={{ color: '#fff' }} /> : "Verify"}
-            </Button>
-          </DialogActions>
-        </Dialog>
+          student={selectedStudent}
+          onVerify={handlePasswordSubmit}
+          onImageError={handleImageError}
+        />
 
         {/* Action Dialog */}
         <Dialog

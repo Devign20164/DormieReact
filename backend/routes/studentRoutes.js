@@ -39,28 +39,18 @@ const {
   getStudentNewsById,
   updateStudentPassword,
   getStudentOffenses,
-  getStudentById
+  getStudentById,
+  createApplication
 } = require('../controllers/studentController');
 const Form = require('../models/FormModel');
 const path = require('path');
 const fs = require('fs');
 
 // Auth routes
-router.post('/login',  loginStudent);
+router.post('/login', loginStudent);
 router.post('/logout', logoutStudent);
 router.get('/profile', protect, getStudentProfile);
 router.put('/update-password', protect, updateStudentPassword);
-
-// Student management routes
-router.get('/', protect, getAllStudents);
-router.get('/:id', protect, getStudentById);
-router.post('/', protect, createStudent);
-router.put('/:id', protect, updateStudent);
-router.delete('/:id', protect, deleteStudent);
-
-// Check-in/Check-out routes
-router.post('/:id/check-in', protect, checkInStudent);
-router.post('/:id/check-out', protect, checkOutStudent);
 
 // Validation routes
 router.get('/check-email/:email', checkEmailExists);
@@ -83,36 +73,32 @@ router.get('/notifications/unread-count', protect, getUnreadNotificationCount);
 router.delete('/notifications/:id', protect, deleteNotification);
 router.delete('/notifications', protect, deleteAllNotifications);
 
+// News routes
+router.get('/news', protect, getStudentNews);
+router.get('/news/:id', protect, getStudentNewsById);
+
 // Form routes
 router.post('/forms', protect, upload.array('files'), createForm);
 router.get('/forms', protect, getStudentForms);
-// Route to get a single form by ID
-router.get('/forms/:id', protect, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.id || req.user._id.toString();
-    
-    // Find the form
-    const form = await Form.findById(id);
-    
-    // Check if form exists
-    if (!form) {
-      return res.status(404).json({ message: 'Form not found' });
-    }
-    
-    // Check if form belongs to this student
-    if (form.student.toString() !== userId) {
-      return res.status(403).json({ message: 'Access denied: You can only view your own forms' });
-    }
-    
-    res.json(form);
-  } catch (error) {
-    console.error('Error fetching form by ID:', error);
-    res.status(500).json({ message: 'Error fetching form details', error: error.message });
-  }
-});
 router.post('/forms/:id/review', protect, submitFormReview);
 router.put('/forms/:id/reschedule', protect, rescheduleForm);
+
+// Offenses route
+router.get('/offenses', protect, getStudentOffenses);
+
+// Student management routes (put these after all specific routes)
+router.get('/', protect, getAllStudents);
+router.post('/', protect, createStudent);
+router.get('/:id', protect, getStudentById);
+router.put('/:id', protect, updateStudent);
+router.delete('/:id', protect, deleteStudent);
+
+// Check-in/Check-out routes
+router.post('/:id/check-in', protect, checkInStudent);
+router.post('/:id/check-out', protect, checkOutStudent);
+
+// Password verification route
+router.post('/:id/verify-password', protect, verifyStudentPassword);
 
 // Get student bills
 router.get('/:studentId/bills', protect, getStudentBills);
@@ -153,14 +139,7 @@ router.get('/files/download/:filename', protect, (req, res) => {
   }
 });
 
-// Password verification route
-router.post('/:id/verify-password', protect, verifyStudentPassword);
-
-// News routes
-router.get('/news', protect, getStudentNews);
-router.get('/news/:id', protect, getStudentNewsById);
-
-// Offenses route
-router.get('/offenses', protect, getStudentOffenses);
+// Application routes
+router.post('/apply', upload.single('profilePicture'), createApplication);
 
 module.exports = router; 

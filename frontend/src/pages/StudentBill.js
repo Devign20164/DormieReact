@@ -32,6 +32,7 @@ import {
   Download as DownloadIcon,
   CloudUpload as CloudUploadIcon,
   Delete as DeleteIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
 import StudentSidebar from '../components/StudentSidebar';
 import NotificationBell from '../components/NotificationBell';
@@ -42,17 +43,31 @@ const StudentBill = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [studentData, setStudentData] = useState(null);
   
   // Receipt state
   const [receiptFile, setReceiptFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef(null);
 
-  // Fetch student's bills
+  // Fetch student's data and bills
   useEffect(() => {
-    const fetchBills = async () => {
+    const fetchData = async () => {
       try {
         const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        
+        // Fetch student profile first
+        const profileResponse = await fetch('/api/students/profile', {
+          credentials: 'include'
+        });
+        
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          setStudentData(profileData);
+          console.log('Fetched student profile:', profileData);
+        }
+
+        // Then fetch bills
         const response = await fetch(`/api/students/${userData._id}/bills`);
         if (response.ok) {
           const data = await response.json();
@@ -70,16 +85,16 @@ const StudentBill = () => {
           throw new Error('Failed to fetch bills');
         }
       } catch (error) {
-        console.error('Error fetching bills:', error);
+        console.error('Error fetching data:', error);
         setSnackbar({
           open: true,
-          message: 'Error fetching bills',
+          message: 'Error fetching data',
           severity: 'error'
         });
       }
     };
 
-    fetchBills();
+    fetchData();
   }, []);
 
   // Calculate total amount for a bill
@@ -95,6 +110,14 @@ const StudentBill = () => {
     }
     
     return total;
+  };
+
+  // Format currency in PHP
+  const formatCurrency = (amount) => {
+    return `₱${parseFloat(amount).toLocaleString('en-PH', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })}`;
   };
 
   // Check if bill has a valid file path
@@ -319,6 +342,153 @@ const StudentBill = () => {
     }
   };
 
+  // Handle printing bill
+  const handlePrintBill = (bill) => {
+    // Get student information from both localStorage and state
+    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+    
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
+    
+    // Generate the print content with a clean, professional layout
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Bill Details</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              padding: 20px;
+              max-width: 800px;
+              margin: 0 auto;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #333;
+              padding-bottom: 20px;
+            }
+            .student-info {
+              margin-bottom: 20px;
+              padding: 15px;
+              background-color: #f8f9fa;
+              border-radius: 8px;
+            }
+            .student-info h2 {
+              margin-top: 0;
+              color: #333;
+            }
+            .student-details {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 10px;
+            }
+            .student-details p {
+              margin: 5px 0;
+            }
+            .bill-info {
+              margin-bottom: 20px;
+            }
+            .bill-details {
+              margin-bottom: 30px;
+            }
+            .fee-item {
+              display: flex;
+              justify-content: space-between;
+              margin: 10px 0;
+            }
+            .total {
+              font-weight: bold;
+              border-top: 2px solid #333;
+              padding-top: 10px;
+              margin-top: 20px;
+            }
+            @media print {
+              body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+              }
+              .student-info {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                background-color: #f8f9fa !important;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Bill Details</h1>
+            <p>Generated on ${new Date().toLocaleDateString()}</p>
+          </div>
+
+          <div class="student-info">
+            <h2>Student Information</h2>
+            <div class="student-details">
+              <p><strong>Name:</strong> ${studentData?.name || userData.name || 'N/A'}</p>
+              <p><strong>Student ID:</strong> ${studentData?.studentDormNumber || userData.studentDormNumber || 'N/A'}</p>
+              <p><strong>Course & Year:</strong> ${studentData?.courseYear || 'N/A'}</p>
+              <p><strong>Building Name:</strong> ${studentData?.room?.building?.name || 'N/A'}</p>
+              <p><strong>Room Number:</strong> ${studentData?.room?.roomNumber || 'N/A'}</p>
+              <p><strong>Dorm Number:</strong> ${studentData?.studentDormNumber || userData.studentDormNumber || 'N/A'}</p>
+            </div>
+          </div>
+          
+          <div class="bill-info">
+            <h2>Bill Information</h2>
+            <p><strong>Bill ID:</strong> #${bill._id.substring(0, 8)}</p>
+            <p><strong>Due Date:</strong> ${new Date(bill.dueDate).toLocaleDateString()}</p>
+            <p><strong>Status:</strong> ${bill.status}</p>
+          </div>
+
+          <div class="bill-details">
+            <h2>Charges Breakdown</h2>
+            <div class="fee-item">
+              <span>Rental Fee:</span>
+              <span>₱${(bill.rentalFee || 0).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+            </div>
+            <div class="fee-item">
+              <span>Electricity Fee:</span>
+              <span>₱${(bill.electricityFee || 0).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+            </div>
+            <div class="fee-item">
+              <span>Water Fee:</span>
+              <span>₱${(bill.waterFee || 0).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+            </div>
+            ${bill.otherFees && bill.otherFees.length > 0 ? `
+              <h3>Other Charges</h3>
+              ${bill.otherFees.map(fee => `
+                <div class="fee-item">
+                  <span>${fee.description || 'Additional Fee'}:</span>
+                  <span>₱${(fee.amount || 0).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
+              `).join('')}
+            ` : ''}
+            ${bill.notes ? `
+              <h3>Notes</h3>
+              <p>${bill.notes}</p>
+            ` : ''}
+            <div class="fee-item total">
+              <span>Total Amount:</span>
+              <span>₱${calculateTotalAmount(bill).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    // Write the content to the new window and print
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.onload = function() {
+      printWindow.print();
+      printWindow.onafterprint = function() {
+        printWindow.close();
+      };
+    };
+  };
+
   return (
     <Box sx={{ 
       display: 'flex',
@@ -443,20 +613,20 @@ const StudentBill = () => {
                     <Box sx={{ mb: 2 }}>
                       <Stack direction="row" justifyContent="space-between" sx={{ mb: 1 }}>
                         <Typography variant="body2" sx={{ color: '#6B7280' }}>Rental Fee</Typography>
-                        <Typography variant="body2" sx={{ color: '#fff' }}>${bill.rentalFee || 0}</Typography>
+                        <Typography variant="body2" sx={{ color: '#fff' }}>{formatCurrency(bill.rentalFee || 0)}</Typography>
                       </Stack>
                       <Stack direction="row" justifyContent="space-between" sx={{ mb: 1 }}>
                         <Typography variant="body2" sx={{ color: '#6B7280' }}>Water Fee</Typography>
-                        <Typography variant="body2" sx={{ color: '#fff' }}>${bill.waterFee || 0}</Typography>
+                        <Typography variant="body2" sx={{ color: '#fff' }}>{formatCurrency(bill.waterFee || 0)}</Typography>
                       </Stack>
                       <Stack direction="row" justifyContent="space-between" sx={{ mb: 1 }}>
                         <Typography variant="body2" sx={{ color: '#6B7280' }}>Electricity Fee</Typography>
-                        <Typography variant="body2" sx={{ color: '#fff' }}>${bill.electricityFee || 0}</Typography>
+                        <Typography variant="body2" sx={{ color: '#fff' }}>{formatCurrency(bill.electricityFee || 0)}</Typography>
                       </Stack>
                       {bill.otherFees && bill.otherFees.map((fee, index) => (
                         <Stack key={index} direction="row" justifyContent="space-between" sx={{ mb: 1 }}>
                           <Typography variant="body2" sx={{ color: '#6B7280' }}>{fee.description}</Typography>
-                          <Typography variant="body2" sx={{ color: '#fff' }}>${fee.amount}</Typography>
+                          <Typography variant="body2" sx={{ color: '#fff' }}>{formatCurrency(fee.amount)}</Typography>
                         </Stack>
                       ))}
                     </Box>
@@ -468,7 +638,7 @@ const StudentBill = () => {
                         Total Amount
                       </Typography>
                       <Typography variant="h6" sx={{ color: '#10B981' }}>
-                        ${totalAmount.toFixed(2)}
+                        {formatCurrency(totalAmount)}
                       </Typography>
                     </Stack>
 
@@ -495,6 +665,24 @@ const StudentBill = () => {
                         }}
                       >
                         {hasBillFile(bill) ? 'View/Download Bill' : 'No Bill Available'}
+                      </Button>
+
+                      {/* Print Button */}
+                      <Button
+                        fullWidth
+                        variant="outlined"
+                        startIcon={<PrintIcon />}
+                        onClick={() => handlePrintBill(bill)}
+                        sx={{
+                          borderColor: 'rgba(156, 163, 175, 0.5)',
+                          color: '#9CA3AF',
+                          '&:hover': {
+                            borderColor: '#9CA3AF',
+                            background: 'rgba(156, 163, 175, 0.1)',
+                          },
+                        }}
+                      >
+                        Print
                       </Button>
 
                       {/* Payment Button */}
@@ -600,15 +788,15 @@ const StudentBill = () => {
                       
                       <Stack direction="row" justifyContent="space-between">
                         <Typography variant="body2" sx={{ color: '#6B7280' }}>Rental Fee</Typography>
-                        <Typography variant="body2" sx={{ color: '#fff' }}>${selectedBill.rentalFee || 0}</Typography>
+                        <Typography variant="body2" sx={{ color: '#fff' }}>{formatCurrency(selectedBill.rentalFee || 0)}</Typography>
                       </Stack>
                       <Stack direction="row" justifyContent="space-between">
                         <Typography variant="body2" sx={{ color: '#6B7280' }}>Electricity Fee</Typography>
-                        <Typography variant="body2" sx={{ color: '#fff' }}>${selectedBill.electricityFee || 0}</Typography>
+                        <Typography variant="body2" sx={{ color: '#fff' }}>{formatCurrency(selectedBill.electricityFee || 0)}</Typography>
                       </Stack>
                       <Stack direction="row" justifyContent="space-between">
                         <Typography variant="body2" sx={{ color: '#6B7280' }}>Water Fee</Typography>
-                        <Typography variant="body2" sx={{ color: '#fff' }}>${selectedBill.waterFee || 0}</Typography>
+                        <Typography variant="body2" sx={{ color: '#fff' }}>{formatCurrency(selectedBill.waterFee || 0)}</Typography>
                       </Stack>
                       
                       {/* Other fees if exist */}
@@ -620,7 +808,7 @@ const StudentBill = () => {
                           {selectedBill.otherFees.map((fee, index) => (
                             <Stack key={index} direction="row" justifyContent="space-between">
                               <Typography variant="body2" sx={{ color: '#6B7280' }}>{fee.description || 'Additional Fee'}</Typography>
-                              <Typography variant="body2" sx={{ color: '#fff' }}>${fee.amount || 0}</Typography>
+                              <Typography variant="body2" sx={{ color: '#fff' }}>{formatCurrency(fee.amount || 0)}</Typography>
                             </Stack>
                           ))}
                         </>
@@ -646,7 +834,7 @@ const StudentBill = () => {
                           Total Amount
                         </Typography>
                         <Typography variant="subtitle1" sx={{ color: '#10B981', fontWeight: 600 }}>
-                          ${calculateTotalAmount(selectedBill).toFixed(2)}
+                          {formatCurrency(calculateTotalAmount(selectedBill))}
                         </Typography>
                       </Stack>
                     </Stack>
@@ -771,7 +959,7 @@ const StudentBill = () => {
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
                   InputProps={{
-                    startAdornment: <AttachMoneyIcon sx={{ color: '#6B7280', mr: 1 }} />,
+                    startAdornment: <span style={{ color: '#6B7280', marginRight: 8, fontSize: 20 }}>₱</span>,
                   }}
                   sx={{
                     '& .MuiOutlinedInput-root': {

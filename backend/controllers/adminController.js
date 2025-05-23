@@ -19,6 +19,7 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 const News = require('../models/NewsModel');
+const { sendApplicationConfirmationEmail } = require('../utils/emailService');
 
 // Telegram bot token from environment
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -816,12 +817,15 @@ const createRoom = async (req, res) => {
 const updateRoom = async (req, res) => {
   try {
     const { roomId } = req.params;
-    const { roomNumber, type, price } = req.body;
+    const { roomNumber, type } = req.body;
 
     // Validate required fields
-    if (!roomNumber || !type || !price) {
-      return res.status(400).json({ message: 'Room number, type, and price are required' });
+    if (!roomNumber || !type) {
+      return res.status(400).json({ message: 'Room number and type are required' });
     }
+
+    // Set price based on room type
+    const price = type === 'Single' ? 8000 : 12000;
 
     // Check if room exists
     const room = await Room.findById(roomId);
@@ -2908,6 +2912,227 @@ const getRecentActivity = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Get all applicants
+// @route   GET /api/admin/applicants
+// @access  Private/Admin
+const getApplicants = asyncHandler(async (req, res) => {
+  try {
+    // Get status from query params and split into array
+    const statusFilter = req.query.status ? req.query.status.split(',') : ['Pending', 'Rejected'];
+
+    const applicants = await User.find({ 
+      approvalStatus: { $in: statusFilter },
+      role: 'student'
+    })
+    .select('name email contactInfo studentDormNumber courseYear preferences approvalStatus emergencyContact height weight age address citizenshipStatus religion medicalHistory fatherName fatherContact motherName motherContact parentsAddress gender')
+    .populate('room')
+    .lean();
+
+    res.json(applicants);
+  } catch (error) {
+    console.error('Error fetching applicants:', error);
+    res.status(500).json({ 
+      message: 'Error fetching applicants',
+      error: error.message 
+    });
+  }
+});
+
+// @desc    Get buildings by type
+// @route   GET /api/admin/buildings
+// @access  Private/Admin
+const getBuildings = asyncHandler(async (req, res) => {
+  const { type } = req.query;
+  const query = type ? { type } : {};
+  const buildings = await Building.find(query);
+  res.json(buildings);
+});
+
+// @desc    Get available rooms by building and type
+// @route   GET /api/admin/rooms
+// @access  Private/Admin
+const getRooms = asyncHandler(async (req, res) => {
+  const { buildingId, type, status } = req.query;
+  
+  // Build query object
+  const query = {
+    building: buildingId,
+    type,
+    status: 'Available', // Only get available rooms
+    $or: [
+      { occupants: { $exists: false } },
+      { occupants: { $size: 0 } },
+      { 
+        $and: [
+          { type: 'Double' },
+          { 'occupants.1': { $exists: false } } // For double rooms, allow if there's only one occupant
+        ]
+      }
+    ]
+  };
+  
+  const rooms = await Room.find(query)
+    .populate('building')
+    .lean();
+    
+  res.json(rooms);
+});
+
+// @desc    Approve applicant
+// @route   POST /api/admin/applicants/:id/approve
+// @access  Private/Admin
+const approveApplicant = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { buildingId, roomId, password } = req.body;
+
+  const applicant = await User.findById(id);
+  if (!applicant) {
+    res.status(404);
+    throw new Error('Applicant not found');
+  }
+
+  // Update applicant status and assign room
+  // Let the model middleware handle password hashing
+  applicant.approvalStatus = 'Approved';
+  applicant.room = roomId;
+  applicant.password = password; // The model's pre-save middleware will hash this
+  await applicant.save();
+
+  // Update room status and add occupant
+  const room = await Room.findById(roomId);
+  if (!room) {
+    res.status(404);
+    throw new Error('Room not found');
+  }
+
+  room.occupants.push(applicant._id);
+  await room.save();
+
+  // Send approval email
+  const emailHtml = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #2E8B57;">Application Approved!</h2>
+      <p>Dear ${applicant.name},</p>
+      <p>We are pleased to inform you that your dormitory application has been approved!</p>
+      <p>You can now log in to your account using the following credentials:</p>
+      <div style="background-color: #f5f5f5; padding: 15px; margin: 20px 0; border-radius: 5px;">
+        <p><strong>Email:</strong> ${applicant.email}</p>
+        <p><strong>Password:</strong> Password123</p>
+      </div>
+      <p>Please change your password after your first login for security purposes.</p>
+      <p>Welcome to our dormitory community!</p>
+      <br>
+      <p>Best regards,</p>
+      <p>The Dormie Team</p>
+    </div>
+  `;
+
+  await sendApplicationConfirmationEmail(applicant.email, applicant.name, emailHtml);
+
+  res.json({ message: 'Applicant approved successfully' });
+});
+
+// @desc    Decline applicant
+// @route   POST /api/admin/applicants/:id/decline
+// @access  Private/Admin
+const declineApplicant = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  const applicant = await User.findById(id);
+  if (!applicant) {
+    res.status(404);
+    throw new Error('Applicant not found');
+  }
+
+  // Update applicant status
+  applicant.approvalStatus = 'Declined';
+  await applicant.save();
+
+  // Send decline email
+  const emailHtml = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #DC3545;">Application Status Update</h2>
+      <p>Dear ${applicant.name},</p>
+      <p>We regret to inform you that your dormitory application has been declined.</p>
+      <p><strong>Reason:</strong></p>
+      <p style="background-color: #f5f5f5; padding: 15px; margin: 20px 0; border-radius: 5px;">${reason}</p>
+      <p>We understand this may be disappointing news. If you would like to discuss this decision or have any questions, please don't hesitate to contact us.</p>
+      <p>We wish you the best in your future endeavors.</p>
+      <br>
+      <p>Best regards,</p>
+      <p>The Dormie Team</p>
+    </div>
+  `;
+
+  await sendApplicationConfirmationEmail(applicant.email, applicant.name, emailHtml);
+
+  res.json({ message: 'Applicant declined successfully' });
+});
+
+// Update student status
+const updateStudentStatus = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { studentStatus } = req.body;
+
+    const student = await User.findById(id);
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Update student status
+    student.studentStatus = studentStatus;
+    await student.save();
+
+    // Create notification for the student
+    await Notification.create({
+      recipient: {
+        id: student._id,
+        model: 'User'
+      },
+      type: 'SYSTEM',
+      title: 'Status Update',
+      content: `Your student status has been updated to ${studentStatus}`,
+      relatedTo: {
+        model: 'User',
+        id: student._id
+      },
+      metadata: {
+        studentId: student._id,
+        status: studentStatus,
+        updatedAt: new Date()
+      }
+    });
+
+    // If socket.io is available, emit real-time notification
+    if (req.app && req.app.get('io')) {
+      req.app.get('io').to(student._id.toString()).emit('statusUpdate', {
+        type: 'studentStatus',
+        status: studentStatus,
+        message: `Your student status has been updated to ${studentStatus}`
+      });
+    }
+
+    res.json({ 
+      message: 'Student status updated successfully', 
+      student: {
+        _id: student._id,
+        name: student.name,
+        email: student.email,
+        studentStatus: student.studentStatus
+      }
+    });
+  } catch (error) {
+    console.error('Error updating student status:', error);
+    res.status(500).json({ 
+      message: 'Error updating student status',
+      error: error.message 
+    });
+  }
+});
+
+// Export all functions
 module.exports = {
   loginAdmin,
   logoutAdmin,
@@ -2919,6 +3144,7 @@ module.exports = {
   getConversations,
   getMessages,
   getAllStudents,
+  updateStudentStatus, // Add this to exports
   getNotifications,
   getUnreadNotificationCount,
   markNotificationRead,
@@ -2976,5 +3202,10 @@ module.exports = {
   getFormAnalytics,
   getOffenseAnalytics,
   getCheckinAnalytics,
-  getRecentActivity
+  getRecentActivity,
+  getApplicants,
+  getBuildings,
+  getRooms,
+  approveApplicant,
+  declineApplicant
 };

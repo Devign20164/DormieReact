@@ -14,6 +14,7 @@ const Log = require('../models/logModel');
 const axios = require('axios');
 const Curfew = require('../models/CurfewModel');
 const News = require('../models/NewsModel');
+const { sendApplicationConfirmationEmail } = require('../utils/emailService');
 
 // Helper to format date/time for messages
 const formatDate = (date) => new Date(date).toLocaleString();
@@ -88,6 +89,7 @@ const loginStudent = asyncHandler(async (req, res) => {
       studentDormNumber: student.studentDormNumber,
       fatherContact: student.fatherContact,
       motherContact: student.motherContact,
+      profilePicture: student.profilePicture,
       room: student.room ? {
         roomNumber: student.room.roomNumber,
         building: student.room.building?.name || 'Unassigned'
@@ -137,8 +139,12 @@ const getStudentProfile = asyncHandler(async (req, res) => {
     });
 
   if (student) {
-    // Return all student data instead of just a few fields
-    res.json(student);
+    // Add profile picture to the response
+    const studentData = student.toObject();
+    res.json({
+      ...studentData,
+      profilePicture: student.profilePicture
+    });
   } else {
     res.status(404);
     throw new Error('Student not found');
@@ -185,7 +191,7 @@ const checkPhoneExists = async (req, res) => {
 // Add a new controller to verify student password
 const verifyStudentPassword = asyncHandler(async (req, res) => {
   const { password } = req.body;
-  const student = await Student.findById(req.params.id).select('password name studentDormNumber status lastCheckIn lastCheckOut');
+  const student = await Student.findById(req.params.id).select('password name studentDormNumber status lastCheckIn lastCheckOut profilePicture');
   if (!student) {
     return res.status(404).json({ message: 'Student not found' });
   }
@@ -199,7 +205,8 @@ const verifyStudentPassword = asyncHandler(async (req, res) => {
         studentDormNumber: student.studentDormNumber,
         status: student.status || 'out',
         lastCheckIn: student.lastCheckIn,
-        lastCheckOut: student.lastCheckOut
+        lastCheckOut: student.lastCheckOut,
+        profilePicture: student.profilePicture
       }
     });
   } else {
@@ -347,7 +354,10 @@ const createStudent = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const getAllStudents = asyncHandler(async (req, res) => {
   try {
-    const students = await Student.find({})
+    const { status } = req.query;
+    const query = status ? { approvalStatus: status } : {};
+
+    const students = await Student.find(query)
       .select('-password')
       .populate({ path: 'room', populate: { path: 'building' } });
     res.json(students);
@@ -1141,7 +1151,7 @@ const createForm = asyncHandler(async (req, res) => {
       preferredStartTime,
       endTime,
       student: student._id,
-      status: 'Pending',
+      status: 'Approved',
       attachments: fileAttachments
     });
 
@@ -1188,14 +1198,14 @@ const createForm = asyncHandler(async (req, res) => {
       },
       type: 'FORM_SUBMITTED',
       title: 'Form Submitted Successfully',
-      content: `Your ${formType} request has been submitted and is pending review.`,
+      content: `Your ${formType} request has been submitted and approved.`,
       relatedTo: {
         model: 'Form',
         id: newForm._id
       },
       metadata: {
         formType,
-        status: 'Pending',
+        status: 'Approved',
         preferredStartTime
       }
     });
@@ -2205,6 +2215,123 @@ const getStudentById = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Create a new dormitory application
+// @route   POST /api/students/apply
+// @access  Public
+const createApplication = asyncHandler(async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      contactInfo,
+      gender,
+      age,
+      address,
+      citizenshipStatus,
+      religion,
+      height,
+      weight,
+      medicalHistory,
+      fatherName,
+      fatherContact,
+      motherName,
+      motherContact,
+      parentsAddress,
+      emergencyContactName,
+      emergencyContactNumber,
+      studentDormNumber,
+      courseYear,
+      preferences: preferencesString,
+      approvalStatus,
+      dateOfApplication
+    } = req.body;
+
+    // Parse preferences from JSON string
+    const preferences = JSON.parse(preferencesString);
+
+    // Handle profile picture upload
+    let profilePicturePath = null;
+    if (req.file) {
+      profilePicturePath = `/uploads/${req.file.filename}`;
+    }
+
+    // Create the student record
+    const student = await Student.create({
+      name,
+      email,
+      contactInfo,
+      gender,
+      age,
+      address,
+      citizenshipStatus,
+      religion,
+      height,
+      weight,
+      medicalHistory,
+      fatherName,
+      fatherContact,
+      motherName,
+      motherContact,
+      parentsAddress,
+      emergencyContact: {
+        name: emergencyContactName,
+        number: emergencyContactNumber
+      },
+      studentDormNumber,
+      courseYear,
+      preferences,
+      approvalStatus: 'Pending',
+      dateOfApplication: new Date(),
+      profilePicture: profilePicturePath
+    });
+
+    // Send confirmation email
+    await sendApplicationConfirmationEmail(email, name);
+
+    // Create notification for admins
+    const adminUsers = await Admin.find({}).select('_id');
+    
+    for (const admin of adminUsers) {
+      await Notification.create({
+        recipient: {
+          id: admin._id,
+          model: 'Admin'
+        },
+        type: 'FORM_SUBMITTED',
+        title: 'New Dormitory Application',
+        content: `New dormitory application submitted by ${name}`,
+        relatedTo: {
+          model: 'User',
+          id: student._id
+        },
+        metadata: {
+          studentId: student._id,
+          studentName: name,
+          applicationDate: new Date(),
+          hasProfilePicture: !!profilePicturePath
+        }
+      });
+    }
+
+    res.status(201).json({
+      message: 'Application submitted successfully',
+      student: {
+        id: student._id,
+        name: student.name,
+        email: student.email,
+        approvalStatus: student.approvalStatus,
+        profilePicture: profilePicturePath
+      }
+    });
+  } catch (error) {
+    console.error('Error creating application:', error);
+    res.status(500).json({ 
+      message: 'Error submitting application',
+      error: error.message
+    });
+  }
+});
+
 // Export all controllers
 module.exports = {
   loginStudent,
@@ -2242,5 +2369,6 @@ module.exports = {
   getStudentNewsById,
   updateStudentPassword,
   getStudentOffenses,
-  getStudentById
+  getStudentById,
+  createApplication
 }; 
