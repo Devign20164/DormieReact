@@ -2286,7 +2286,37 @@ const createApplication = asyncHandler(async (req, res) => {
     });
 
     // Send confirmation email
-    await sendApplicationConfirmationEmail(email, name);
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #1D503A; margin-bottom: 10px;">Dormie Application Received</h1>
+          <p style="color: #666; font-size: 16px;">Thank you for applying to our dormitory</p>
+        </div>
+        
+        <div style="background-color: #f9f9f9; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+          <h2 style="color: #1D503A; margin-bottom: 15px;">Application Details</h2>
+          <p style="margin: 5px 0;"><strong>Name:</strong> ${name}</p>
+          <p style="margin: 5px 0;"><strong>Email:</strong> ${email}</p>
+          <p style="margin: 5px 0;"><strong>Student ID:</strong> ${studentDormNumber}</p>
+          <p style="margin: 5px 0;"><strong>Course Year:</strong> ${courseYear}</p>
+          <p style="margin: 5px 0;"><strong>Building Preference:</strong> ${preferences.buildingPreference}</p>
+          <p style="margin: 5px 0;"><strong>Room Type Preference:</strong> ${preferences.occupancyPreference}</p>
+        </div>
+        
+        <div style="background-color: #1D503A; color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 10px 0;">Next Steps</h3>
+          <p style="margin: 0;">Your application is now under review. We will notify you of any updates through this email.</p>
+        </div>
+        
+        <div style="color: #666; font-size: 14px; text-align: center;">
+          <p>If you have any questions, please don't hesitate to contact us.</p>
+          <p style="margin-top: 20px;">Best regards,<br>The Dormie Team</p>
+        </div>
+      </div>
+    `;
+
+    // Send confirmation email with the HTML template
+    await sendApplicationConfirmationEmail(email, name, emailHtml);
 
     // Create notification for admins
     const adminUsers = await Admin.find({}).select('_id');

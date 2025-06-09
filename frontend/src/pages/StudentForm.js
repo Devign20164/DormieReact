@@ -2050,28 +2050,28 @@ const StudentForm = () => {
                   const isTooEarly = slotDateTime < minBookingTime;
                   const isFirstBookable = hour === firstBookableHour;
                   return (
-                    <Box
-                      key={hour}
-                      sx={{
-                        position: 'absolute',
-                        top: `${hour * 50}px`,
-                        left: 0,
-                        right: 0,
-                        height: '50px',
-                        borderTop: '1px solid rgba(255,255,255,0.05)',
+                  <Box
+                    key={hour}
+                    sx={{
+                      position: 'absolute',
+                      top: `${hour * 50}px`,
+                      left: 0,
+                      right: 0,
+                      height: '50px',
+                      borderTop: '1px solid rgba(255,255,255,0.05)',
                         cursor: isTooEarly ? 'not-allowed' : 'pointer',
                         pointerEvents: isTooEarly ? 'none' : 'auto',
                         borderLeft: isFirstBookable ? '4px solid #22C55E' : undefined,
                         background: isFirstBookable ? 'rgba(34,197,94,0.08)' : undefined,
-                        '&:hover': {
+                      '&:hover': {
                           background: !isTooEarly ? 'rgba(59, 130, 246, 0.05)' : undefined,
-                        },
-                        '&:active': {
+                      },
+                      '&:active': {
                           background: !isTooEarly ? 'rgba(59, 130, 246, 0.1)' : undefined,
-                        },
-                      }}
+                      },
+                    }}
                       onClick={!isTooEarly ? () => handleTimeSlotClick(date, hour) : undefined}
-                    />
+                  />
                   );
                 })}
 

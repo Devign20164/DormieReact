@@ -2918,13 +2918,16 @@ const getRecentActivity = asyncHandler(async (req, res) => {
 const getApplicants = asyncHandler(async (req, res) => {
   try {
     // Get status from query params and split into array
-    const statusFilter = req.query.status ? req.query.status.split(',') : ['Pending', 'Rejected'];
+    const statusFilter = req.query.status ? req.query.status.split(',') : ['Pending', 'Declined'];
 
     const applicants = await User.find({ 
-      approvalStatus: { $in: statusFilter },
-      role: 'student'
+      role: 'student',
+      $or: [
+        { approvalStatus: { $in: statusFilter } },
+        { studentStatus: 'Inactive' }
+      ]
     })
-    .select('name email contactInfo studentDormNumber courseYear preferences approvalStatus emergencyContact height weight age address citizenshipStatus religion medicalHistory fatherName fatherContact motherName motherContact parentsAddress gender')
+    .select('name email contactInfo studentDormNumber courseYear preferences approvalStatus studentStatus emergencyContact height weight age address citizenshipStatus religion medicalHistory fatherName fatherContact motherName motherContact parentsAddress gender')
     .populate('room')
     .lean();
 

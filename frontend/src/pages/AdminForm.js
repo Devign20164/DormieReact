@@ -1910,22 +1910,22 @@ const AdminForm = () => {
                   
                   {selectedForm.status === 'Approved' && !selectedForm.staff && (
                     <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button
-                        variant="contained"
-                        onClick={() => handleOpenAssignmentDialog(selectedForm)}
-                        disabled={statusLoading}
-                        startIcon={<PersonIcon />}
-                        sx={{
-                          bgcolor: 'rgba(139, 92, 246, 0.1)',
-                          color: '#8B5CF6',
-                          borderColor: 'rgba(139, 92, 246, 0.5)',
-                          '&:hover': {
-                            bgcolor: 'rgba(139, 92, 246, 0.2)',
-                          }
-                        }}
-                      >
-                        {statusLoading ? <CircularProgress size={24} color="inherit" /> : 'Assign Staff'}
-                      </Button>
+                    <Button
+                      variant="contained"
+                      onClick={() => handleOpenAssignmentDialog(selectedForm)}
+                      disabled={statusLoading}
+                      startIcon={<PersonIcon />}
+                      sx={{
+                        bgcolor: 'rgba(139, 92, 246, 0.1)',
+                        color: '#8B5CF6',
+                        borderColor: 'rgba(139, 92, 246, 0.5)',
+                        '&:hover': {
+                          bgcolor: 'rgba(139, 92, 246, 0.2)',
+                        }
+                      }}
+                    >
+                      {statusLoading ? <CircularProgress size={24} color="inherit" /> : 'Assign Staff'}
+                    </Button>
                       <Button
                         variant="contained"
                         onClick={() => handleStatusChange(selectedForm._id, 'Rejected')}

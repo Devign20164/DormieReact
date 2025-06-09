@@ -60,17 +60,25 @@ const AdminApplicants = () => {
   // Fetch applicants
   const fetchApplicants = useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/applicants?status=Pending,Rejected');
+      console.log('Fetching applicants...');
+      const response = await fetch('/api/admin/applicants?status=Pending,Declined');
       if (!response.ok) {
         throw new Error('Failed to fetch applicants');
       }
       const data = await response.json();
+      console.log('Fetched applicants:', data);
       setApplicants(data);
     } catch (error) {
       console.error('Error fetching applicants:', error);
       showSnackbar('Error fetching applicants', 'error');
     }
   }, []);
+
+  // Add useEffect to fetch applicants on component mount
+  useEffect(() => {
+    console.log('Component mounted, fetching applicants...');
+    fetchApplicants();
+  }, [fetchApplicants]);
 
   // Fetch buildings when approve dialog opens
   useEffect(() => {
@@ -165,14 +173,24 @@ const AdminApplicants = () => {
 
   // Filter applicants based on search term and status
   const filteredApplicants = applicants.filter(applicant => {
+    console.log('Filtering applicant:', applicant);
     const matchesSearch = applicant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          applicant.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          applicant.studentDormNumber?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === 'all' || applicant.approvalStatus === statusFilter;
-    
+    // Show if matches approvalStatus filter, or if studentStatus is Inactive
+    const matchesStatus =
+      statusFilter === 'all'
+        ? (['Pending', 'Declined'].includes(applicant.approvalStatus) || applicant.studentStatus === 'Inactive')
+        : statusFilter === 'Inactive'
+          ? applicant.studentStatus === 'Inactive'
+          : applicant.approvalStatus === statusFilter;
+
+    console.log('Matches search:', matchesSearch, 'Matches status:', matchesStatus);
     return matchesSearch && matchesStatus;
   });
+
+  console.log('Filtered applicants:', filteredApplicants);
 
   const handleApproveClick = (applicant) => {
     setSelectedApplicant(applicant);
@@ -383,7 +401,8 @@ const AdminApplicants = () => {
             >
               <MenuItem value="all">All Status</MenuItem>
               <MenuItem value="Pending">Pending</MenuItem>
-              <MenuItem value="Rejected">Rejected</MenuItem>
+              <MenuItem value="Declined">Declined</MenuItem>
+              <MenuItem value="Inactive">Inactive</MenuItem>
             </Select>
           </FormControl>
         </Box>
@@ -450,7 +469,16 @@ const AdminApplicants = () => {
                   background: mode === 'dark'
                     ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
                     : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
-                }}>Status</TableCell>
+                }}>Approval Status</TableCell>
+                <TableCell sx={{ 
+                  color: mode === 'dark' ? '#fff' : '#000',
+                  borderBottom: mode === 'dark'
+                    ? '1px solid rgba(255,255,255,0.05)'
+                    : '1px solid #1D503A',
+                  background: mode === 'dark'
+                    ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, transparent 100%)'
+                    : 'linear-gradient(90deg, rgba(29, 80, 58, 0.1) 0%, transparent 100%)',
+                }}>Student Status</TableCell>
                 <TableCell sx={{ 
                   color: mode === 'dark' ? '#fff' : '#000',
                   borderBottom: mode === 'dark'
@@ -484,6 +512,7 @@ const AdminApplicants = () => {
                     <TableCell sx={{ color: '#D1D5DB' }}>{applicant.preferences?.gender || 'Not specified'}</TableCell>
                     <TableCell sx={{ color: '#D1D5DB' }}>{applicant.preferences?.occupancyPreference || 'Not specified'}</TableCell>
                     <TableCell sx={{ color: '#D1D5DB' }}>{applicant.approvalStatus}</TableCell>
+                    <TableCell sx={{ color: '#D1D5DB' }}>{applicant.studentStatus}</TableCell>
                     <TableCell>
                       {applicant.approvalStatus === 'Pending' && (
                         <>
@@ -521,6 +550,16 @@ const AdminApplicants = () => {
                             Decline
                           </Button>
                         </>
+                      )}
+                      {applicant.approvalStatus === 'Inactive' && (
+                        <Typography sx={{ color: '#F59E0B' }}>
+                          Inactive
+                        </Typography>
+                      )}
+                      {applicant.approvalStatus === 'Declined' && (
+                        <Typography sx={{ color: '#EF4444' }}>
+                          Declined
+                        </Typography>
                       )}
                     </TableCell>
                   </TableRow>
